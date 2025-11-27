@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test All Trucks API</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border-left: 4px solid #4CAF50;
+    }
+    .error {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .truck-card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .truck-card h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    .truck-info {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .info-item {
+      padding: 8px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #666;
+      font-size: 12px;
+    }
+    .info-value {
+      color: #333;
+      font-size: 14px;
+    }
+    .live-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .live-badge.live {
+      background: #4CAF50;
+      color: white;
+    }
+    .live-badge.offline {
+      background: #999;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚛 Test All Trucks API</h1>
+    
+    <div>
+      <button onclick="testAllTrucks()">Get All Trucks</button>
+      <button onclick="clearResults()">Clear</button>
+    </div>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      document.getElementById('result').innerHTML = `
+        <div class="result error">
+          <strong>❌ No token found!</strong>
+          <p>Please login first at <a href="/login.html">login page</a></p>
+        </div>
+      `;
+    }
+
+    async function testAllTrucks() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="result">Loading...</div>';
+      
+      try {
+        const response = await fetch('/api/tracking/all-trucks', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+        
+        // Display results
+        let html = `
+          <div class="result">
+            <h2>✅ Success! Found ${data.length} truck(s)</h2>
+          </div>
+        `;
+        
+        if (data.length === 0) {
+          html += `
+            <div class="result error">
+              <strong>⚠️ No trucks returned</strong>
+              <p>This means:</p>
+              <ul>
+                <li>No drivers have both a route AND truck assigned</li>
+                <li>Check that driver username matches in users.json, routes.json, and trucks.json</li>
+              </ul>
+            </div>
+          `;
+        } else {
+          data.forEach(truck => {
+            html += `
+              <div class="truck-card">
+                <h3>🚛 ${truck.truckId} - ${truck.plateNumber}</h3>
+                <span class="live-badge ${truck.isLive ? 'live' : 'offline'}">
+                  ${truck.isLive ? '🟢 LIVE GPS' : '⚫ Default Location'}
+                </span>
+                
+                <div class="truck-info">
+                  <div class="info-item">
+                    <div class="info-label">Driver</div>
+                    <div class="info-value">${truck.fullName} (${truck.username})</div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">Model</div>
+                    <div class="info-value">${truck.model}</div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">Route</div>
+                    <div class="info-value">${truck.routeName} (${truck.routeId})</div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">${truck.lat.toFixed(6)}, ${truck.lng.toFixed(6)}</div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">Speed</div>
+                    <div class="info-value">${truck.speed} km/h</div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">Heading</div>
+                    <div class="info-value">${truck.heading}°</div>
+                  </div>
+                </div>
+                
+                ${truck.timestamp ? `<p style="margin-top: 10px; color: #666; font-size: 12px;">Last update: ${new Date(truck.timestamp).toLocaleString()}</p>` : ''}
+              </div>
+            `;
+          });
+        }
+        
+        html += `
+          <div class="result">
+            <h3>Raw JSON Response:</h3>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </div>
+        `;
+        
+        resultDiv.innerHTML = html;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="result error">
+            <strong>❌ Error:</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+    
+    function clearResults() {
+      document.getElementById('result').innerHTML = '';
+    }
+  </script>
+</body>
+</html>

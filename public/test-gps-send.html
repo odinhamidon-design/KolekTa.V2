@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test GPS Sending</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+      width: 100%;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border-left: 4px solid #4CAF50;
+    }
+    .error {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+    .success {
+      border-left-color: #4CAF50;
+      background: #e8f5e9;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 12px;
+    }
+    .info {
+      background: #e3f2fd;
+      border-left-color: #2196F3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📍 Test GPS Sending</h1>
+    <p>Test if driver's GPS location is being sent to server</p>
+    
+    <button onclick="testGPS()">Get My GPS Location</button>
+    <button onclick="sendToServer()">Send GPS to Server</button>
+    <button onclick="checkServerData()">Check Server Data</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const API_URL = window.location.origin + '/api';
+    const token = localStorage.getItem('token');
+    let currentLocation = null;
+    
+    if (!token) {
+      document.getElementById('result').innerHTML = `
+        <div class="status error">
+          <strong>❌ No token found!</strong>
+          <p>Please login first at <a href="/login.html">login page</a></p>
+        </div>
+      `;
+    }
+
+    async function testGPS() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="status">Getting GPS location...</div>';
+      
+      if (!navigator.geolocation) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            <strong>❌ Geolocation not supported</strong>
+            <p>Your browser doesn't support GPS</p>
+          </div>
+        `;
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          currentLocation = position;
+          resultDiv.innerHTML = `
+            <div class="status success">
+              <h3>✅ GPS Location Retrieved!</h3>
+              <p><strong>Latitude:</strong> ${position.coords.latitude}</p>
+              <p><strong>Longitude:</strong> ${position.coords.longitude}</p>
+              <p><strong>Accuracy:</strong> ${position.coords.accuracy} meters</p>
+              <p><strong>Speed:</strong> ${position.coords.speed || 0} m/s</p>
+              <p><strong>Heading:</strong> ${position.coords.heading || 0}°</p>
+              <p><strong>Timestamp:</strong> ${new Date(position.timestamp).toLocaleString()}</p>
+            </div>
+          `;
+        },
+        error => {
+          resultDiv.innerHTML = `
+            <div class="status error">
+              <strong>❌ GPS Error</strong>
+              <p>${error.message}</p>
+              <p>Error code: ${error.code}</p>
+              <ul>
+                <li>1 = Permission denied</li>
+                <li>2 = Position unavailable</li>
+                <li>3 = Timeout</li>
+              </ul>
+            </div>
+          `;
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+    
+    async function sendToServer() {
+      const resultDiv = document.getElementById('result');
+      
+      if (!currentLocation) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            <strong>❌ No GPS location</strong>
+            <p>Click "Get My GPS Location" first!</p>
+          </div>
+        `;
+        return;
+      }
+      
+      resultDiv.innerHTML = '<div class="status">Sending to server...</div>';
+      
+      try {
+        const response = await fetch(`${API_URL}/tracking/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            lat: currentLocation.coords.latitude,
+            lng: currentLocation.coords.longitude,
+            speed: currentLocation.coords.speed || 0,
+            heading: currentLocation.coords.heading || 0,
+            routeId: 'ROUTE-001'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <div class="status success">
+              <h3>✅ Successfully sent to server!</h3>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </div>
+          `;
+        } else {
+          throw new Error(data.error || 'Failed to send');
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            <strong>❌ Error sending to server</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+    
+    async function checkServerData() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="status">Checking server data...</div>';
+      
+      try {
+        const response = await fetch(`${API_URL}/tracking/all-trucks`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <div class="status info">
+              <h3>📊 Server Data (${data.length} trucks)</h3>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            </div>
+          `;
+        } else {
+          throw new Error(data.error || 'Failed to fetch');
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="status error">
+            <strong>❌ Error fetching server data</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

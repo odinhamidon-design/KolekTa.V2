@@ -1,0 +1,766 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f5f5;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+  color: white;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 300px;
+  background: white;
+  padding: 1rem;
+  overflow-y: auto;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+}
+
+.panel {
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.btn {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.3s;
+}
+
+.btn:hover {
+  background: #5568d3;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.status-dot.empty { background: #4caf50; }
+.status-dot.low { background: #8bc34a; }
+.status-dot.medium { background: #ffc107; }
+.status-dot.high { background: #ff9800; }
+.status-dot.full { background: #f44336; }
+
+main {
+  flex: 1;
+  position: relative;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+  background: white;
+  margin: 2% auto;
+  padding: 2rem;
+  border-radius: 10px;
+  width: 95%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.close {
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #999;
+}
+
+.close:hover {
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+#selectedBins {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.selected-bin-item {
+  padding: 0.5rem;
+  background: white;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remove-bin {
+  color: #f44336;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* User Management Styles */
+.user-management {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.user-table th,
+.user-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.user-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+}
+
+.user-table tr:hover {
+  background: #f9f9f9;
+}
+
+.role-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.role-badge.admin {
+  background: #4caf50;
+  color: white;
+}
+
+.role-badge.driver {
+  background: #4caf50;
+  color: white;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.inactive {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.btn-small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 0.25rem;
+}
+
+.btn-small:hover {
+  background: #5568d3;
+}
+
+.btn-small.btn-danger {
+  background: #f44336;
+}
+
+.btn-small.btn-danger:hover {
+  background: #d32f2f;
+}
+
+/* Truck Status Badges */
+.truck-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.truck-status.available {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.truck-status.in-use {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.truck-status.maintenance {
+  background: #fff9c4;
+  color: #f57f17;
+}
+
+.truck-status.out-of-service {
+  background: #ffebee;
+  color: #c62828;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #4caf50;
+}
+
+
+/* GPS Tracking Styles */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.truck-marker {
+  animation: pulse 2s infinite;
+}
+
+#trackingStatus {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Profile Styles */
+.profile-picture-container {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-picture-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+  cursor: pointer;
+}
+
+.profile-picture-container:hover .profile-picture-overlay {
+  opacity: 1;
+}
+
+.profile-info-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 15px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.profile-detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.profile-detail-item:last-child {
+  border-bottom: none;
+}
+
+.profile-detail-label {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.profile-detail-value {
+  color: #333;
+}
+
+input[type="file"] {
+  padding: 0.5rem;
+  border: 2px dashed #667eea;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+input[type="file"]:hover {
+  border-color: #764ba2;
+  background: #f5f5f5;
+}
+
+/* Notification Badge Pulse Animation */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  50% {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 8px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+/* Truck Marker Animation */
+.truck-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+@keyframes truck-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.05);
+  }
+}
+
+/* Truck marker pulse effect when moving */
+.truck-marker.moving {
+  animation: truck-pulse 1s ease-in-out infinite;
+}
+
+@keyframes truck-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  50% {
+    filter: drop-shadow(0 4px 8px rgba(76, 175, 80, 0.6));
+  }
+}
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablets and smaller devices */
+@media (max-width: 768px) {
+  header {
+    padding: 0.75rem 1rem;
+  }
+  
+  header h1 {
+    font-size: 1.2rem;
+  }
+  
+  header p {
+    font-size: 0.8rem;
+    display: none; /* Hide subtitle on mobile to save space */
+  }
+  
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    max-height: 35vh;
+    order: 2;
+    border-top: 2px solid #e0e0e0;
+    padding-bottom: 80px; /* Space for GPS button */
+  }
+  
+  main {
+    order: 1;
+    height: 65vh;
+  }
+  
+  #map {
+    height: 100% !important;
+  }
+  
+  .panel {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .btn {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 480px) {
+  /* TEST: If you see green border, new CSS is loaded! */
+  body {
+    border: 3px solid lime !important;
+  }
+  
+  header {
+    padding: 0.5rem 1rem;
+  }
+  
+  header h1 {
+    font-size: 1rem;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  header p {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .sidebar {
+    padding: 0.75rem;
+    max-height: 35vh;
+    padding-bottom: 70px; /* Space for GPS button */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  main {
+    height: 65vh;
+  }
+  
+  .panel {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .panel h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .btn {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .stat-item {
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+  }
+  
+  /* User profile in header */
+  .user-profile {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0.3rem 0.5rem;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .user-info {
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  
+  .user-info img {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .user-info span {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .logout-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+  }
+  
+  .notification-icon {
+    font-size: 1rem;
+  }
+  
+  /* Truck info card */
+  .truck-info {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .truck-info h4 {
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+  
+  .truck-info p {
+    font-size: 0.75rem;
+    margin: 0.2rem 0;
+  }
+  
+  /* Route cards */
+  .route-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .route-card h4 {
+    font-size: 0.95rem;
+  }
+  
+  .route-card p {
+    font-size: 0.8rem;
+  }
+  
+  /* GPS tracking button */
+  .gps-tracking-btn {
+    padding: 0.65rem;
+    font-size: 0.85rem;
+    position: fixed;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+    z-index: 1000;
+    margin: 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+  }
+  
+  /* Map controls */
+  .leaflet-control-zoom {
+    margin-top: 10px !important;
+    margin-right: 10px !important;
+  }
+  
+  .leaflet-control-zoom a {
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 18px !important;
+  }
+  
+  /* Modal adjustments */
+  .modal-content {
+    width: 95%;
+    margin: 5% auto;
+    padding: 1rem;
+  }
+  
+  .modal h2 {
+    font-size: 1.2rem;
+  }
+  
+  /* Form inputs */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  /* Notification badge */
+  .notification-badge {
+    font-size: 0.7rem;
+    padding: 2px 5px;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 360px) {
+  header {
+    padding: 0.4rem 0.75rem;
+  }
+  
+  header h1 {
+    font-size: 0.9rem;
+  }
+  
+  header p {
+    font-size: 0.65rem;
+  }
+  
+  .sidebar {
+    max-height: 40vh;
+  }
+  
+  main {
+    height: 60vh;
+  }
+  
+  .btn {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+  
+  .panel h3 {
+    font-size: 0.9rem;
+  }
+  
+  .user-info {
+    font-size: 0.7rem;
+  }
+  
+  .user-info img {
+    width: 25px;
+    height: 25px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar {
+    max-height: 35vh;
+  }
+  
+  main {
+    height: 65vh;
+  }
+  
+  header {
+    padding: 0.75rem;
+  }
+  
+  header h1 {
+    font-size: 1.2rem;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  .btn, button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .btn:hover {
+    background: #4caf50;
+  }
+  
+  /* Better scrolling */
+  .sidebar {
+    -webkit-overflow-scrolling: touch;
+  }
+}

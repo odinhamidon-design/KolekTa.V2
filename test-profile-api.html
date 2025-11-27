@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Profile API</title>
+</head>
+<body>
+  <h1>Test Profile API</h1>
+  <button onclick="testProfile()">Test Profile API</button>
+  <pre id="result"></pre>
+
+  <script>
+    async function testProfile() {
+      const token = localStorage.getItem('token');
+      const resultEl = document.getElementById('result');
+      
+      resultEl.textContent = 'Testing...\n';
+      resultEl.textContent += 'Token: ' + (token ? 'Found' : 'Not found') + '\n\n';
+      
+      if (!token) {
+        resultEl.textContent += 'ERROR: No token found. Please login first.';
+        return;
+      }
+      
+      try {
+        const response = await fetch('http://localhost:3001/api/profile/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        resultEl.textContent += 'Response status: ' + response.status + '\n';
+        resultEl.textContent += 'Response ok: ' + response.ok + '\n\n';
+        
+        const data = await response.json();
+        resultEl.textContent += 'Response data:\n';
+        resultEl.textContent += JSON.stringify(data, null, 2);
+      } catch (error) {
+        resultEl.textContent += 'ERROR: ' + error.message;
+      }
+    }
+  </script>
+</body>
+</html>

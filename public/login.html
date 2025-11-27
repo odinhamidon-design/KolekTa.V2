@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Kolek-Ta</title>
+  <link rel="stylesheet" href="login-styles.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="logo">
+        <div class="logo-icon">🗑️</div>
+        <h1>Kolek Ta</h1>
+        <p class="subtitle">Web Base Waste Collection Management System</p>
+        <p class="subtitle">Utilizing Geospatial Optimization with Interactive Mapping</p>
+        <p class="location">Mati City, Davao Oriental</p>
+      </div>
+      
+      <!-- Role Selection Screen -->
+      <div id="roleSelectionScreen" class="role-selection-screen">
+        <h2>Select Your Role</h2>
+        <p class="role-subtitle">Choose how you want to access the system</p>
+        
+        <div class="role-cards">
+          <div class="role-card" data-role="admin">
+            <div class="role-icon">👨‍💼</div>
+            <h3>Admin</h3>
+            <p>Manage system and collection plans</p>
+          </div>
+          
+          <div class="role-card" data-role="driver">
+            <div class="role-icon">🚛</div>
+            <h3>Driver</h3>
+            <p>View routes and collect waste</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Admin Login Form -->
+      <form id="adminLoginForm" class="login-form">
+        <button type="button" class="back-btn" onclick="showRoleSelection()">← Back</button>
+        <h2>Admin Login</h2>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="adminUsername" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="adminPassword" required>
+        </div>
+        <button type="submit" class="btn-login">Login</button>
+        <a href="#" class="forgot-link" onclick="showForgotPassword('admin')">Forgot Password?</a>
+      </form>
+      
+      <!-- Driver Login Form -->
+      <div id="driverLoginForm" class="login-form">
+        <button type="button" class="back-btn" onclick="showRoleSelection()">← Back</button>
+        <h2>Driver Login</h2>
+        
+        <!-- Simple Login (Face Verification Removed) -->
+        <form id="driverManualForm" class="method-content active">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="driverUsername" required>
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="driverPassword" required>
+          </div>
+          <button type="submit" class="btn-login">Login</button>
+          <a href="#" class="forgot-link" onclick="showForgotPassword('driver')">Forgot Password?</a>
+        </form>
+      </div>
+      
+      <div id="errorMessage" class="error-message"></div>
+    </div>
+  </div>
+  
+  <!-- Forgot Password Modal -->
+  <div id="forgotModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeForgotModal()">&times;</span>
+      <h2>🔐 Reset Password</h2>
+      
+      <!-- Step 1: Enter Username -->
+      <div id="forgotStep1" class="forgot-step">
+        <p style="color: #666; margin-bottom: 1rem;">Enter your username to verify your identity</p>
+        <form id="forgotUsernameForm">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="forgotUsername" required>
+          </div>
+          <input type="hidden" id="forgotRole">
+          <button type="submit" class="btn-login">Next</button>
+        </form>
+      </div>
+      
+      <!-- Step 2: Answer Security Question -->
+      <div id="forgotStep2" class="forgot-step" style="display: none;">
+        <p style="color: #666; margin-bottom: 1rem;">Answer the security question to verify your identity</p>
+        <div class="form-group">
+          <label>Security Question</label>
+          <input type="text" id="securityQuestion" disabled style="background: #f5f5f5;">
+        </div>
+        <form id="forgotSecurityForm">
+          <div class="form-group">
+            <label>Your Answer</label>
+            <input type="text" id="securityAnswer" required placeholder="Enter your answer">
+          </div>
+          <button type="submit" class="btn-login">Verify</button>
+          <button type="button" onclick="resetForgotModal()" class="btn-secondary">Back</button>
+        </form>
+      </div>
+      
+      <!-- Step 3: Set New Password -->
+      <div id="forgotStep3" class="forgot-step" style="display: none;">
+        <p style="color: #4caf50; margin-bottom: 1rem;">✓ Identity verified! Set your new password</p>
+        <form id="forgotNewPasswordForm">
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="newPassword" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="confirmPassword" required minlength="6">
+          </div>
+          <button type="submit" class="btn-login">Reset Password</button>
+        </form>
+      </div>
+      
+      <div id="forgotMessage" style="margin-top: 1rem;"></div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

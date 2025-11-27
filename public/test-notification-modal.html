@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Notification Modal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 0.5rem;
+    }
+    .btn-green {
+      background: #4caf50;
+      color: white;
+    }
+    .btn-red {
+      background: #f44336;
+      color: white;
+    }
+    .btn-blue {
+      background: #2196f3;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Notification Modal Test</h1>
+  <p>Click the button below to see the exact notification modal with all buttons:</p>
+  
+  <button class="btn btn-green" onclick="showTestModal()">Show Test Notification Modal</button>
+  
+  <div id="testModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <!-- This will be filled by JavaScript -->
+    </div>
+  </div>
+
+  <script>
+    function showTestModal() {
+      const modal = document.getElementById('testModal');
+      const content = modal.querySelector('.modal-content');
+      
+      // Sample notification data
+      const notifications = [
+        {
+          _id: 'test-1',
+          routeId: 'ROUTE-001',
+          name: 'Downtown Collection Route',
+          completedBy: 'driver1',
+          completedAt: new Date().toISOString(),
+          completionNotes: 'All bins collected successfully',
+          completionPhotos: [
+            'https://via.placeholder.com/100?text=Photo1',
+            'https://via.placeholder.com/100?text=Photo2'
+          ]
+        },
+        {
+          _id: 'test-2',
+          routeId: 'ROUTE-002',
+          name: 'Uptown Collection Route',
+          completedBy: 'driver2',
+          completedAt: new Date().toISOString(),
+          completionNotes: 'Route completed on time',
+          completionPhotos: [
+            'https://via.placeholder.com/100?text=Photo3'
+          ]
+        }
+      ];
+      
+      // Generate notification list HTML
+      const notificationsList = notifications.map(route => {
+        const completedDate = new Date(route.completedAt).toLocaleString();
+        const photosHtml = route.completionPhotos && route.completionPhotos.length > 0 ? 
+          route.completionPhotos.map(photo => 
+            `<img src="${photo}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; margin: 0.25rem; cursor: pointer;" onclick="window.open('${photo}', '_blank')" title="Click to view full size">`
+          ).join('') : 
+          '<p style="color: #999; font-size: 0.9rem; font-style: italic;">No photos uploaded</p>';
+        
+        return `
+          <div style="background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; border-left: 5px solid #4caf50; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+              <div style="flex: 1;">
+                <h4 style="margin: 0 0 0.25rem 0; color: #4caf50; font-size: 1.1rem;">✓ ${route.name}</h4>
+                <p style="margin: 0; color: #666; font-size: 0.85rem; font-weight: 500;">${route.routeId}</p>
+              </div>
+              <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                <button onclick="alert('Acknowledge: ${route.routeId}')" class="btn-small" style="background: #4caf50; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.25rem;" title="Acknowledge this notification">
+                  <span>✓</span> Acknowledge
+                </button>
+                <button onclick="alert('Delete: ${route.routeId}')" class="btn-small" style="background: #f44336; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.25rem;" title="Delete this notification">
+                  <span>🗑️</span> Delete
+                </button>
+              </div>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 8px; margin: 0.5rem 0; border: 1px solid #e0e0e0;">
+              <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem;"><strong style="color: #333;">👤 Completed by:</strong> <span style="color: #4caf50; font-weight: 600;">${route.completedBy}</span></p>
+              <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem;"><strong style="color: #333;">🕐 Completed at:</strong> ${completedDate}</p>
+              ${route.completionNotes ? `<p style="margin: 0; font-size: 0.9rem;"><strong style="color: #333;">📝 Notes:</strong> ${route.completionNotes}</p>` : ''}
+            </div>
+            
+            <div style="margin-top: 0.75rem;">
+              <strong style="color: #333; font-size: 0.95rem;">📷 Proof Photos:</strong>
+              <div style="display: flex; flex-wrap: wrap; margin-top: 0.5rem; gap: 0.5rem;">
+                ${photosHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Set modal content
+      content.innerHTML = `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border-radius: 8px; border-left: 4px solid #4caf50;">
+            <div>
+              <p style="color: #4caf50; font-weight: 700; margin: 0; font-size: 1.1rem;">
+                🎉 ${notifications.length} New Completion${notifications.length > 1 ? 's' : ''}!
+              </p>
+              <p style="color: #666; margin: 0.25rem 0 0 0; font-size: 0.85rem;">
+                Drivers have completed their assigned routes
+              </p>
+            </div>
+            <button onclick="alert('Show History')" class="btn-small" style="background: #2196f3; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;" title="View all notification history">
+              <span>📜</span> History
+            </button>
+          </div>
+          <div style="background: #e3f2fd; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; border-left: 3px solid #2196f3;">
+            <p style="margin: 0; color: #1565c0; font-size: 0.85rem;">
+              💡 <strong>Tip:</strong> Use <strong>Acknowledge</strong> to mark as read, or <strong>Delete</strong> to remove individual notifications. You can also use the buttons below for bulk actions.
+            </p>
+          </div>
+          <div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
+            ${notificationsList}
+          </div>
+          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
+            <button onclick="alert('Acknowledge All')" class="btn" style="background: #4caf50; color: white; flex: 1; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <span>✓</span> Acknowledge All
+            </button>
+            <button onclick="alert('Delete All')" class="btn" style="background: #f44336; color: white; flex: 1; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <span>🗑️</span> Delete All
+            </button>
+          </div>
+          <button onclick="closeTestModal()" class="btn" style="background: #666; color: white; width: 100%; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem; margin-top: 1rem;">
+            Close
+          </button>
+        </div>
+      `;
+      
+      modal.style.display = 'flex';
+    }
+    
+    function closeTestModal() {
+      document.getElementById('testModal').style.display = 'none';
+    }
+    
+    // Close on background click
+    document.getElementById('testModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeTestModal();
+      }
+    });
+  </script>
+
+  <div style="margin-top: 2rem; padding: 1rem; background: white; border-radius: 8px;">
+    <h2>✅ What You Should See:</h2>
+    <ul>
+      <li>✓ <strong>Individual Acknowledge buttons</strong> (green) on each notification</li>
+      <li>🗑️ <strong>Individual Delete buttons</strong> (red) on each notification</li>
+      <li>📜 <strong>History button</strong> (blue) at top right</li>
+      <li>✓ <strong>Acknowledge All button</strong> (green) at bottom</li>
+      <li>🗑️ <strong>Delete All button</strong> (red) at bottom</li>
+      <li>💡 <strong>Blue info box</strong> with tips</li>
+    </ul>
+    
+    <p><strong>Kung ganito ang nakikita mo sa actual app, then it's working correctly!</strong></p>
+    <p>Kung hindi, check ang <code>NOTIFICATION_DEBUG_GUIDE.md</code> for troubleshooting steps.</p>
+  </div>
+
+</body>
+</html>

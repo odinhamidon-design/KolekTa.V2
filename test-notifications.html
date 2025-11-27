@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Notifications</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .test-section {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    .btn {
+      background: #4caf50;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 0.5rem;
+    }
+    .btn:hover {
+      background: #45a049;
+    }
+    .btn-blue {
+      background: #2196f3;
+    }
+    .btn-blue:hover {
+      background: #1976d2;
+    }
+    .btn-red {
+      background: #f44336;
+    }
+    .btn-red:hover {
+      background: #d32f2f;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 1rem;
+      border-radius: 5px;
+      border-left: 4px solid #2196f3;
+      margin: 1rem 0;
+    }
+    .code {
+      background: #f5f5f5;
+      padding: 0.5rem;
+      border-radius: 3px;
+      font-family: monospace;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔔 Notification System Test</h1>
+  
+  <div class="test-section">
+    <h2>📋 Test Instructions</h2>
+    <div class="info">
+      <p><strong>Paano i-test ang notification system:</strong></p>
+      <ol>
+        <li>Login as <strong>admin</strong> (username: admin, password: admin123)</li>
+        <li>May driver na dapat mag-complete ng route</li>
+        <li>Pag may completed route, lalabas ang notification badge sa header</li>
+        <li>Click ang notification badge para makita ang active notifications</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>🎯 Expected Features</h2>
+    <h3>Active Notifications Modal (🔔 Active Notifications):</h3>
+    <ul>
+      <li>✓ <strong>Individual Acknowledge button</strong> - per notification</li>
+      <li>🗑️ <strong>Individual Delete button</strong> - per notification</li>
+      <li>📜 <strong>History button</strong> - sa taas right side</li>
+      <li>✓ <strong>Acknowledge All button</strong> - sa baba</li>
+      <li>🗑️ <strong>Delete All button</strong> - sa baba</li>
+    </ul>
+
+    <h3>History Modal (📜 Notification History):</h3>
+    <ul>
+      <li>Shows all completed routes (acknowledged and unacknowledged)</li>
+      <li>🔔 <strong>Active button</strong> - to go back to active notifications</li>
+      <li>No delete buttons (this is archive view only)</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>🔍 Debugging Steps</h2>
+    <p>Kung hindi pa rin makita ang delete buttons:</p>
+    <ol>
+      <li><strong>Check browser console</strong> - Press F12, check for errors</li>
+      <li><strong>Clear cache</strong> - Ctrl+Shift+R or Ctrl+F5</li>
+      <li><strong>Check if logged in as admin</strong> - Only admin can see notifications</li>
+      <li><strong>Check if may completed routes</strong> - Need at least 1 completed route</li>
+    </ol>
+    
+    <div class="info">
+      <p><strong>Quick Test:</strong></p>
+      <p>Open browser console (F12) and run:</p>
+      <div class="code">
+        console.log('Checking notification functions...');<br>
+        console.log('showNotificationDetails:', typeof showNotificationDetails);<br>
+        console.log('deleteNotification:', typeof deleteNotification);<br>
+        console.log('markNotificationRead:', typeof markNotificationRead);
+      </div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>🚀 Quick Actions</h2>
+    <button class="btn" onclick="window.location.href='/'">Go to Main App</button>
+    <button class="btn btn-blue" onclick="window.location.href='/login.html'">Go to Login</button>
+    <button class="btn btn-red" onclick="localStorage.clear(); alert('Cache cleared!')">Clear Cache</button>
+  </div>
+
+  <div class="test-section">
+    <h2>📸 Screenshot Reference</h2>
+    <p>Ang dapat mong makita sa Active Notifications:</p>
+    <div style="background: #f9f9f9; padding: 1rem; border-radius: 5px; border: 2px solid #ddd;">
+      <div style="background: white; padding: 1rem; border-radius: 8px; border-left: 5px solid #4caf50; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div>
+            <h4 style="margin: 0; color: #4caf50;">✓ Route Name</h4>
+            <p style="margin: 0.25rem 0; color: #666; font-size: 0.85rem;">ROUTE-001</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button style="background: #4caf50; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem;">
+              <span>✓</span> Acknowledge
+            </button>
+            <button style="background: #f44336; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem;">
+              <span>🗑️</span> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      <p style="text-align: center; color: #666; font-style: italic;">👆 Ganito dapat ang itsura ng bawat notification</p>
+    </div>
+  </div>
+
+</body>
+</html>

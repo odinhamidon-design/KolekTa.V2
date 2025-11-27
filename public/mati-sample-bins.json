@@ -1,0 +1,74 @@
+[
+  {
+    "binId": "MATI-BIN-001",
+    "location": { "coordinates": [126.2185, 6.9549] },
+    "address": "Mati City Hall, Barangay Central",
+    "capacity": 100,
+    "currentLevel": 75,
+    "status": "high",
+    "binType": "general"
+  },
+  {
+    "binId": "MATI-BIN-002",
+    "location": { "coordinates": [126.2170, 6.9560] },
+    "address": "Mati Public Market",
+    "capacity": 100,
+    "currentLevel": 90,
+    "status": "full",
+    "binType": "general"
+  },
+  {
+    "binId": "MATI-BIN-003",
+    "location": { "coordinates": [126.2667, 6.8833] },
+    "address": "Dahican Beach",
+    "capacity": 100,
+    "currentLevel": 45,
+    "status": "medium",
+    "binType": "general"
+  },
+  {
+    "binId": "MATI-BIN-004",
+    "location": { "coordinates": [126.2200, 6.9600] },
+    "address": "Barangay Sainz",
+    "capacity": 100,
+    "currentLevel": 20,
+    "status": "low",
+    "binType": "recyclable"
+  },
+  {
+    "binId": "MATI-BIN-005",
+    "location": { "coordinates": [126.2150, 6.9500] },
+    "address": "Barangay Matiao",
+    "capacity": 100,
+    "currentLevel": 60,
+    "status": "medium",
+    "binType": "organic"
+  },
+  {
+    "binId": "MATI-BIN-006",
+    "location": { "coordinates": [126.2500, 6.9000] },
+    "address": "Sleeping Dinosaur Area",
+    "capacity": 100,
+    "currentLevel": 85,
+    "status": "high",
+    "binType": "general"
+  },
+  {
+    "binId": "MATI-BIN-007",
+    "location": { "coordinates": [126.2100, 6.9650] },
+    "address": "Barangay Dahican",
+    "capacity": 100,
+    "currentLevel": 10,
+    "status": "low",
+    "binType": "recyclable"
+  },
+  {
+    "binId": "MATI-BIN-008",
+    "location": { "coordinates": [126.2250, 6.9450] },
+    "address": "Barangay Central Business District",
+    "capacity": 100,
+    "currentLevel": 95,
+    "status": "full",
+    "binType": "general"
+  }
+]

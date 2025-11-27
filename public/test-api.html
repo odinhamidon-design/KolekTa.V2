@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+</head>
+<body>
+  <h1>API Test</h1>
+  <button onclick="testLogin()">Test Login</button>
+  <button onclick="testRoutes()">Test Routes</button>
+  <button onclick="testTrucks()">Test Trucks</button>
+  <pre id="output"></pre>
+
+  <script>
+    const API_URL = 'http://localhost:3001/api';
+    let token = '';
+
+    async function testLogin() {
+      try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: 'driver1',
+            password: 'driver123',
+            role: 'driver'
+          })
+        });
+        
+        const data = await response.json();
+        token = data.token;
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        console.log('Login success:', data);
+      } catch (error) {
+        document.getElementById('output').textContent = 'Error: ' + error.message;
+        console.error('Login error:', error);
+      }
+    }
+
+    async function testRoutes() {
+      try {
+        const response = await fetch(`${API_URL}/routes`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        console.log('Routes:', data);
+      } catch (error) {
+        document.getElementById('output').textContent = 'Error: ' + error.message;
+        console.error('Routes error:', error);
+      }
+    }
+
+    async function testTrucks() {
+      try {
+        const response = await fetch(`${API_URL}/trucks`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        console.log('Trucks:', data);
+      } catch (error) {
+        document.getElementById('output').textContent = 'Error: ' + error.message;
+        console.error('Trucks error:', error);
+      }
+    }
+  </script>
+</body>
+</html>
