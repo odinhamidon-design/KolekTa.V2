@@ -5779,6 +5779,33 @@ window.showNotificationHistory = async function() {
               </div>
             </div>
 
+            ${route.tripStats && route.tripStats.distanceTraveled > 0 ? `
+              <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-3 border border-orange-200">
+                <p class="text-xs text-orange-600 font-medium mb-2 flex items-center gap-1">
+                  <i data-lucide="fuel" class="w-3 h-3"></i>
+                  Auto-calculated Trip Data
+                </p>
+                <div class="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <p class="text-lg font-bold text-gray-800">${route.tripStats.distanceTraveled.toFixed(1)}</p>
+                    <p class="text-xs text-gray-500">km</p>
+                  </div>
+                  <div>
+                    <p class="text-lg font-bold text-orange-600">${route.tripStats.fuelConsumed.toFixed(1)}</p>
+                    <p class="text-xs text-gray-500">Liters</p>
+                  </div>
+                  <div>
+                    <p class="text-lg font-bold text-gray-800">${route.tripStats.stopsCompleted || 0}</p>
+                    <p class="text-xs text-gray-500">Stops</p>
+                  </div>
+                  <div>
+                    <p class="text-lg font-bold text-gray-800">${route.tripStats.averageSpeed || 0}</p>
+                    <p class="text-xs text-gray-500">km/h</p>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
             ${route.completionNotes ? `
               <div>
                 <p class="text-xs text-gray-500 mb-1">Notes</p>

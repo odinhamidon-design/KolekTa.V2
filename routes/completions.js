@@ -2,13 +2,31 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
-const { routesStorage } = require('../data/storage');
+const { routesStorage, trucksStorage } = require('../data/storage');
 
 // MongoDB support
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
-let Route;
+let Route, Truck;
 if (!useMockAuth) {
   Route = require('../models/Route');
+  Truck = require('../models/Truck');
+}
+
+
+// Fuel calculation algorithm
+function calculateFuelConsumption(distance, averageSpeed, stopsCompleted, baseRate = 25) {
+  let speedFactor = 1.0;
+  if (averageSpeed < 30) speedFactor = 1.3;
+  else if (averageSpeed < 50) speedFactor = 1.1;
+  else if (averageSpeed <= 70) speedFactor = 1.0;
+  else if (averageSpeed <= 90) speedFactor = 1.15;
+  else speedFactor = 1.3;
+
+  const loadFactor = 1.15; // Assume moderate load for waste collection
+  const stopConsumption = (stopsCompleted || 0) * 0.05;
+  const distanceConsumption = (distance / 100) * baseRate * speedFactor * loadFactor;
+
+  return Math.round((distanceConsumption + stopConsumption) * 100) / 100;
 }
 
 // Configure multer for memory storage
@@ -67,6 +85,17 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
         return res.status(403).json({ error: 'You are not assigned to this route' });
       }
 
+      // Calculate fuel if not provided or use GPS data
+      let calculatedFuel = tripStats.fuelConsumed;
+      if (tripStats.distanceTraveled > 0 && (!calculatedFuel || calculatedFuel === 0)) {
+        calculatedFuel = calculateFuelConsumption(
+          tripStats.distanceTraveled,
+          tripStats.averageSpeed || 30,
+          tripStats.stopsCompleted || 0
+        );
+        tripStats.fuelConsumed = calculatedFuel;
+      }
+
       route.status = 'completed';
       route.completedAt = new Date();
       route.completedBy = req.user.username;
@@ -76,6 +105,39 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
       route.tripStats = tripStats;
 
       await route.save();
+
+      // Auto-deduct fuel from truck and log consumption
+      let fuelLogResult = null;
+      if (route.assignedVehicle && tripStats.distanceTraveled > 0 && calculatedFuel > 0) {
+        try {
+          const truck = await Truck.findOne({ truckId: route.assignedVehicle });
+          if (truck) {
+            const tankCapacity = truck.fuelTankCapacity || 60;
+            const fuelLevelBefore = truck.fuelLevel || 50;
+            const currentLiters = (fuelLevelBefore / 100) * tankCapacity;
+            const newLiters = Math.max(currentLiters - calculatedFuel, 0);
+            const fuelLevelAfter = Math.round((newLiters / tankCapacity) * 100);
+
+            // Update truck fuel level and stats
+            truck.fuelLevel = fuelLevelAfter;
+            truck.totalFuelConsumed = (truck.totalFuelConsumed || 0) + calculatedFuel;
+            truck.mileage = (truck.mileage || 0) + tripStats.distanceTraveled;
+            await truck.save();
+
+            fuelLogResult = {
+              truckId: truck.truckId,
+              fuelLevelBefore,
+              fuelLevelAfter,
+              litersConsumed: calculatedFuel,
+              distanceTraveled: tripStats.distanceTraveled
+            };
+
+            console.log('Auto fuel deduction (MongoDB):', fuelLogResult);
+          }
+        } catch (fuelError) {
+          console.error('Error auto-deducting fuel:', fuelError);
+        }
+      }
 
       console.log('Route completed successfully (MongoDB):', routeId);
 
@@ -91,7 +153,8 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
           completionNotes: route.completionNotes,
           photosCount: photos.length,
           tripStats: tripStats
-        }
+        },
+        fuelLog: fuelLogResult
       });
     } else {
       // JSON storage mode
@@ -108,6 +171,17 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
         return res.status(403).json({ error: 'You are not assigned to this route' });
       }
 
+      // Calculate fuel if not provided or use GPS data
+      let calculatedFuel = tripStats.fuelConsumed;
+      if (tripStats.distanceTraveled > 0 && (!calculatedFuel || calculatedFuel === 0)) {
+        calculatedFuel = calculateFuelConsumption(
+          tripStats.distanceTraveled,
+          tripStats.averageSpeed || 30,
+          tripStats.stopsCompleted || 0
+        );
+        tripStats.fuelConsumed = calculatedFuel;
+      }
+
       routes[routeIndex] = {
         ...route,
         status: 'completed',
@@ -120,6 +194,45 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
       };
 
       routesStorage.save(routes);
+
+      // Auto-deduct fuel from truck and log consumption (JSON mode)
+      let fuelLogResult = null;
+      if (route.assignedVehicle && tripStats.distanceTraveled > 0 && calculatedFuel > 0) {
+        try {
+          const trucks = trucksStorage.getAll();
+          const truckIndex = trucks.findIndex(t => t.truckId === route.assignedVehicle);
+
+          if (truckIndex !== -1) {
+            const truck = trucks[truckIndex];
+            const tankCapacity = truck.fuelTankCapacity || 60;
+            const fuelLevelBefore = truck.fuelLevel || 50;
+            const currentLiters = (fuelLevelBefore / 100) * tankCapacity;
+            const newLiters = Math.max(currentLiters - calculatedFuel, 0);
+            const fuelLevelAfter = Math.round((newLiters / tankCapacity) * 100);
+
+            // Update truck fuel level and stats
+            trucks[truckIndex] = {
+              ...truck,
+              fuelLevel: fuelLevelAfter,
+              totalFuelConsumed: (truck.totalFuelConsumed || 0) + calculatedFuel,
+              mileage: (truck.mileage || 0) + tripStats.distanceTraveled
+            };
+            trucksStorage.save(trucks);
+
+            fuelLogResult = {
+              truckId: truck.truckId,
+              fuelLevelBefore,
+              fuelLevelAfter,
+              litersConsumed: calculatedFuel,
+              distanceTraveled: tripStats.distanceTraveled
+            };
+
+            console.log('Auto fuel deduction (JSON):', fuelLogResult);
+          }
+        } catch (fuelError) {
+          console.error('Error auto-deducting fuel:', fuelError);
+        }
+      }
 
       console.log('Route completed successfully (JSON):', routeId);
 
@@ -135,7 +248,8 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
           completionNotes: routes[routeIndex].completionNotes,
           photosCount: photos.length,
           tripStats: tripStats
-        }
+        },
+        fuelLog: fuelLogResult
       });
     }
   } catch (error) {
