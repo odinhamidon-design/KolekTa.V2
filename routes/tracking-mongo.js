@@ -1,0 +1,444 @@
+const express = require('express');
+const router = express.Router();
+const { authenticateToken } = require('../middleware/auth');
+const connectDB = require('../lib/mongodb');
+const User = require('../models/User');
+const Truck = require('../models/Truck');
+const Route = require('../models/Route');
+
+// In-memory storage for live locations (shared across requests)
+const liveLocations = {};
+const tripData = {};
+
+// Haversine distance calculation (in km)
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Update driver location
+router.post('/update', authenticateToken, async (req, res) => {
+  try {
+    const { lat, lng, routeId, speed, heading } = req.body;
+    const username = req.user.username;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    const parsedSpeed = parseFloat(speed) || 0;
+
+    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    // Save to live locations
+    liveLocations[username] = {
+      username,
+      lat: parsedLat,
+      lng: parsedLng,
+      routeId: routeId || null,
+      speed: parsedSpeed,
+      heading: heading || 0,
+      timestamp: new Date(),
+      lastUpdate: Date.now()
+    };
+
+    // Update trip data
+    let trip = tripData[username];
+    if (!trip) {
+      trip = {
+        username,
+        startTime: Date.now(),
+        totalDistance: 0,
+        stopCount: 0,
+        idleTimeMs: 0,
+        lastLocation: null,
+        lastUpdateTime: null,
+        lastSpeed: 0,
+        speedSamples: [],
+        fuelEstimate: 0
+      };
+      tripData[username] = trip;
+    }
+
+    // Calculate distance
+    if (trip.lastLocation) {
+      const distance = haversineDistance(
+        trip.lastLocation.lat, trip.lastLocation.lng,
+        parsedLat, parsedLng
+      );
+      if (distance < 1) trip.totalDistance += distance;
+
+      const timeDiff = Date.now() - trip.lastUpdateTime;
+      if (parsedSpeed < 3 && trip.lastSpeed >= 3) trip.stopCount++;
+      if (parsedSpeed < 5) trip.idleTimeMs += timeDiff;
+    }
+
+    trip.lastLocation = { lat: parsedLat, lng: parsedLng };
+    trip.lastUpdateTime = Date.now();
+    trip.lastSpeed = parsedSpeed;
+    if (parsedSpeed > 0) {
+      trip.speedSamples.push(parsedSpeed);
+      if (trip.speedSamples.length > 100) trip.speedSamples.shift();
+    }
+
+    // Calculate fuel estimate
+    const avgSpeed = trip.speedSamples.length > 0
+      ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
+      : 30;
+    let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
+    const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
+    const stopFuel = trip.stopCount * 0.05;
+    const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
+    trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+
+    console.log(`📍 GPS Update from ${username}: ${parsedLat}, ${parsedLng} | Distance: ${trip.totalDistance.toFixed(2)}km`);
+
+    res.json({
+      message: 'Location updated',
+      location: { lat: parsedLat, lng: parsedLng },
+      savedAt: new Date().toISOString(),
+      trip: {
+        distance: Math.round(trip.totalDistance * 100) / 100,
+        fuelEstimate: trip.fuelEstimate,
+        stops: trip.stopCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error updating location:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all active driver locations (Admin only)
+router.get('/active', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Clean stale locations (older than 5 minutes)
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    for (const username in liveLocations) {
+      if (liveLocations[username].lastUpdate < fiveMinutesAgo) {
+        delete liveLocations[username];
+      }
+    }
+
+    res.json(Object.values(liveLocations));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get ALL assigned trucks (with last known or default location) - MongoDB version
+router.get('/all-trucks', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    await connectDB();
+
+    // Use lean() for faster read-only queries and run in parallel
+    const [users, trucks, routes] = await Promise.all([
+      User.find({ role: 'driver' }).select('username fullName').lean(),
+      Truck.find({}).select('truckId plateNumber model assignedDriver').lean(),
+      Route.find({}).select('routeId name path assignedDriver').lean()
+    ]);
+
+    // Clean stale locations
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    for (const username in liveLocations) {
+      if (liveLocations[username].lastUpdate < fiveMinutesAgo) {
+        delete liveLocations[username];
+      }
+    }
+
+    const allTrucks = [];
+
+    for (const driver of users) {
+      const assignedTruck = trucks.find(t => t.assignedDriver === driver.username);
+      const assignedRoute = routes.find(r => r.assignedDriver === driver.username);
+
+      if (assignedTruck) {
+        const live = liveLocations[driver.username];
+
+        let location;
+        if (live) {
+          location = {
+            lat: live.lat,
+            lng: live.lng,
+            speed: live.speed || 0,
+            heading: live.heading || 0,
+            isLive: true,
+            timestamp: live.timestamp
+          };
+        } else if (assignedRoute && assignedRoute.path && assignedRoute.path.coordinates && assignedRoute.path.coordinates[0]) {
+          const firstCoord = assignedRoute.path.coordinates[0];
+          location = {
+            lat: firstCoord[1],
+            lng: firstCoord[0],
+            speed: 0,
+            heading: 0,
+            isLive: false,
+            timestamp: null
+          };
+        } else {
+          // Default to Mati City Hall
+          location = { lat: 6.9549, lng: 126.2185, speed: 0, heading: 0, isLive: false, timestamp: null };
+        }
+
+        allTrucks.push({
+          username: driver.username,
+          fullName: driver.fullName || driver.username,
+          truckId: assignedTruck.truckId,
+          plateNumber: assignedTruck.plateNumber,
+          model: assignedTruck.model,
+          routeId: assignedRoute ? assignedRoute.routeId : null,
+          routeName: assignedRoute ? assignedRoute.name : 'No route assigned',
+          ...location
+        });
+      }
+    }
+
+    console.log(`📡 Returning ${allTrucks.length} trucks from MongoDB`);
+    res.json(allTrucks);
+  } catch (error) {
+    console.error('❌ Error getting all trucks:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get specific driver location
+router.get('/driver/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (req.user.role !== 'admin' && req.user.username !== username) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const location = liveLocations[username];
+
+    if (!location) {
+      return res.status(404).json({ error: 'Location not found or stale' });
+    }
+
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    if (location.lastUpdate < fiveMinutesAgo) {
+      return res.status(404).json({ error: 'Location not found or stale' });
+    }
+
+    res.json(location);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear driver location
+router.delete('/clear', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    delete liveLocations[username];
+    res.json({ message: 'Location cleared' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get current trip summary
+router.get('/my-trip', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const trip = tripData[username];
+
+    if (!trip) {
+      return res.json({
+        hasActiveTrip: false,
+        message: 'No active trip. Start GPS tracking to begin a trip.'
+      });
+    }
+
+    const avgSpeed = trip.speedSamples.length > 0
+      ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
+      : 0;
+    const durationMinutes = Math.round((Date.now() - trip.startTime) / 60000);
+
+    res.json({
+      hasActiveTrip: true,
+      trip: {
+        distance: { km: Math.round(trip.totalDistance * 100) / 100 },
+        fuel: { liters: trip.fuelEstimate },
+        stops: trip.stopCount,
+        averageSpeed: Math.round(avgSpeed),
+        duration: { minutes: durationMinutes }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start a new trip
+router.post('/start-trip', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    delete tripData[username];
+    tripData[username] = {
+      username,
+      startTime: Date.now(),
+      totalDistance: 0,
+      stopCount: 0,
+      idleTimeMs: 0,
+      lastLocation: null,
+      lastUpdateTime: null,
+      lastSpeed: 0,
+      speedSamples: [],
+      fuelEstimate: 0
+    };
+
+    res.json({
+      message: 'Trip started',
+      trip: { username, startTime: new Date().toISOString() }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// End trip
+router.post('/end-trip', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const trip = tripData[username];
+
+    if (!trip) {
+      return res.status(404).json({ error: 'No active trip found' });
+    }
+
+    const summary = {
+      distance: { km: Math.round(trip.totalDistance * 100) / 100 },
+      fuel: { liters: trip.fuelEstimate },
+      stops: trip.stopCount
+    };
+
+    delete tripData[username];
+
+    res.json({ message: 'Trip ended', summary });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fuel dashboard
+router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    await connectDB();
+    const [trucks, users] = await Promise.all([
+      Truck.find({}).select('truckId plateNumber assignedDriver').lean(),
+      User.find({ role: 'driver' }).select('username fullName').lean()
+    ]);
+
+    let totalDistance = 0;
+    let totalFuel = 0;
+
+    const truckFuelData = [];
+
+    for (const username in tripData) {
+      const trip = tripData[username];
+      const driver = users.find(u => u.username === username);
+      const truck = trucks.find(t => t.assignedDriver === username);
+      const location = liveLocations[username];
+
+      totalDistance += trip.totalDistance;
+      totalFuel += trip.fuelEstimate;
+
+      truckFuelData.push({
+        username,
+        driverName: driver ? driver.fullName : username,
+        truckId: truck ? truck.truckId : 'N/A',
+        plateNumber: truck ? truck.plateNumber : 'N/A',
+        distance: Math.round(trip.totalDistance * 100) / 100,
+        fuelUsed: trip.fuelEstimate,
+        stops: trip.stopCount,
+        isActive: true,
+        lastLocation: location ? { lat: location.lat, lng: location.lng } : null
+      });
+    }
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      fleet: {
+        activeDrivers: truckFuelData.length,
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalFuelUsed: Math.round(totalFuel * 100) / 100
+      },
+      trucks: truckFuelData
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all active trips
+router.get('/all-trips', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const trips = Object.values(tripData).map(trip => ({
+      username: trip.username,
+      distance: { km: Math.round(trip.totalDistance * 100) / 100 },
+      fuel: { liters: trip.fuelEstimate },
+      stops: trip.stopCount
+    }));
+
+    res.json({ count: trips.length, trips });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fuel estimate for specific driver
+router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (req.user.role !== 'admin' && req.user.username !== username) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const trip = tripData[username];
+
+    if (!trip) {
+      return res.json({ username, hasData: false, message: 'No trip data available' });
+    }
+
+    res.json({
+      username,
+      hasData: true,
+      distance: { km: Math.round(trip.totalDistance * 100) / 100 },
+      fuel: { liters: trip.fuelEstimate },
+      stops: trip.stopCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;

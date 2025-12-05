@@ -16,14 +16,18 @@ app.use(express.static('public'));
 // Check if using mock authentication
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
 
-// MongoDB Connection - ALWAYS connect for live tracking feature
-const connectDB = require('./lib/mongodb');
-connectDB().then(() => {
-  console.log('✅ MongoDB connected for live tracking');
-}).catch(err => {
-  console.error('❌ MongoDB connection error:', err.message);
-  console.log('⚠️ Live GPS tracking will not work without MongoDB');
-});
+// MongoDB Connection - Only connect if not using mock auth
+if (!useMockAuth) {
+  const connectDB = require('./lib/mongodb');
+  connectDB().then(() => {
+    console.log('✅ MongoDB connected for live tracking');
+  }).catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.log('⚠️ Live GPS tracking will not work without MongoDB');
+  });
+} else {
+  console.log('📝 Skipping MongoDB connection (mock auth mode)');
+}
 
 // Initialize persistent storage for mock auth
 if (useMockAuth) {
@@ -40,17 +44,35 @@ if (useMockAuth) {
   app.use('/api/auth', require('./routes/auth'));
 }
 
-// Always use MongoDB for users, trucks, routes (persistent on Vercel)
-console.log('📦 Using MongoDB for users, trucks, routes (persistent storage)');
-app.use('/api/users', require('./routes/users-mongo'));
-app.use('/api/trucks', require('./routes/trucks-mongo'));
-app.use('/api/routes', require('./routes/routes-mongo'));
+// Use local JSON storage or MongoDB based on mock mode
+if (useMockAuth) {
+  console.log('📦 Using local JSON storage for users, trucks, routes');
+  app.use('/api/users', require('./routes/users'));
+  app.use('/api/trucks', require('./routes/trucks'));
+  app.use('/api/routes', require('./routes/routes'));
+} else {
+  console.log('📦 Using MongoDB for users, trucks, routes (persistent storage)');
+  app.use('/api/users', require('./routes/users-mongo'));
+  app.use('/api/trucks', require('./routes/trucks-mongo'));
+  app.use('/api/routes', require('./routes/routes-mongo'));
+}
 
 app.use('/api/collections', require('./routes/collections'));
 app.use('/api/bins', require('./routes/bins'));
-app.use('/api/completions', require('./routes/completions'));
-app.use('/api/tracking', require('./routes/tracking'));
-app.use('/api/profile', require('./routes/profile'));
+
+// Use mock or MongoDB tracking based on mode
+if (useMockAuth) {
+  app.use('/api/completions', require('./routes/completions'));
+  app.use('/api/tracking', require('./routes/tracking'));
+  app.use('/api/profile', require('./routes/profile'));
+} else {
+  console.log('📡 Using MongoDB for live tracking');
+  app.use('/api/completions', require('./routes/completions'));
+  app.use('/api/tracking', require('./routes/tracking-mongo'));
+  app.use('/api/profile', require('./routes/profile'));
+}
+
+app.use('/api/fuel', require('./routes/fuel'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -60,8 +82,9 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Redirect /mobile to dashboard (now responsive)
 app.get('/mobile', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'mobile.html'));
+  res.redirect('/dashboard');
 });
 
 app.listen(PORT, '0.0.0.0', () => {

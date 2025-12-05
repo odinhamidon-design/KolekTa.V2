@@ -4,136 +4,342 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Kolek-Ta</title>
-  <link rel="stylesheet" href="login-styles.css">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              300: '#86efac',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    /* Custom animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .animate-slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    /* Background pattern */
+    .bg-pattern {
+      background-color: #f0fdf4;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2322c55e' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    /* Focus styles */
+    input:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    }
+
+    /* Hide forms by default */
+    .login-form {
+      display: none;
+    }
+
+    .login-form.active {
+      display: block;
+    }
+  </style>
 </head>
-<body>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="logo">
-        <div class="logo-icon">🗑️</div>
-        <h1>Kolek Ta</h1>
-        <p class="subtitle">Web Base Waste Collection Management System</p>
-        <p class="subtitle">Utilizing Geospatial Optimization with Interactive Mapping</p>
-        <p class="location">Mati City, Davao Oriental</p>
+<body class="bg-pattern min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md">
+    <!-- Login Card -->
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-primary-600 to-primary-500 px-8 py-6 text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+          <i data-lucide="recycle" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-white">Kolek-Ta</h1>
+        <p class="text-primary-100 text-sm mt-1">Waste Collection Management System</p>
+        <p class="text-primary-200 text-xs mt-1 flex items-center justify-center gap-1">
+          <i data-lucide="map-pin" class="w-3 h-3"></i>
+          Mati City, Davao Oriental
+        </p>
       </div>
-      
-      <!-- Role Selection Screen -->
-      <div id="roleSelectionScreen" class="role-selection-screen">
-        <h2>Select Your Role</h2>
-        <p class="role-subtitle">Choose how you want to access the system</p>
-        
-        <div class="role-cards">
-          <div class="role-card" data-role="admin">
-            <div class="role-icon">👨‍💼</div>
-            <h3>Admin</h3>
-            <p>Manage system and collection plans</p>
-          </div>
-          
-          <div class="role-card" data-role="driver">
-            <div class="role-icon">🚛</div>
-            <h3>Driver</h3>
-            <p>View routes and collect waste</p>
+
+      <!-- Content -->
+      <div class="p-8">
+
+        <!-- Role Selection Screen -->
+        <div id="roleSelectionScreen">
+          <h2 class="text-lg font-semibold text-gray-800 text-center mb-2">Welcome Back</h2>
+          <p class="text-gray-500 text-sm text-center mb-6">Select your role to continue</p>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Admin Card -->
+            <button class="role-card group p-6 border-2 border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-center" data-role="admin">
+              <div class="w-14 h-14 mx-auto bg-primary-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary-200 transition-colors">
+                <i data-lucide="shield" class="w-7 h-7 text-primary-600"></i>
+              </div>
+              <h3 class="font-semibold text-gray-800">Admin</h3>
+              <p class="text-xs text-gray-500 mt-1">Manage system</p>
+            </button>
+
+            <!-- Driver Card -->
+            <button class="role-card group p-6 border-2 border-gray-200 rounded-xl hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 text-center" data-role="driver">
+              <div class="w-14 h-14 mx-auto bg-primary-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary-200 transition-colors">
+                <i data-lucide="truck" class="w-7 h-7 text-primary-600"></i>
+              </div>
+              <h3 class="font-semibold text-gray-800">Driver</h3>
+              <p class="text-xs text-gray-500 mt-1">View routes</p>
+            </button>
           </div>
         </div>
-      </div>
-      
-      <!-- Admin Login Form -->
-      <form id="adminLoginForm" class="login-form">
-        <button type="button" class="back-btn" onclick="showRoleSelection()">← Back</button>
-        <h2>Admin Login</h2>
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="adminUsername" required>
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="adminPassword" required>
-        </div>
-        <button type="submit" class="btn-login">Login</button>
-        <a href="#" class="forgot-link" onclick="showForgotPassword('admin')">Forgot Password?</a>
-      </form>
-      
-      <!-- Driver Login Form -->
-      <div id="driverLoginForm" class="login-form">
-        <button type="button" class="back-btn" onclick="showRoleSelection()">← Back</button>
-        <h2>Driver Login</h2>
-        
-        <!-- Simple Login (Face Verification Removed) -->
-        <form id="driverManualForm" class="method-content active">
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="driverUsername" required>
+
+        <!-- Admin Login Form -->
+        <form id="adminLoginForm" class="login-form animate-fade-in">
+          <button type="button" onclick="showRoleSelection()" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm">Back</span>
+          </button>
+
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <i data-lucide="shield" class="w-5 h-5 text-primary-600"></i>
+            </div>
+            <div>
+              <h2 class="font-semibold text-gray-800">Admin Login</h2>
+              <p class="text-xs text-gray-500">Enter your credentials</p>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="driverPassword" required>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input type="text" id="adminUsername" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div class="relative">
+                <input type="password" id="adminPassword" required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors pr-12">
+                <button type="button" onclick="togglePassword('adminPassword', this)"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <i data-lucide="eye" class="w-5 h-5"></i>
+                </button>
+              </div>
+            </div>
           </div>
-          <button type="submit" class="btn-login">Login</button>
-          <a href="#" class="forgot-link" onclick="showForgotPassword('driver')">Forgot Password?</a>
+
+          <button type="submit"
+            class="w-full mt-6 bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-5 h-5"></i>
+            Sign In
+          </button>
+
+          <a href="#" onclick="showForgotPassword('admin')"
+            class="block text-center text-sm text-primary-600 hover:text-primary-700 mt-4 transition-colors">
+            Forgot Password?
+          </a>
         </form>
+
+        <!-- Driver Login Form -->
+        <div id="driverLoginForm" class="login-form animate-fade-in">
+          <button type="button" onclick="showRoleSelection()" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span class="text-sm">Back</span>
+          </button>
+
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <i data-lucide="truck" class="w-5 h-5 text-primary-600"></i>
+            </div>
+            <div>
+              <h2 class="font-semibold text-gray-800">Driver Login</h2>
+              <p class="text-xs text-gray-500">Enter your credentials</p>
+            </div>
+          </div>
+
+          <form id="driverManualForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input type="text" id="driverUsername" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div class="relative">
+                <input type="password" id="driverPassword" required
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors pr-12">
+                <button type="button" onclick="togglePassword('driverPassword', this)"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <i data-lucide="eye" class="w-5 h-5"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit"
+              class="w-full mt-2 bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+              <i data-lucide="log-in" class="w-5 h-5"></i>
+              Sign In
+            </button>
+          </form>
+
+          <a href="#" onclick="showForgotPassword('driver')"
+            class="block text-center text-sm text-primary-600 hover:text-primary-700 mt-4 transition-colors">
+            Forgot Password?
+          </a>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center animate-fade-in"></div>
       </div>
-      
-      <div id="errorMessage" class="error-message"></div>
     </div>
+
+    <!-- Footer -->
+    <p class="text-center text-gray-400 text-xs mt-6">
+      Geospatial Optimization with Interactive Mapping
+    </p>
   </div>
-  
+
   <!-- Forgot Password Modal -->
-  <div id="forgotModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeForgotModal()">&times;</span>
-      <h2>🔐 Reset Password</h2>
-      
-      <!-- Step 1: Enter Username -->
-      <div id="forgotStep1" class="forgot-step">
-        <p style="color: #666; margin-bottom: 1rem;">Enter your username to verify your identity</p>
-        <form id="forgotUsernameForm">
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="forgotUsername" required>
+  <div id="forgotModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between p-6 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+            <i data-lucide="key-round" class="w-5 h-5 text-primary-600"></i>
           </div>
-          <input type="hidden" id="forgotRole">
-          <button type="submit" class="btn-login">Next</button>
-        </form>
-      </div>
-      
-      <!-- Step 2: Answer Security Question -->
-      <div id="forgotStep2" class="forgot-step" style="display: none;">
-        <p style="color: #666; margin-bottom: 1rem;">Answer the security question to verify your identity</p>
-        <div class="form-group">
-          <label>Security Question</label>
-          <input type="text" id="securityQuestion" disabled style="background: #f5f5f5;">
+          <h2 class="font-semibold text-gray-800">Reset Password</h2>
         </div>
-        <form id="forgotSecurityForm">
-          <div class="form-group">
-            <label>Your Answer</label>
-            <input type="text" id="securityAnswer" required placeholder="Enter your answer">
-          </div>
-          <button type="submit" class="btn-login">Verify</button>
-          <button type="button" onclick="resetForgotModal()" class="btn-secondary">Back</button>
-        </form>
+        <button onclick="closeForgotModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
       </div>
-      
-      <!-- Step 3: Set New Password -->
-      <div id="forgotStep3" class="forgot-step" style="display: none;">
-        <p style="color: #4caf50; margin-bottom: 1rem;">✓ Identity verified! Set your new password</p>
-        <form id="forgotNewPasswordForm">
-          <div class="form-group">
-            <label>New Password</label>
-            <input type="password" id="newPassword" required minlength="6">
+
+      <!-- Modal Body -->
+      <div class="p-6">
+
+        <!-- Step Indicator -->
+        <div class="flex items-center justify-center gap-2 mb-6">
+          <div id="step1Indicator" class="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center text-sm font-medium">1</div>
+          <div class="w-12 h-0.5 bg-gray-200"></div>
+          <div id="step2Indicator" class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-sm font-medium">2</div>
+          <div class="w-12 h-0.5 bg-gray-200"></div>
+          <div id="step3Indicator" class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-sm font-medium">3</div>
+        </div>
+
+        <!-- Step 1: Enter Username -->
+        <div id="forgotStep1" class="forgot-step">
+          <p class="text-gray-500 text-sm text-center mb-4">Enter your username to verify your identity</p>
+          <form id="forgotUsernameForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input type="text" id="forgotUsername" required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+            <input type="hidden" id="forgotRole">
+            <button type="submit"
+              class="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+              Continue
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+
+        <!-- Step 2: Security Question -->
+        <div id="forgotStep2" class="forgot-step hidden">
+          <p class="text-gray-500 text-sm text-center mb-4">Answer your security question</p>
+          <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Security Question</label>
+            <p id="securityQuestion" class="text-gray-800 font-medium"></p>
           </div>
-          <div class="form-group">
-            <label>Confirm Password</label>
-            <input type="password" id="confirmPassword" required minlength="6">
+          <form id="forgotSecurityForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Your Answer</label>
+              <input type="text" id="securityAnswer" required placeholder="Enter your answer"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+            <div class="flex gap-3">
+              <button type="button" onclick="resetForgotModal()"
+                class="flex-1 border border-gray-300 text-gray-700 font-medium py-3 rounded-lg hover:bg-gray-50 transition-colors">
+                Back
+              </button>
+              <button type="submit"
+                class="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 rounded-lg transition-colors">
+                Verify
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: New Password -->
+        <div id="forgotStep3" class="forgot-step hidden">
+          <div class="flex items-center gap-2 justify-center text-primary-600 mb-4">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            <span class="text-sm font-medium">Identity verified!</span>
           </div>
-          <button type="submit" class="btn-login">Reset Password</button>
-        </form>
+          <form id="forgotNewPasswordForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <input type="password" id="newPassword" required minlength="6"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <input type="password" id="confirmPassword" required minlength="6"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-primary-500 transition-colors">
+            </div>
+            <button type="submit"
+              class="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+              <i data-lucide="check" class="w-5 h-5"></i>
+              Reset Password
+            </button>
+          </form>
+        </div>
+
+        <!-- Message Area -->
+        <div id="forgotMessage" class="mt-4"></div>
       </div>
-      
-      <div id="forgotMessage" style="margin-top: 1rem;"></div>
     </div>
   </div>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+
   <script src="login.js"></script>
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+  </script>
 </body>
 </html>

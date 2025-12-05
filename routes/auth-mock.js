@@ -1,46 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const connectDB = require('../lib/mongodb');
-const User = require('../models/User');
+const { usersStorage } = require('../data/storage');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
 
 // Mock face data storage
 const faceData = {};
 
-// Login
+// Login - using local JSON storage
 router.post('/login', async (req, res) => {
   try {
-    await connectDB();
     const { username, password, role } = req.body;
-    
-    const user = await User.findOne({ 
-      username, 
-      role, 
-      isActive: true 
-    });
-    
+
+    const users = usersStorage.getAll();
+    const user = users.find(u =>
+      u.username === username &&
+      u.role === role &&
+      u.isActive === true
+    );
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
-    // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    
-    if (!isValidPassword) {
+
+    // Check password (plain text comparison for mock)
+    if (user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const token = jwt.sign(
       { userId: user._id, role: user.role, username: user.username },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
+
     console.log(`✅ User logged in: ${username} (${role})`);
-    
+
     res.json({
       token,
       user: {
@@ -61,34 +57,34 @@ router.post('/login', async (req, res) => {
 // Face verification login
 router.post('/login/face', async (req, res) => {
   try {
-    await connectDB();
     const { username, faceDescriptor } = req.body;
-    
-    const user = await User.findOne({ 
-      username, 
-      role: 'driver', 
-      isActive: true 
-    });
-    
+
+    const users = usersStorage.getAll();
+    const user = users.find(u =>
+      u.username === username &&
+      u.role === 'driver' &&
+      u.isActive === true
+    );
+
     if (!user || !faceData[username]) {
       return res.status(401).json({ error: 'Face data not found. Please register your face first.' });
     }
-    
+
     // Simple face matching
     const storedDescriptor = faceData[username];
     const distance = calculateDistance(faceDescriptor, storedDescriptor);
     const threshold = 0.6;
-    
+
     if (distance > threshold) {
       return res.status(401).json({ error: 'Face verification failed. Please try again.' });
     }
-    
+
     const token = jwt.sign(
       { userId: user._id, role: user.role, username: user.username },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
+
     res.json({
       token,
       user: {
@@ -107,16 +103,17 @@ router.post('/login/face', async (req, res) => {
 // Register face data
 router.post('/register-face', async (req, res) => {
   try {
-    await connectDB();
     const { username, faceDescriptor } = req.body;
-    
-    const user = await User.findOne({ username, role: 'driver' });
+
+    const users = usersStorage.getAll();
+    const user = users.find(u => u.username === username && u.role === 'driver');
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     faceData[username] = faceDescriptor;
-    
+
     res.json({ message: 'Face data registered successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -126,19 +123,19 @@ router.post('/register-face', async (req, res) => {
 // Forgot Password - Get Security Question
 router.post('/forgot-password/question', async (req, res) => {
   try {
-    await connectDB();
     const { username, role } = req.body;
-    
-    const user = await User.findOne({ username, role });
-    
+
+    const users = usersStorage.getAll();
+    const user = users.find(u => u.username === username && u.role === role);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     if (!user.securityQuestion) {
       return res.status(400).json({ error: 'No security question set for this user' });
     }
-    
+
     res.json({
       username: user.username,
       securityQuestion: user.securityQuestion
@@ -151,25 +148,25 @@ router.post('/forgot-password/question', async (req, res) => {
 // Forgot Password - Verify Security Answer
 router.post('/forgot-password/verify', async (req, res) => {
   try {
-    await connectDB();
     const { username, role, answer } = req.body;
-    
-    const user = await User.findOne({ username, role });
-    
+
+    const users = usersStorage.getAll();
+    const user = users.find(u => u.username === username && u.role === role);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     if (!user.securityAnswer || user.securityAnswer.toLowerCase() !== answer.toLowerCase()) {
       return res.status(401).json({ error: 'Incorrect answer' });
     }
-    
+
     const resetToken = jwt.sign(
       { userId: user._id, username: user.username, purpose: 'password-reset' },
       JWT_SECRET,
       { expiresIn: '15m' }
     );
-    
+
     res.json({
       message: 'Answer verified',
       resetToken
@@ -182,9 +179,8 @@ router.post('/forgot-password/verify', async (req, res) => {
 // Forgot Password - Reset Password
 router.post('/forgot-password/reset', async (req, res) => {
   try {
-    await connectDB();
     const { resetToken, newPassword } = req.body;
-    
+
     let decoded;
     try {
       decoded = jwt.verify(resetToken, JWT_SECRET);
@@ -194,14 +190,10 @@ router.post('/forgot-password/reset', async (req, res) => {
     } catch (error) {
       return res.status(403).json({ error: 'Reset token expired or invalid' });
     }
-    
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
-    await User.updateOne(
-      { username: decoded.username },
-      { password: hashedPassword }
-    );
-    
+
+    // Update password in local storage
+    usersStorage.update(decoded.username, { password: newPassword });
+
     res.json({
       message: 'Password reset successfully'
     });

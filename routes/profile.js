@@ -4,8 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
-const connectDB = require('../lib/mongodb');
-const User = require('../models/User');
+const { usersStorage } = require('../data/storage');
 
 // Configure multer for profile picture upload
 const storage = multer.diskStorage({
@@ -25,12 +24,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
     const allowedTypes = /jpeg|jpg|png|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
     if (mimetype && extname) {
       return cb(null, true);
     } else {
@@ -42,13 +40,12 @@ const upload = multer({
 // Get current user profile
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
-    const user = await User.findOne({ username: req.user.username });
-    
+    const user = usersStorage.findByUsername(req.user.username);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     res.json({
       _id: user._id,
       username: user.username,
@@ -67,32 +64,34 @@ router.get('/me', authenticateToken, async (req, res) => {
 // Update profile
 router.put('/me', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const { fullName, email, phoneNumber, password } = req.body;
     const username = req.user.username;
-    
-    const user = await User.findOne({ username });
+
+    const user = usersStorage.findByUsername(username);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
-    if (fullName) user.fullName = fullName;
-    if (email) user.email = email;
-    if (phoneNumber) user.phoneNumber = phoneNumber;
-    if (password) user.password = password;
-    
-    await user.save();
-    
+
+    const updates = {};
+    if (fullName) updates.fullName = fullName;
+    if (email) updates.email = email;
+    if (phoneNumber) updates.phoneNumber = phoneNumber;
+    if (password) updates.password = password;
+
+    usersStorage.update(username, updates);
+
+    const updatedUser = usersStorage.findByUsername(username);
+
     res.json({
       message: 'Profile updated successfully',
       user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber,
-        profilePicture: user.profilePicture
+        _id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        fullName: updatedUser.fullName,
+        phoneNumber: updatedUser.phoneNumber,
+        profilePicture: updatedUser.profilePicture
       }
     });
   } catch (error) {
@@ -106,15 +105,14 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    
-    await connectDB();
+
     const username = req.user.username;
-    const user = await User.findOne({ username });
-    
+    const user = usersStorage.findByUsername(username);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Delete old profile picture if exists
     if (user.profilePicture) {
       const oldPath = path.join(__dirname, '../public', user.profilePicture);
@@ -122,12 +120,11 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
         fs.unlinkSync(oldPath);
       }
     }
-    
+
     // Update user with new profile picture path
     const profilePicturePath = `/uploads/profiles/${req.file.filename}`;
-    user.profilePicture = profilePicturePath;
-    await user.save();
-    
+    usersStorage.update(username, { profilePicture: profilePicturePath });
+
     res.json({
       message: 'Profile picture updated successfully',
       profilePicture: profilePicturePath
@@ -140,24 +137,22 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
 // Delete profile picture
 router.delete('/picture', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const username = req.user.username;
-    const user = await User.findOne({ username });
-    
+    const user = usersStorage.findByUsername(username);
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     if (user.profilePicture) {
       const filePath = path.join(__dirname, '../public', user.profilePicture);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
-      
-      user.profilePicture = null;
-      await user.save();
+
+      usersStorage.update(username, { profilePicture: null });
     }
-    
+
     res.json({ message: 'Profile picture removed' });
   } catch (error) {
     res.status(500).json({ error: error.message });

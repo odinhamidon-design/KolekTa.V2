@@ -1,6 +1,364 @@
 // Use relative URL so it works on any device
 const API_URL = '/api';
 
+// ============================================
+// PAGE LOADING OVERLAY
+// ============================================
+
+function showPageLoading(text = 'Loading...') {
+  const overlay = document.getElementById('pageLoadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  if (overlay) {
+    if (loadingText) loadingText.textContent = text;
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+  }
+}
+
+function hidePageLoading() {
+  const overlay = document.getElementById('pageLoadingOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 300);
+  }
+}
+
+// ============================================
+// TOAST NOTIFICATION SYSTEM
+// ============================================
+
+// Create toast container if it doesn't exist
+function ensureToastContainer() {
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'fixed top-4 right-4 z-[100] flex flex-col gap-3 max-w-sm';
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+// Show toast notification
+function showToast(message, type = 'info', duration = 4000) {
+  const container = ensureToastContainer();
+
+  const icons = {
+    success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+    error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+    warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+    info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+  };
+
+  const colors = {
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800'
+  };
+
+  const iconColors = {
+    success: 'text-green-500',
+    error: 'text-red-500',
+    warning: 'text-yellow-500',
+    info: 'text-blue-500'
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `flex items-start gap-3 p-4 rounded-xl border shadow-lg ${colors[type]} animate-slide-in`;
+  toast.innerHTML = `
+    <span class="${iconColors[type]} flex-shrink-0 mt-0.5">${icons[type]}</span>
+    <p class="text-sm font-medium flex-1">${message.replace(/\n/g, '<br>')}</p>
+    <button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto remove after duration
+  if (duration > 0) {
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      toast.style.transition = 'all 0.3s ease-out';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  return toast;
+}
+
+// Show alert modal (for important messages that need acknowledgment)
+// Auto-closes after 2.5s for success messages
+function showAlertModal(title, message, type = 'info', onClose = null, autoClose = true) {
+  const config = {
+    success: {
+      icon: 'check-circle',
+      iconBg: 'bg-green-100',
+      iconColor: 'text-green-600',
+      buttonBg: 'bg-green-500 hover:bg-green-600 active:bg-green-700',
+      headerBg: 'bg-gradient-to-r from-green-500 to-green-400',
+      autoCloseDelay: 2500
+    },
+    error: {
+      icon: 'x-circle',
+      iconBg: 'bg-red-100',
+      iconColor: 'text-red-600',
+      buttonBg: 'bg-red-500 hover:bg-red-600 active:bg-red-700',
+      headerBg: 'bg-gradient-to-r from-red-500 to-red-400',
+      autoCloseDelay: 0  // Don't auto-close errors
+    },
+    warning: {
+      icon: 'alert-triangle',
+      iconBg: 'bg-yellow-100',
+      iconColor: 'text-yellow-600',
+      buttonBg: 'bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700',
+      headerBg: 'bg-gradient-to-r from-yellow-500 to-yellow-400',
+      autoCloseDelay: 0  // Don't auto-close warnings
+    },
+    info: {
+      icon: 'info',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      buttonBg: 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700',
+      headerBg: 'bg-gradient-to-r from-blue-500 to-blue-400',
+      autoCloseDelay: 3000
+    }
+  };
+
+  const cfg = config[type] || config.info;
+
+  // Remove any existing alert modal
+  const existingModal = document.getElementById('alertModal');
+  if (existingModal) existingModal.remove();
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'alertModal';
+  overlay.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in';
+
+  overlay.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all animate-scale-in">
+      <!-- Icon Header -->
+      <div class="${cfg.headerBg} p-6 text-center">
+        <div class="w-16 h-16 ${cfg.iconBg} rounded-full flex items-center justify-center mx-auto shadow-lg">
+          <i data-lucide="${cfg.icon}" class="w-8 h-8 ${cfg.iconColor}"></i>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6 text-center">
+        <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
+        <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+        ${autoClose && cfg.autoCloseDelay > 0 ? `
+          <div class="mt-4 w-full bg-gray-200 rounded-full h-1 overflow-hidden">
+            <div class="alert-progress h-full ${cfg.buttonBg.split(' ')[0]} transition-all duration-[${cfg.autoCloseDelay}ms]" style="width: 100%"></div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Button -->
+      <div class="px-6 pb-6">
+        <button id="alertModalClose" class="w-full ${cfg.buttonBg} text-white font-semibold py-3 rounded-xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-5 h-5"></i>
+          <span>Got it</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Initialize icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  // Start progress bar animation
+  if (autoClose && cfg.autoCloseDelay > 0) {
+    const progressBar = overlay.querySelector('.alert-progress');
+    if (progressBar) {
+      setTimeout(() => progressBar.style.width = '0%', 50);
+    }
+  }
+
+  // Close function
+  const closeAlert = () => {
+    overlay.classList.add('animate-fade-out');
+    setTimeout(() => {
+      overlay.remove();
+      if (onClose) onClose();
+    }, 200);
+  };
+
+  // Close on button click
+  document.getElementById('alertModalClose').addEventListener('click', closeAlert);
+
+  // Close on backdrop click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeAlert();
+  });
+
+  // Auto-close for success/info messages
+  let autoCloseTimer = null;
+  if (autoClose && cfg.autoCloseDelay > 0) {
+    autoCloseTimer = setTimeout(closeAlert, cfg.autoCloseDelay);
+  }
+
+  // Cancel auto-close on interaction
+  overlay.querySelector('.bg-white').addEventListener('mouseenter', () => {
+    if (autoCloseTimer) {
+      clearTimeout(autoCloseTimer);
+      const progressBar = overlay.querySelector('.alert-progress');
+      if (progressBar) progressBar.style.width = '100%';
+    }
+  });
+
+  return overlay;
+}
+
+// Show confirm dialog (callback version)
+function showConfirmModal(title, message, onConfirm, onCancel = null, type = 'warning') {
+  const config = {
+    warning: { icon: 'alert-triangle', iconBg: 'bg-yellow-100', iconColor: 'text-yellow-600', confirmBg: 'bg-yellow-500 hover:bg-yellow-600' },
+    danger: { icon: 'trash-2', iconBg: 'bg-red-100', iconColor: 'text-red-600', confirmBg: 'bg-red-500 hover:bg-red-600' },
+    info: { icon: 'help-circle', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', confirmBg: 'bg-blue-500 hover:bg-blue-600' },
+    success: { icon: 'check-circle', iconBg: 'bg-green-100', iconColor: 'text-green-600', confirmBg: 'bg-green-500 hover:bg-green-600' }
+  };
+  const cfg = config[type] || config.warning;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'confirmModal';
+  overlay.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in';
+
+  overlay.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in">
+      <!-- Header -->
+      <div class="p-6 text-center">
+        <div class="w-16 h-16 ${cfg.iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="${cfg.icon}" class="w-8 h-8 ${cfg.iconColor}"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
+        <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+      </div>
+
+      <!-- Buttons -->
+      <div class="px-6 pb-6 flex gap-3">
+        <button id="confirmModalCancel" class="flex-1 border-2 border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+          <i data-lucide="x" class="w-4 h-4"></i>
+          Cancel
+        </button>
+        <button id="confirmModalConfirm" class="flex-1 ${cfg.confirmBg} text-white font-semibold py-3 rounded-xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          Confirm
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  const closeOverlay = () => {
+    overlay.classList.add('animate-fade-out');
+    setTimeout(() => overlay.remove(), 200);
+  };
+
+  document.getElementById('confirmModalCancel').addEventListener('click', () => {
+    closeOverlay();
+    if (onCancel) onCancel();
+  });
+
+  document.getElementById('confirmModalConfirm').addEventListener('click', () => {
+    closeOverlay();
+    if (onConfirm) onConfirm();
+  });
+
+  // Close on backdrop click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeOverlay();
+      if (onCancel) onCancel();
+    }
+  });
+
+  return overlay;
+}
+
+// Show confirm dialog (promise version - use with await)
+function showConfirm(title, message, type = 'warning') {
+  return new Promise((resolve) => {
+    const config = {
+      warning: { icon: 'alert-triangle', iconBg: 'bg-yellow-100', iconColor: 'text-yellow-600', confirmBg: 'bg-yellow-500 hover:bg-yellow-600' },
+      danger: { icon: 'trash-2', iconBg: 'bg-red-100', iconColor: 'text-red-600', confirmBg: 'bg-red-500 hover:bg-red-600' },
+      info: { icon: 'help-circle', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', confirmBg: 'bg-blue-500 hover:bg-blue-600' },
+      success: { icon: 'check-circle', iconBg: 'bg-green-100', iconColor: 'text-green-600', confirmBg: 'bg-green-500 hover:bg-green-600' }
+    };
+    const cfg = config[type] || config.warning;
+
+    // Remove any existing confirm modal
+    const existing = document.getElementById('confirmModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'confirmModal';
+    overlay.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in';
+
+    overlay.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in">
+        <!-- Header -->
+        <div class="p-6 text-center">
+          <div class="w-16 h-16 ${cfg.iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="${cfg.icon}" class="w-8 h-8 ${cfg.iconColor}"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
+          <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+        </div>
+
+        <!-- Buttons -->
+        <div class="px-6 pb-6 flex gap-3">
+          <button class="confirm-cancel flex-1 border-2 border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            Cancel
+          </button>
+          <button class="confirm-ok flex-1 ${cfg.confirmBg} text-white font-semibold py-3 rounded-xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Confirm
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const closeOverlay = (result) => {
+      overlay.classList.add('animate-fade-out');
+      setTimeout(() => {
+        overlay.remove();
+        resolve(result);
+      }, 200);
+    };
+
+    overlay.querySelector('.confirm-cancel').addEventListener('click', () => closeOverlay(false));
+    overlay.querySelector('.confirm-ok').addEventListener('click', () => closeOverlay(true));
+
+    // Close on backdrop click (cancels)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeOverlay(false);
+    });
+  });
+}
+
+// ============================================
+// END TOAST NOTIFICATION SYSTEM
+// ============================================
+
 // Check authentication
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -11,27 +369,22 @@ if (!token) {
 
 // Initialize after DOM is loaded
 function initializeApp() {
-  // Show/hide buttons based on role
+  // Update header user info
+  const headerProfilePic = document.getElementById('headerProfilePic');
+  const headerUserName = document.getElementById('headerUserName');
+  if (headerProfilePic) {
+    headerProfilePic.textContent = (user.fullName || user.username || 'U').charAt(0).toUpperCase();
+  }
+  if (headerUserName) {
+    headerUserName.textContent = user.fullName || user.username || 'User';
+  }
+
+  // Show/hide panels based on role
   if (user.role === 'admin') {
-    const userMgmtBtn = document.getElementById('userManagementBtn');
-    const truckMgmtBtn = document.getElementById('truckManagementBtn');
-    const routesMgmtBtn = document.getElementById('routesManagementBtn');
-    const liveTruckBtn = document.getElementById('liveTruckTrackingBtn');
-    const historyBtn = document.getElementById('completionHistoryBtn');
-    if (userMgmtBtn) {
-      userMgmtBtn.style.display = 'block';
-    }
-    if (truckMgmtBtn) {
-      truckMgmtBtn.style.display = 'block';
-    }
-    if (routesMgmtBtn) {
-      routesMgmtBtn.style.display = 'block';
-    }
-    if (liveTruckBtn) {
-      liveTruckBtn.style.display = 'block';
-    }
-    if (historyBtn) {
-      historyBtn.style.display = 'block';
+    // Show admin controls panel
+    const adminControls = document.getElementById('adminControls');
+    if (adminControls) {
+      adminControls.classList.remove('hidden');
     }
     // Create permanent notification icon after a small delay to ensure DOM is ready
     setTimeout(() => {
@@ -39,50 +392,89 @@ function initializeApp() {
       // Start checking for notifications
       checkCompletionNotifications();
       setInterval(checkCompletionNotifications, 30000); // Check every 30 seconds
-      
+
       // Start live truck tracking on map
       showLiveTruckLocations();
+
+      // Show dashboard by default for admins
+      showDashboard();
     }, 100);
   } else if (user.role === 'driver') {
-    // Show driver panel
-    const driverPanel = document.getElementById('driverPanel');
-    const driverHistoryPanel = document.getElementById('driverHistoryPanel');
-    if (driverPanel) {
-      driverPanel.style.display = 'block';
-      // Call loadDriverAssignments after it's defined
-      if (typeof loadDriverAssignments === 'function') {
-        loadDriverAssignments();
-      } else {
-        // If not defined yet, wait a bit
-        setTimeout(() => loadDriverAssignments(), 100);
+    // Check if desktop view (lg breakpoint = 1024px)
+    const isDesktop = window.innerWidth >= 1024;
+
+    if (isDesktop) {
+      // Hide sidebar for drivers on desktop - full map experience
+      const sidebar = document.querySelector('aside');
+      if (sidebar) {
+        sidebar.classList.add('lg:hidden');
+      }
+
+      // Show driver overlay controls
+      const driverWebOverlay = document.getElementById('driverWebOverlay');
+      const driverAssignmentsOverlay = document.getElementById('driverAssignmentsOverlay');
+      const driverStatsOverlay = document.getElementById('driverStatsOverlay');
+
+      if (driverWebOverlay) driverWebOverlay.classList.remove('hidden');
+      if (driverAssignmentsOverlay) driverAssignmentsOverlay.classList.remove('hidden');
+      if (driverStatsOverlay) driverStatsOverlay.classList.remove('hidden');
+
+      // Load driver data into overlays
+      setTimeout(() => {
+        if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
+        if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
+      }, 100);
+    } else {
+      // Mobile view - use existing sidebar/mobile nav
+      const driverPanel = document.getElementById('driverPanel');
+      const driverHistoryPanel = document.getElementById('driverHistoryPanel');
+      const gpsButtonContainer = document.getElementById('gpsButtonContainer');
+
+      if (driverPanel) {
+        driverPanel.classList.remove('hidden');
+        setTimeout(() => {
+          loadDriverAssignments();
+          updateDriverQuickStats();
+        }, 100);
+      }
+      if (driverHistoryPanel) {
+        driverHistoryPanel.classList.remove('hidden');
+      }
+      if (gpsButtonContainer) {
+        gpsButtonContainer.classList.remove('hidden');
       }
     }
-    if (driverHistoryPanel) {
-      driverHistoryPanel.style.display = 'block';
+
+    // Show mobile driver navigation (for mobile only)
+    const mobileDriverNav = document.getElementById('mobileDriverNav');
+    if (mobileDriverNav) {
+      mobileDriverNav.classList.remove('hidden');
+      initMobileDriverNav();
+    }
+
+    // Show mobile driver overlay (minimal status bar at top)
+    const mobileDriverOverlay = document.getElementById('mobileDriverOverlay');
+    if (mobileDriverOverlay && !isDesktop) {
+      mobileDriverOverlay.classList.remove('hidden');
+      // Sync mobile overlay state
+      setTimeout(() => {
+        if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
+      }, 200);
     }
   }
-}
 
-// Add profile, notification, and logout button
-document.querySelector('header').innerHTML += `
-  <div style="position: absolute; top: 1rem; right: 1rem; display: flex; align-items: center; gap: 0.75rem;">
-    <button onclick="showProfile()" style="padding: 0.5rem 1rem; background: white; color: #4caf50; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-      <span id="headerProfilePic" style="width: 30px; height: 30px; border-radius: 50%; background: #4caf50; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
-        ${(user.fullName || user.username).charAt(0).toUpperCase()}
-      </span>
-      <span>${user.fullName || user.username}</span>
-    </button>
-    ${user.role === 'admin' ? '<div id="headerNotificationContainer"></div>' : ''}
-    <button onclick="logout()" style="padding: 0.5rem 1rem; background: white; color: #4caf50; border: none; border-radius: 5px; cursor: pointer;">Logout</button>
-  </div>
-`;
+  // Reinitialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
 
 // Load profile picture if exists (with small delay to ensure DOM is ready)
 setTimeout(() => {
   loadHeaderProfilePicture();
 }, 100);
 
-// Call initialization AFTER header is created
+// Call initialization
 initializeApp();
 
 function logout() {
@@ -91,35 +483,48 @@ function logout() {
   window.location.href = 'login.html';
 }
 
-// Add authorization header to all fetch requests
+// Add authorization header to internal API fetch requests only
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {
-  const token = localStorage.getItem('token'); // Get fresh token each time
-  
-  if (args[1]) {
-    args[1].headers = {
-      ...args[1].headers,
-      'Authorization': `Bearer ${token}`
-    };
-  } else {
-    args[1] = {
-      headers: {
+  const url = args[0];
+
+  // Check if this is an external URL (not our API)
+  const isExternalUrl = typeof url === 'string' && (
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  ) && !url.includes(window.location.host) && !url.startsWith(API_URL);
+
+  // Only add Authorization header for internal API calls
+  if (!isExternalUrl) {
+    const token = localStorage.getItem('token'); // Get fresh token each time
+
+    if (args[1]) {
+      args[1].headers = {
+        ...args[1].headers,
         'Authorization': `Bearer ${token}`
-      }
-    };
+      };
+    } else {
+      args[1] = {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      };
+    }
   }
-  
+
   const response = await originalFetch.apply(this, args);
-  
-  // If unauthorized, redirect to login
-  if (response.status === 401 || response.status === 403) {
+
+  // If unauthorized on internal API, redirect to login
+  if (!isExternalUrl && (response.status === 401 || response.status === 403)) {
     console.error('Authentication failed - redirecting to login');
-    alert('Your session has expired. Please login again.');
+    showAlertModal('Session Expired', 'Your session has expired. Please login again.', 'warning', () => {
+      window.location.href = 'login.html';
+    });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = 'login.html';
   }
-  
+
   return response;
 };
 
@@ -140,9 +545,42 @@ const map = L.map('map', {
   maxBoundsViscosity: 1.0
 }).setView(MATI_CENTER, 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// Track map loading state
+let mapTilesLoaded = false;
+const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors | Mati City, Davao Oriental'
 }).addTo(map);
+
+// Hide loading overlay when map tiles are loaded
+tileLayer.on('load', function() {
+  if (!mapTilesLoaded) {
+    mapTilesLoaded = true;
+    hideMapLoadingOverlay();
+  }
+});
+
+// Also hide after a timeout (fallback in case 'load' event doesn't fire)
+setTimeout(hideMapLoadingOverlay, 5000);
+
+function hideMapLoadingOverlay() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 500);
+  }
+}
+
+// Show loading overlay (can be called when switching views)
+function showMapLoadingOverlay() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    mapTilesLoaded = false;
+  }
+}
 
 // Add Mati City boundary overlay
 const matiCityBoundary = L.rectangle(MATI_BOUNDS, {
@@ -234,25 +672,120 @@ function getStatusColor(status) {
 // Removed Optimize Route functionality
 
 // Modal functions
-function showModal(title, body) {
+function showModal(title, body, options = {}) {
+  const modal = document.getElementById('modal');
+  const modalContent = modal.querySelector('div');
+
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').innerHTML = body;
-  document.getElementById('modal').style.display = 'block';
+
+  // Reset animations
+  modalContent.classList.remove('animate-scale-in', 'animate-fade-out');
+  void modalContent.offsetWidth; // Trigger reflow
+  modalContent.classList.add('animate-scale-in');
+
+  modal.classList.add('active');
+
+  // Reinitialize Lucide icons for dynamic content
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 50);
+  }
+
+  // Auto-close after success transactions
+  if (options.autoClose) {
+    const delay = typeof options.autoClose === 'number' ? options.autoClose : 2000;
+    setTimeout(() => closeModal(), delay);
+  }
 }
 
-function closeModal() {
-  document.getElementById('modal').style.display = 'none';
+function closeModal(callback = null) {
+  const modal = document.getElementById('modal');
+  const modalContent = modal.querySelector('div');
+
+  // Add fade-out animation
+  modalContent.classList.add('animate-fade-out');
+
+  setTimeout(() => {
+    modal.classList.remove('active');
+    modalContent.classList.remove('animate-fade-out');
+    if (callback) callback();
+  }, 200);
 }
 
-document.querySelector('.close').addEventListener('click', closeModal);
+// Close modal with success feedback
+function closeModalWithSuccess(message = 'Operation completed successfully!') {
+  closeModal(() => {
+    showToast(message, 'success');
+  });
+}
 
+// ============================================
+// PAGE VIEW SYSTEM (Show pages instead of modals)
+// ============================================
+
+function showPage(title, content) {
+  const mapContainer = document.getElementById('mapContainer');
+  const pageContainer = document.getElementById('pageContainer');
+  const pageContent = document.getElementById('pageContent');
+
+  // Hide map, show page
+  mapContainer.classList.add('hidden');
+  pageContainer.classList.remove('hidden');
+
+  // Set page content with header
+  pageContent.innerHTML = `
+    <div class="animate-fade-in">
+      <!-- Page Header -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <button onclick="closePage()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+            <i data-lucide="arrow-left" class="w-5 h-5 text-gray-600"></i>
+          </button>
+          <h1 class="text-2xl font-bold text-gray-800">${title}</h1>
+        </div>
+      </div>
+
+      <!-- Page Body -->
+      <div class="page-body">
+        ${content}
+      </div>
+    </div>
+  `;
+
+  // Reinitialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 50);
+  }
+}
+
+function closePage() {
+  const mapContainer = document.getElementById('mapContainer');
+  const pageContainer = document.getElementById('pageContainer');
+
+  // Show map, hide page
+  mapContainer.classList.remove('hidden');
+  pageContainer.classList.add('hidden');
+
+  // Re-invalidate map size
+  if (typeof map !== 'undefined') {
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+}
+
+// Close modal on click outside
 window.addEventListener('click', (e) => {
-  if (e.target === document.getElementById('modal')) {
+  const modal = document.getElementById('modal');
+  if (e.target === modal) {
     closeModal();
   }
 });
 
 // Removed View Statistics functionality
+
+// Dashboard (Admin only)
+document.getElementById('dashboardBtn').addEventListener('click', () => {
+  showDashboard();
+});
 
 // User Management (Admin only)
 document.getElementById('userManagementBtn').addEventListener('click', () => {
@@ -279,6 +812,14 @@ document.getElementById('completionHistoryBtn').addEventListener('click', () => 
   showNotificationHistory();
 });
 
+// Fuel Management (Admin only)
+const fuelManagementBtn = document.getElementById('fuelManagementBtn');
+if (fuelManagementBtn) {
+  fuelManagementBtn.addEventListener('click', () => {
+    showFuelManagement();
+  });
+}
+
 // Driver History (Driver only)
 const viewDriverHistoryBtn = document.getElementById('viewDriverHistoryBtn');
 if (viewDriverHistoryBtn) {
@@ -287,45 +828,565 @@ if (viewDriverHistoryBtn) {
   });
 }
 
+// ============================================
+// DASHBOARD
+// ============================================
+async function showDashboard() {
+  setActiveSidebarButton('dashboardBtn');
+  showPageContent();
+
+  const pageContent = document.getElementById('pageContent');
+  const token = localStorage.getItem('token');
+
+  // Show loading state
+  pageContent.innerHTML = `
+    <div class="flex items-center justify-center h-64">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent mx-auto mb-4"></div>
+        <p class="text-gray-500">Loading dashboard...</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    // Fetch all data in parallel
+    const [usersRes, trucksRes, routesRes, trackingRes] = await Promise.all([
+      fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/trucks`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/routes`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/tracking/active`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ json: () => [] }))
+    ]);
+
+    const users = await usersRes.json();
+    const trucks = await trucksRes.json();
+    const routes = await routesRes.json();
+    const activeDrivers = await trackingRes.json().catch(() => []);
+
+    // Calculate statistics
+    const drivers = users.filter(u => u.role === 'driver');
+    const admins = users.filter(u => u.role === 'admin');
+    const activeDriverCount = Array.isArray(activeDrivers) ? activeDrivers.length : 0;
+
+    const availableTrucks = trucks.filter(t => t.status === 'available').length;
+    const inUseTrucks = trucks.filter(t => t.status === 'in-use').length;
+    const maintenanceTrucks = trucks.filter(t => t.status === 'maintenance').length;
+
+    const plannedRoutes = routes.filter(r => r.status === 'planned').length;
+    const activeRoutes = routes.filter(r => r.status === 'in-progress').length;
+    const completedRoutes = routes.filter(r => r.status === 'completed').length;
+    const assignedRoutes = routes.filter(r => r.assignedDriver).length;
+
+    // Get recent completions (last 5)
+    const recentCompletions = routes
+      .filter(r => r.status === 'completed' && r.completedAt)
+      .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+      .slice(0, 5);
+
+    // Get today's date for filtering
+    const today = new Date().toDateString();
+    const todayCompletions = routes.filter(r =>
+      r.status === 'completed' && r.completedAt && new Date(r.completedAt).toDateString() === today
+    ).length;
+
+    // Calculate total distance from completed routes
+    const totalDistance = routes
+      .filter(r => r.distance)
+      .reduce((sum, r) => sum + (r.distance || 0), 0);
+
+    pageContent.innerHTML = `
+      <div class="space-y-6">
+        <!-- Dashboard Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
+            <p class="text-gray-500 mt-1">Welcome back! Here's your waste collection overview.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-500">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <button onclick="showDashboard()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Refresh">
+              <i data-lucide="refresh-cw" class="w-5 h-5 text-gray-500"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Trucks Card -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-500">Total Trucks</p>
+                <p class="text-3xl font-bold text-gray-800 mt-1">${trucks.length}</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="truck" class="w-6 h-6 text-blue-600"></i>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center gap-4 text-sm">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                <span class="text-gray-600">${availableTrucks} available</span>
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+                <span class="text-gray-600">${inUseTrucks} in use</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Drivers Card -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-500">Total Drivers</p>
+                <p class="text-3xl font-bold text-gray-800 mt-1">${drivers.length}</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="users" class="w-6 h-6 text-green-600"></i>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center gap-4 text-sm">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-gray-600">${activeDriverCount} active now</span>
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-purple-500 rounded-full"></span>
+                <span class="text-gray-600">${admins.length} admins</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Routes Card -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-500">Total Routes</p>
+                <p class="text-3xl font-bold text-gray-800 mt-1">${routes.length}</p>
+              </div>
+              <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="route" class="w-6 h-6 text-purple-600"></i>
+              </div>
+            </div>
+            <div class="mt-4 flex items-center gap-4 text-sm">
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                <span class="text-gray-600">${plannedRoutes} planned</span>
+              </span>
+              <span class="flex items-center gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                <span class="text-gray-600">${completedRoutes} done</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Today's Progress Card -->
+          <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-5 shadow-sm text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-primary-100">Today's Completions</p>
+                <p class="text-3xl font-bold mt-1">${todayCompletions}</p>
+              </div>
+              <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <i data-lucide="check-circle" class="w-6 h-6"></i>
+              </div>
+            </div>
+            <div class="mt-4 text-sm text-primary-100">
+              <span>${(totalDistance / 1000).toFixed(1)} km total distance covered</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button onclick="showAddRouteForm()" class="flex flex-col items-center gap-2 p-4 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors group">
+              <div class="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <i data-lucide="plus" class="w-5 h-5 text-white"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Add Route</span>
+            </button>
+            <button onclick="showAddTruckForm()" class="flex flex-col items-center gap-2 p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors group">
+              <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <i data-lucide="truck" class="w-5 h-5 text-white"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Add Truck</span>
+            </button>
+            <button onclick="showAddUserForm()" class="flex flex-col items-center gap-2 p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors group">
+              <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <i data-lucide="user-plus" class="w-5 h-5 text-white"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Add Driver</span>
+            </button>
+            <button onclick="showLiveTruckPanel()" class="flex flex-col items-center gap-2 p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors group">
+              <div class="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <i data-lucide="radio" class="w-5 h-5 text-white"></i>
+              </div>
+              <span class="text-sm font-medium text-gray-700">Live Tracking</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Route Status Overview -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-gray-800">Route Status</h2>
+              <button onclick="showRoutesManagement()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View All</button>
+            </div>
+
+            <!-- Status Bars -->
+            <div class="space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-600">Planned</span>
+                  <span class="text-sm font-bold text-yellow-600">${plannedRoutes}</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-yellow-500 rounded-full transition-all duration-500" style="width: ${routes.length > 0 ? (plannedRoutes / routes.length * 100) : 0}%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-600">In Progress</span>
+                  <span class="text-sm font-bold text-blue-600">${activeRoutes}</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: ${routes.length > 0 ? (activeRoutes / routes.length * 100) : 0}%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-600">Completed</span>
+                  <span class="text-sm font-bold text-green-600">${completedRoutes}</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-green-500 rounded-full transition-all duration-500" style="width: ${routes.length > 0 ? (completedRoutes / routes.length * 100) : 0}%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-600">Assigned</span>
+                  <span class="text-sm font-bold text-purple-600">${assignedRoutes}</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-purple-500 rounded-full transition-all duration-500" style="width: ${routes.length > 0 ? (assignedRoutes / routes.length * 100) : 0}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Completion Rate -->
+            <div class="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-gray-600">Completion Rate</p>
+                  <p class="text-2xl font-bold text-green-600">${routes.length > 0 ? Math.round(completedRoutes / routes.length * 100) : 0}%</p>
+                </div>
+                <div class="w-16 h-16 relative">
+                  <svg class="w-16 h-16 transform -rotate-90">
+                    <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="6" fill="none"></circle>
+                    <circle cx="32" cy="32" r="28" stroke="#22c55e" stroke-width="6" fill="none"
+                      stroke-dasharray="${routes.length > 0 ? (completedRoutes / routes.length * 175.9) : 0} 175.9"
+                      stroke-linecap="round"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Activity -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold text-gray-800">Recent Completions</h2>
+              <button onclick="showNotificationHistory()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View All</button>
+            </div>
+
+            <div class="space-y-3">
+              ${recentCompletions.length > 0 ? recentCompletions.map(route => `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                  <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-gray-800 truncate">${route.name || route.routeId}</p>
+                    <p class="text-xs text-gray-500">
+                      ${route.assignedDriver || 'Unknown driver'} • ${route.completedAt ? new Date(route.completedAt).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                  <button onclick="viewRoute('${route._id || route.routeId}')" class="p-2 hover:bg-white rounded-lg transition-colors">
+                    <i data-lucide="eye" class="w-4 h-4 text-gray-400"></i>
+                  </button>
+                </div>
+              `).join('') : `
+                <div class="text-center py-8 text-gray-400">
+                  <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                  <p class="text-sm">No recent completions</p>
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+
+        <!-- Fleet Overview -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">Fleet Overview</h2>
+            <button onclick="showTruckManagement()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">Manage Fleet</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            ${trucks.slice(0, 8).map(truck => `
+              <div class="p-4 border border-gray-100 rounded-xl hover:border-primary-200 hover:shadow-sm transition-all">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 ${truck.status === 'available' ? 'bg-green-100' : truck.status === 'in-use' ? 'bg-orange-100' : 'bg-gray-100'} rounded-lg flex items-center justify-center">
+                    <i data-lucide="truck" class="w-5 h-5 ${truck.status === 'available' ? 'text-green-600' : truck.status === 'in-use' ? 'text-orange-600' : 'text-gray-600'}"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-gray-800 truncate">${truck.truckId}</p>
+                    <p class="text-xs text-gray-500">${truck.plateNumber || 'No plate'}</p>
+                  </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-xs px-2 py-1 rounded-full font-medium ${
+                    truck.status === 'available' ? 'bg-green-100 text-green-700' :
+                    truck.status === 'in-use' ? 'bg-orange-100 text-orange-700' :
+                    'bg-gray-100 text-gray-700'
+                  }">${truck.status}</span>
+                  ${truck.assignedDriver ? `<span class="text-xs text-gray-500">${truck.assignedDriver}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+            ${trucks.length > 8 ? `
+              <button onclick="showTruckManagement()" class="p-4 border border-dashed border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-all flex flex-col items-center justify-center gap-2">
+                <span class="text-2xl font-bold text-gray-400">+${trucks.length - 8}</span>
+                <span class="text-sm text-gray-500">more trucks</span>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Active Drivers -->
+        ${activeDriverCount > 0 ? `
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">
+              <span class="inline-flex items-center gap-2">
+                Active Drivers
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              </span>
+            </h2>
+            <button onclick="showLiveTruckPanel()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View on Map</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${Array.isArray(activeDrivers) ? activeDrivers.map(driver => `
+              <div class="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-100">
+                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                  ${(driver.username || 'D')[0].toUpperCase()}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-800">${driver.username || 'Unknown'}</p>
+                  <p class="text-xs text-gray-500">
+                    ${driver.speed ? `${driver.speed.toFixed(1)} km/h` : 'Stationary'} • ${driver.routeId || 'No route'}
+                  </p>
+                </div>
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              </div>
+            `).join('') : ''}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    pageContent.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-64 text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <i data-lucide="alert-circle" class="w-8 h-8 text-red-500"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">Failed to load dashboard</h3>
+        <p class="text-gray-500 mb-4">${error.message}</p>
+        <button onclick="showDashboard()" class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
+}
+
+// Helper function to set active sidebar button
+function setActiveSidebarButton(activeId) {
+  const buttons = ['dashboardBtn', 'userManagementBtn', 'truckManagementBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'completionHistoryBtn', 'fuelManagementBtn'];
+  buttons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === activeId) {
+        btn.classList.add('bg-primary-50', 'text-primary-700');
+        btn.classList.remove('text-gray-700');
+      } else {
+        btn.classList.remove('bg-primary-50', 'text-primary-700');
+        btn.classList.add('text-gray-700');
+      }
+    }
+  });
+}
+
+// Helper function to show page content area
+function showPageContent() {
+  const mapContainer = document.getElementById('mapContainer');
+  const pageContainer = document.getElementById('pageContainer');
+  if (mapContainer) mapContainer.classList.add('hidden');
+  if (pageContainer) pageContainer.classList.remove('hidden');
+}
+
+// Helper function to show map
+function showMapView() {
+  const mapContainer = document.getElementById('mapContainer');
+  const pageContainer = document.getElementById('pageContainer');
+  if (mapContainer) mapContainer.classList.remove('hidden');
+  if (pageContainer) pageContainer.classList.add('hidden');
+}
+
 async function showUserManagement() {
+  showPageLoading('Loading users...');
   try {
     const response = await fetch(`${API_URL}/users`);
     const users = await response.json();
-    
-    const usersList = users.map(u => `
-      <tr>
-        <td>${u.username}</td>
-        <td>${u.fullName || '-'}</td>
-        <td>${u.email}</td>
-        <td>${u.phoneNumber || '-'}</td>
-        <td><span class="role-badge ${u.role}">${u.role}</span></td>
-        <td><span class="status-badge ${u.isActive ? 'active' : 'inactive'}">${u.isActive ? 'Active' : 'Inactive'}</span></td>
-        <td>
-          <button onclick="editUser('${u._id || u.username}')" class="btn-small">✏️ Edit</button>
-          ${u.role !== 'admin' ? `<button onclick="deleteUser('${u._id || u.username}')" class="btn-small btn-danger">🗑️ Delete</button>` : '<span style="color: #999; font-size: 0.8rem;">Protected</span>'}
-        </td>
-      </tr>
-    `).join('');
-    
-    showModal('User Management', `
-      <div class="user-management">
-        <button onclick="showAddUserForm()" class="btn" style="margin-bottom: 1rem;">➕ Add New Driver</button>
-        
-        <div style="overflow-x: auto;">
-          <table class="user-table">
-            <thead>
+
+    const admins = users.filter(u => u.role === 'admin');
+    const drivers = users.filter(u => u.role === 'driver');
+    const activeCount = users.filter(u => u.isActive).length;
+
+    const userRows = users.map(u => {
+      const statusColor = u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+      const roleColor = u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+      const initial = (u.fullName || u.username || 'U').charAt(0).toUpperCase();
+
+      return `
+        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold">
+                ${initial}
+              </div>
+              <div>
+                <div class="font-medium text-gray-800">${u.username}</div>
+                <div class="text-sm text-gray-500">${u.email}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-4 text-gray-700">${u.fullName || '-'}</td>
+          <td class="px-4 py-4 text-gray-600">${u.phoneNumber || '-'}</td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${roleColor}">
+              ${u.role === 'admin' ? 'Admin' : 'Driver'}
+            </span>
+          </td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">
+              ${u.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-2">
+              <button onclick="editUser('${u._id || u.username}')" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
+                <i data-lucide="pencil" class="w-4 h-4 text-gray-600"></i>
+              </button>
+              ${u.role !== 'admin' ? `
+                <button onclick="deleteUser('${u._id || u.username}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+                </button>
+              ` : `
+                <span class="p-2 text-gray-400" title="Protected account">
+                  <i data-lucide="shield" class="w-4 h-4"></i>
+                </span>
+              `}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    hidePageLoading();
+    showPage('User Management', `
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Users</p>
+              <p class="text-2xl font-bold text-gray-800">${users.length}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="shield" class="w-6 h-6 text-purple-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Admins</p>
+              <p class="text-2xl font-bold text-gray-800">${admins.length}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="truck" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Drivers</p>
+              <p class="text-2xl font-bold text-gray-800">${drivers.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Table Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Table Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 class="font-semibold text-gray-800">All Users</h2>
+            <p class="text-sm text-gray-500">${activeCount} active users</p>
+          </div>
+          <button onclick="showAddUserForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Driver</span>
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th>Username</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${usersList || '<tr><td colspan="7" style="text-align:center;">No users found</td></tr>'}
+              ${userRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No users found</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -333,37 +1394,57 @@ async function showUserManagement() {
     `);
   } catch (error) {
     console.error('Error loading users:', error);
-    showModal('User Management', '<p style="color: red;">Error loading users</p>');
+    hidePageLoading();
+    showPage('User Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading users: ${error.message}</p>
+        <button onclick="showUserManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
   }
 }
 
 window.showAddUserForm = function() {
   showModal('Add New Driver', `
-    <form id="addUserForm">
-      <div class="form-group">
-        <label>Username *</label>
-        <input type="text" id="newUsername" required>
+    <form id="addUserForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+        <input type="text" id="newUsername" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Full Name *</label>
-        <input type="text" id="newFullName" required>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+        <input type="text" id="newFullName" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Email *</label>
-        <input type="email" id="newEmail" required>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+        <input type="email" id="newEmail" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Password *</label>
-        <input type="password" id="newPassword" required minlength="6">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+        <input type="password" id="newPassword" required minlength="6"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Phone Number *</label>
-        <input type="tel" id="newPhone" placeholder="09XXXXXXXXX" required pattern="[0-9]{11}">
-        <small style="color: #666;">Format: 09XXXXXXXXX (11 digits)</small>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+        <input type="tel" id="newPhone" placeholder="09XXXXXXXXX" required pattern="[0-9]{11}"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+        <p class="mt-1 text-xs text-gray-500">Format: 09XXXXXXXXX (11 digits)</p>
       </div>
       <input type="hidden" id="newRole" value="driver">
-      <button type="submit" class="btn">Create Driver</button>
-      <button type="button" onclick="showUserManagement()" class="btn" style="background: #999;">Cancel</button>
+      <div class="flex gap-3 pt-4">
+        <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+          Create Driver
+        </button>
+        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
     </form>
   `);
   
@@ -387,14 +1468,15 @@ window.showAddUserForm = function() {
       });
       
       if (response.ok) {
-        alert('User created successfully!');
+        closeModal();
+        showToast('User created successfully!', 'success');
         showUserManagement();
       } else {
         const error = await response.json();
-        alert('Error: ' + (error.error || 'Failed to create user'));
+        showToast(error.error || 'Failed to create user', 'error');
       }
     } catch (error) {
-      alert('Error creating user: ' + error.message);
+      showToast('Error creating user: ' + error.message, 'error');
     }
   });
 };
@@ -408,46 +1490,59 @@ window.editUser = async function(userId) {
     const isAdmin = user.role === 'admin';
     
     showModal(isAdmin ? 'Edit Admin Profile' : 'Edit Driver', `
-      <form id="editUserForm">
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" value="${user.username}" disabled>
+      <form id="editUserForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+          <input type="text" value="${user.username}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="editFullName" value="${user.fullName || ''}" required>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+          <input type="text" id="editFullName" value="${user.fullName || ''}" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="editEmail" value="${user.email}" required>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" id="editEmail" value="${user.email}" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
         ${!isAdmin ? `
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="tel" id="editPhone" value="${user.phoneNumber || ''}" pattern="[0-9]{11}">
-          <small style="color: #666;">Format: 09XXXXXXXXX (11 digits)</small>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+          <input type="tel" id="editPhone" value="${user.phoneNumber || ''}" pattern="[0-9]{11}"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          <p class="mt-1 text-xs text-gray-500">Format: 09XXXXXXXXX (11 digits)</p>
         </div>
         ` : ''}
-        <div class="form-group">
-          <label>New Password (leave blank to keep current)</label>
-          <input type="password" id="editPassword" minlength="6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+          <input type="password" id="editPassword" minlength="6"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
         ${isAdmin ? `
         <input type="hidden" id="editRole" value="admin">
-        <p style="color: #666; font-size: 0.9rem; padding: 0.5rem; background: #f5f5f5; border-radius: 5px;">
-          ℹ️ Admin role cannot be changed
-        </p>
+        <div class="p-3 bg-blue-50 border border-blue-100 rounded-xl">
+          <p class="text-sm text-blue-700 flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4"></i>
+            Admin role cannot be changed
+          </p>
+        </div>
         ` : `
         <input type="hidden" id="editRole" value="driver">
-        <div class="form-group">
-          <label>
-            <input type="checkbox" id="editActive" ${user.isActive ? 'checked' : ''}>
-            Active
-          </label>
+        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+          <input type="checkbox" id="editActive" ${user.isActive ? 'checked' : ''}
+            class="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500">
+          <label for="editActive" class="text-sm font-medium text-gray-700 cursor-pointer">Active Account</label>
         </div>
         `}
-        <button type="submit" class="btn">Update ${isAdmin ? 'Profile' : 'Driver'}</button>
-        <button type="button" onclick="showUserManagement()" class="btn" style="background: #999;">Cancel</button>
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Update ${isAdmin ? 'Profile' : 'Driver'}
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </form>
     `);
     
@@ -484,23 +1579,24 @@ window.editUser = async function(userId) {
         });
         
         if (response.ok) {
-          alert('User updated successfully!');
+          closeModal();
+          showToast('User updated successfully!', 'success');
           showUserManagement();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to update user'));
+          showToast(error.error || 'Failed to update user', 'error');
         }
       } catch (error) {
-        alert('Error updating user: ' + error.message);
+        showToast('Error updating user: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading user: ' + error.message);
+    showToast('Error loading user: ' + error.message, 'error');
   }
 };
 
 window.deleteUser = async function(userId) {
-  if (!confirm('Are you sure you want to delete this user?')) {
+  if (!await showConfirm('Delete User', 'Are you sure you want to delete this user?')) {
     return;
   }
   
@@ -510,92 +1606,186 @@ window.deleteUser = async function(userId) {
     });
     
     if (response.ok) {
-      alert('User deleted successfully!');
+      showToast('User deleted successfully!', 'success');
       showUserManagement();
     } else {
       const error = await response.json();
-      alert('Error: ' + (error.error || 'Failed to delete user'));
+      showToast(error.error || 'Failed to delete user', 'error');
     }
   } catch (error) {
-    alert('Error deleting user: ' + error.message);
+    showToast('Error deleting user: ' + error.message, 'error');
   }
 };
 
 // Truck Management Functions
 async function showTruckManagement() {
+  showPageLoading('Loading trucks...');
   try {
-    console.log('Fetching trucks from:', `${API_URL}/trucks`);
-    console.log('Token:', localStorage.getItem('token'));
-    
     const [trucksRes, usersRes] = await Promise.all([
       fetch(`${API_URL}/trucks`),
       fetch(`${API_URL}/users`)
     ]);
-    
-    console.log('Trucks response status:', trucksRes.status);
-    console.log('Users response status:', usersRes.status);
-    
-    if (!trucksRes.ok) {
-      const errorText = await trucksRes.text();
-      console.error('Trucks API error:', errorText);
-      throw new Error(`Failed to load trucks: ${trucksRes.status} - ${errorText}`);
-    }
-    
-    if (!usersRes.ok) {
-      const errorText = await usersRes.text();
-      console.error('Users API error:', errorText);
-      throw new Error(`Failed to load users: ${usersRes.status} - ${errorText}`);
-    }
-    
+
+    if (!trucksRes.ok) throw new Error(`Failed to load trucks: ${trucksRes.status}`);
+    if (!usersRes.ok) throw new Error(`Failed to load users: ${usersRes.status}`);
+
     const trucks = await trucksRes.json();
     const users = await usersRes.json();
-    
-    console.log('Trucks loaded:', trucks);
-    console.log('Users loaded:', users);
     const drivers = users.filter(u => u.role === 'driver');
-    
-    const trucksList = trucks.map(t => {
+
+    // Stats
+    const availableCount = trucks.filter(t => t.status === 'available').length;
+    const inUseCount = trucks.filter(t => t.status === 'in-use').length;
+    const maintenanceCount = trucks.filter(t => t.status === 'maintenance').length;
+    const lowFuelCount = trucks.filter(t => t.fuelLevel < 25).length;
+
+    const truckRows = trucks.map(t => {
       const driver = drivers.find(d => d.username === t.assignedDriver);
+      const statusColors = {
+        'available': 'bg-green-100 text-green-700',
+        'in-use': 'bg-blue-100 text-blue-700',
+        'maintenance': 'bg-yellow-100 text-yellow-700',
+        'out-of-service': 'bg-red-100 text-red-700'
+      };
+      const fuelColor = t.fuelLevel > 50 ? 'bg-green-500' : t.fuelLevel > 25 ? 'bg-yellow-500' : 'bg-red-500';
+
       return `
-        <tr>
-          <td><strong>${t.truckId}</strong></td>
-          <td>${t.plateNumber}</td>
-          <td>${t.model || '-'}</td>
-          <td>${t.capacity} kg</td>
-          <td><span class="truck-status ${t.status}">${t.status}</span></td>
-          <td>${driver ? driver.fullName : '-'}</td>
-          <td>${t.fuelLevel}%</td>
-          <td>${t.mileage.toLocaleString()} km</td>
-          <td>
-            <button onclick="assignDriver('${t._id || t.truckId}')" class="btn-small" style="background: #4caf50;">👤 Assign</button>
-            <button onclick="editTruck('${t._id || t.truckId}')" class="btn-small">✏️ Edit</button>
-            <button onclick="deleteTruck('${t._id || t.truckId}')" class="btn-small btn-danger">🗑️ Delete</button>
+        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
+              </div>
+              <div>
+                <div class="font-semibold text-gray-800">${t.truckId}</div>
+                <div class="text-sm text-gray-500">${t.plateNumber}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-4 text-gray-600">${t.model || '-'}</td>
+          <td class="px-4 py-4 text-gray-600">${t.capacity} kg</td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[t.status] || 'bg-gray-100 text-gray-700'}">
+              ${t.status}
+            </span>
+          </td>
+          <td class="px-4 py-4">
+            ${driver ? `
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
+                  ${(driver.fullName || driver.username).charAt(0).toUpperCase()}
+                </div>
+                <span class="text-gray-700">${driver.fullName || driver.username}</span>
+              </div>
+            ` : '<span class="text-gray-400">Not assigned</span>'}
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-2">
+              <div class="w-20 bg-gray-200 rounded-full h-2">
+                <div class="${fuelColor} h-2 rounded-full" style="width: ${t.fuelLevel}%"></div>
+              </div>
+              <span class="text-sm ${t.fuelLevel < 25 ? 'text-red-600 font-medium' : 'text-gray-600'}">${t.fuelLevel}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-4 text-gray-600">${(t.mileage || 0).toLocaleString()} km</td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-1">
+              <button onclick="assignDriver('${t._id || t.truckId}')" class="p-2 hover:bg-green-100 rounded-lg transition-colors" title="Assign Driver">
+                <i data-lucide="user-plus" class="w-4 h-4 text-green-600"></i>
+              </button>
+              <button onclick="editTruck('${t._id || t.truckId}')" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
+                <i data-lucide="pencil" class="w-4 h-4 text-gray-600"></i>
+              </button>
+              <button onclick="deleteTruck('${t._id || t.truckId}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `;
     }).join('');
-    
-    showModal('Truck Management', `
-      <div class="truck-management">
-        <button onclick="showAddTruckForm()" class="btn" style="margin-bottom: 1rem;">➕ Add New Truck</button>
-        
-        <div style="overflow-x: auto;">
-          <table class="user-table">
-            <thead>
+
+    hidePageLoading();
+    showPage('Truck Management', `
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="truck" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Trucks</p>
+              <p class="text-2xl font-bold text-gray-800">${trucks.length}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Available</p>
+              <p class="text-2xl font-bold text-gray-800">${availableCount}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="wrench" class="w-6 h-6 text-yellow-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Maintenance</p>
+              <p class="text-2xl font-bold text-gray-800">${maintenanceCount}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 ${lowFuelCount > 0 ? 'bg-red-100' : 'bg-gray-100'} rounded-xl flex items-center justify-center">
+              <i data-lucide="fuel" class="w-6 h-6 ${lowFuelCount > 0 ? 'text-red-600' : 'text-gray-600'}"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Low Fuel</p>
+              <p class="text-2xl font-bold ${lowFuelCount > 0 ? 'text-red-600' : 'text-gray-800'}">${lowFuelCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trucks Table Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Table Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 class="font-semibold text-gray-800">All Trucks</h2>
+            <p class="text-sm text-gray-500">${inUseCount} currently in use</p>
+          </div>
+          <button onclick="showAddTruckForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Truck</span>
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th>Truck ID</th>
-                <th>Plate Number</th>
-                <th>Model</th>
-                <th>Capacity</th>
-                <th>Status</th>
-                <th>Assigned Driver</th>
-                <th>Fuel</th>
-                <th>Mileage</th>
-                <th>Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Truck</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Model</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Capacity</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fuel</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mileage</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${trucksList || '<tr><td colspan="9" style="text-align:center;">No trucks found</td></tr>'}
+              ${truckRows || '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">No trucks found</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -603,12 +1793,14 @@ async function showTruckManagement() {
     `);
   } catch (error) {
     console.error('Error loading trucks:', error);
-    showModal('Truck Management', `
-      <div style="padding: 2rem; text-align: center;">
-        <p style="color: red; font-size: 1.2rem; margin-bottom: 1rem;">❌ Error loading trucks</p>
-        <p style="color: #666; margin-bottom: 1rem;">${error.message}</p>
-        <p style="color: #999; font-size: 0.9rem;">Check the browser console (F12) for more details</p>
-        <button onclick="showTruckManagement()" class="btn" style="margin-top: 1rem;">🔄 Try Again</button>
+    hidePageLoading();
+    showPage('Truck Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading trucks: ${error.message}</p>
+        <button onclick="showTruckManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
       </div>
     `);
   }
@@ -616,29 +1808,40 @@ async function showTruckManagement() {
 
 window.showAddTruckForm = function() {
   showModal('Add New Truck', `
-    <form id="addTruckForm">
-      <div class="form-group">
-        <label>Truck ID *</label>
-        <input type="text" id="newTruckId" placeholder="e.g., TRUCK-003" required>
+    <form id="addTruckForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Truck ID *</label>
+        <input type="text" id="newTruckId" placeholder="e.g., TRUCK-003" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Plate Number *</label>
-        <input type="text" id="newPlateNumber" placeholder="e.g., ABC-1234" required style="text-transform: uppercase;">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Plate Number *</label>
+        <input type="text" id="newPlateNumber" placeholder="e.g., ABC-1234" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white uppercase">
       </div>
-      <div class="form-group">
-        <label>Model *</label>
-        <input type="text" id="newModel" placeholder="e.g., Isuzu Elf" required>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Model *</label>
+        <input type="text" id="newModel" placeholder="e.g., Isuzu Elf" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Capacity (kg) *</label>
-        <input type="number" id="newCapacity" value="1000" min="100" required>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (kg) *</label>
+        <input type="number" id="newCapacity" value="1000" min="100" required
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea id="newNotes" rows="3" placeholder="Additional information about the truck"></textarea>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+        <textarea id="newNotes" rows="3" placeholder="Additional information about the truck"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"></textarea>
       </div>
-      <button type="submit" class="btn">Add Truck</button>
-      <button type="button" onclick="showTruckManagement()" class="btn" style="background: #999;">Cancel</button>
+      <div class="flex gap-3 pt-4">
+        <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+          Add Truck
+        </button>
+        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
     </form>
   `);
   
@@ -661,14 +1864,15 @@ window.showAddTruckForm = function() {
       });
       
       if (response.ok) {
-        alert('Truck added successfully!');
+        closeModal();
+        showToast('Truck added successfully!', 'success');
         showTruckManagement();
       } else {
         const error = await response.json();
-        alert('Error: ' + (error.error || 'Failed to add truck'));
+        showToast(error.error || 'Failed to add truck', 'error');
       }
     } catch (error) {
-      alert('Error adding truck: ' + error.message);
+      showToast('Error adding truck: ' + error.message, 'error');
     }
   });
 };
@@ -689,61 +1893,86 @@ window.editTruck = async function(truckId) {
     ).join('');
     
     showModal('Edit Truck', `
-      <form id="editTruckForm">
-        <div class="form-group">
-          <label>Truck ID</label>
-          <input type="text" value="${truck.truckId}" disabled>
+      <form id="editTruckForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Truck ID</label>
+          <input type="text" value="${truck.truckId}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        <div class="form-group">
-          <label>Plate Number *</label>
-          <input type="text" id="editPlateNumber" value="${truck.plateNumber}" required style="text-transform: uppercase;">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Plate Number *</label>
+            <input type="text" id="editPlateNumber" value="${truck.plateNumber}" required
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white uppercase">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+            <input type="text" id="editModel" value="${truck.model || ''}"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Model</label>
-          <input type="text" id="editModel" value="${truck.model || ''}">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (kg)</label>
+            <input type="number" id="editCapacity" value="${truck.capacity}" min="100"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select id="editStatus"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+              <option value="available" ${truck.status === 'available' ? 'selected' : ''}>Available</option>
+              <option value="in-use" ${truck.status === 'in-use' ? 'selected' : ''}>In Use</option>
+              <option value="maintenance" ${truck.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+              <option value="out-of-service" ${truck.status === 'out-of-service' ? 'selected' : ''}>Out of Service</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Capacity (kg)</label>
-          <input type="number" id="editCapacity" value="${truck.capacity}" min="100">
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="editStatus">
-            <option value="available" ${truck.status === 'available' ? 'selected' : ''}>Available</option>
-            <option value="in-use" ${truck.status === 'in-use' ? 'selected' : ''}>In Use</option>
-            <option value="maintenance" ${truck.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
-            <option value="out-of-service" ${truck.status === 'out-of-service' ? 'selected' : ''}>Out of Service</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Assigned Driver</label>
-          <select id="editDriver">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Driver</label>
+          <select id="editDriver"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="">None</option>
             ${driverOptions}
           </select>
         </div>
-        <div class="form-group">
-          <label>Fuel Level (%)</label>
-          <input type="number" id="editFuel" value="${truck.fuelLevel}" min="0" max="100">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fuel Level (%)</label>
+            <input type="number" id="editFuel" value="${truck.fuelLevel}" min="0" max="100"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Mileage (km)</label>
+            <input type="number" id="editMileage" value="${truck.mileage}" min="0"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Mileage (km)</label>
-          <input type="number" id="editMileage" value="${truck.mileage}" min="0">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Last Maintenance</label>
+            <input type="date" id="editLastMaintenance" value="${truck.lastMaintenance || ''}"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Next Maintenance</label>
+            <input type="date" id="editNextMaintenance" value="${truck.nextMaintenance || ''}"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Last Maintenance</label>
-          <input type="date" id="editLastMaintenance" value="${truck.lastMaintenance || ''}">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <textarea id="editNotes" rows="3"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none">${truck.notes || ''}</textarea>
         </div>
-        <div class="form-group">
-          <label>Next Maintenance</label>
-          <input type="date" id="editNextMaintenance" value="${truck.nextMaintenance || ''}">
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Update Truck
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
         </div>
-        <div class="form-group">
-          <label>Notes</label>
-          <textarea id="editNotes" rows="3">${truck.notes || ''}</textarea>
-        </div>
-        <button type="submit" class="btn">Update Truck</button>
-        <button type="button" onclick="showTruckManagement()" class="btn" style="background: #999;">Cancel</button>
       </form>
     `);
     
@@ -771,18 +2000,19 @@ window.editTruck = async function(truckId) {
         });
         
         if (response.ok) {
-          alert('Truck updated successfully!');
+          closeModal();
+          showToast('Truck updated successfully!', 'success');
           showTruckManagement();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to update truck'));
+          showToast(error.error || 'Failed to update truck', 'error');
         }
       } catch (error) {
-        alert('Error updating truck: ' + error.message);
+        showToast('Error updating truck: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading truck: ' + error.message);
+    showToast('Error loading truck: ' + error.message, 'error');
   }
 };
 
@@ -802,27 +2032,36 @@ window.assignDriver = async function(truckId) {
     ).join('');
     
     showModal('Assign Driver', `
-      <form id="assignDriverForm">
-        <div class="form-group">
-          <label>Truck</label>
-          <input type="text" value="${truck.truckId} - ${truck.plateNumber}" disabled>
+      <form id="assignDriverForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Truck</label>
+          <input type="text" value="${truck.truckId} - ${truck.plateNumber}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        <div class="form-group">
-          <label>Select Driver *</label>
-          <select id="assignDriverSelect" required>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Select Driver *</label>
+          <select id="assignDriverSelect" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="">-- Select Driver --</option>
             ${driverOptions}
           </select>
         </div>
-        <div class="form-group">
-          <label>Update Status</label>
-          <select id="assignStatus">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Update Status</label>
+          <select id="assignStatus"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="in-use">In Use</option>
             <option value="available">Available</option>
           </select>
         </div>
-        <button type="submit" class="btn">Assign Driver</button>
-        <button type="button" onclick="showTruckManagement()" class="btn" style="background: #999;">Cancel</button>
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Assign Driver
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </form>
     `);
     
@@ -833,7 +2072,7 @@ window.assignDriver = async function(truckId) {
       const status = document.getElementById('assignStatus').value;
       
       if (!selectedDriver) {
-        alert('Please select a driver');
+        showToast('Please select a driver', 'warning');
         return;
       }
       
@@ -848,23 +2087,24 @@ window.assignDriver = async function(truckId) {
         });
         
         if (response.ok) {
-          alert('Driver assigned successfully!');
+          closeModal();
+          showToast('Driver assigned successfully!', 'success');
           showTruckManagement();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to assign driver'));
+          showToast(error.error || 'Failed to assign driver', 'error');
         }
       } catch (error) {
-        alert('Error assigning driver: ' + error.message);
+        showToast('Error assigning driver: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading data: ' + error.message);
+    showToast('Error loading data: ' + error.message, 'error');
   }
 };
 
 window.deleteTruck = async function(truckId) {
-  if (!confirm('Are you sure you want to delete this truck?')) {
+  if (!await showConfirm('Delete Truck', 'Are you sure you want to delete this truck?')) {
     return;
   }
   
@@ -874,14 +2114,14 @@ window.deleteTruck = async function(truckId) {
     });
     
     if (response.ok) {
-      alert('Truck deleted successfully!');
+      showToast('Truck deleted successfully!', 'success');
       showTruckManagement();
     } else {
       const error = await response.json();
-      alert('Error: ' + (error.error || 'Failed to delete truck'));
+      showToast(error.error || 'Failed to delete truck', 'error');
     }
   } catch (error) {
-    alert('Error deleting truck: ' + error.message);
+    showToast('Error deleting truck: ' + error.message, 'error');
   }
 };
 
@@ -892,63 +2132,181 @@ let tempMarkers = [];
 let isAddingLocation = false;
 
 async function showRoutesManagement() {
+  showPageLoading('Loading routes...');
   try {
     const token = localStorage.getItem('token');
-    const headers = {
-      'Authorization': `Bearer ${token}`
-    };
-    
+    const headers = { 'Authorization': `Bearer ${token}` };
+
     const [routesRes, usersRes] = await Promise.all([
       fetch(`${API_URL}/routes`, { headers }),
       fetch(`${API_URL}/users`, { headers })
     ]);
-    
+
     const routes = await routesRes.json();
     const users = await usersRes.json();
     const drivers = users.filter(u => u.role === 'driver');
-    
-    const routesList = routes.map(r => {
+
+    // Stats
+    const plannedCount = routes.filter(r => r.status === 'planned').length;
+    const activeCount = routes.filter(r => r.status === 'active').length;
+    const completedCount = routes.filter(r => r.status === 'completed').length;
+    const assignedCount = routes.filter(r => r.assignedDriver).length;
+
+    const routeRows = routes.map(r => {
       const driver = drivers.find(d => d.username === r.assignedDriver);
       const isAssigned = !!r.assignedDriver;
-      const assignBtnStyle = isAssigned ? 'background: #999; cursor: not-allowed;' : 'background: #4caf50;';
-      const assignBtnText = isAssigned ? '🔒 Assigned' : '👤 Assign';
-      
+      const locationCount = r.path ? r.path.coordinates.length : 0;
+
+      const statusColors = {
+        'planned': 'bg-blue-100 text-blue-700',
+        'active': 'bg-yellow-100 text-yellow-700',
+        'completed': 'bg-green-100 text-green-700'
+      };
+
       return `
-        <tr style="${isAssigned ? 'background: #f0f8ff;' : ''}">
-          <td><strong>${r.routeId}</strong></td>
-          <td>${r.name || '-'}</td>
-          <td>${r.path ? r.path.coordinates.length : 0} locations</td>
-          <td>${r.distance ? (r.distance / 1000).toFixed(2) + ' km' : '-'}</td>
-          <td>${driver ? `<strong style="color: #4caf50;">✓ ${driver.fullName}</strong>` : '<span style="color: #999;">Not assigned</span>'}</td>
-          <td><span style="padding: 0.25rem 0.5rem; border-radius: 4px; background: ${r.status === 'active' ? '#ff9800' : r.status === 'completed' ? '#4caf50' : '#2196f3'}; color: white; font-size: 0.85rem;">${r.status}</span></td>
-          <td>
-            <button onclick="assignRouteToDriver('${r._id || r.routeId}')" class="btn-small" style="${assignBtnStyle}">${assignBtnText}</button>
-            <button onclick="viewRoute('${r._id || r.routeId}')" class="btn-small">👁️ View</button>
-            <button onclick="deleteRoute('${r._id || r.routeId}')" class="btn-small btn-danger">🗑️ Delete</button>
+        <tr class="border-b border-gray-100 hover:bg-primary-50 transition-colors cursor-pointer group ${isAssigned ? 'bg-blue-50/30' : ''}" onclick="viewRoute('${r._id || r.routeId}')">
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-100 group-hover:bg-primary-200 flex items-center justify-center transition-colors">
+                <i data-lucide="route" class="w-5 h-5 text-indigo-600 group-hover:text-primary-700"></i>
+              </div>
+              <div>
+                <div class="font-semibold text-gray-800 group-hover:text-primary-700">${r.routeId}</div>
+                <div class="text-sm text-gray-500">${r.name || 'Unnamed Route'}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-2">
+              <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
+              <span class="text-gray-600">${locationCount} stops</span>
+            </div>
+          </td>
+          <td class="px-4 py-4 text-gray-600">
+            ${r.distance ? (r.distance / 1000).toFixed(2) + ' km' : '-'}
+          </td>
+          <td class="px-4 py-4">
+            ${driver ? `
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-medium">
+                  ${(driver.fullName || driver.username).charAt(0).toUpperCase()}
+                </div>
+                <span class="text-gray-700">${driver.fullName || driver.username}</span>
+              </div>
+            ` : '<span class="text-gray-400">Not assigned</span>'}
+          </td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[r.status] || 'bg-gray-100 text-gray-700'}">
+              ${r.status}
+            </span>
+          </td>
+          <td class="px-4 py-4" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-1">
+              ${!isAssigned ? `
+                <button onclick="event.stopPropagation(); assignRouteToDriver('${r._id || r.routeId}')" class="p-2 hover:bg-green-100 rounded-lg transition-colors" title="Assign Driver">
+                  <i data-lucide="user-plus" class="w-4 h-4 text-green-600"></i>
+                </button>
+              ` : `
+                <span class="p-2 text-green-600" title="Already assigned">
+                  <i data-lucide="user-check" class="w-4 h-4"></i>
+                </span>
+              `}
+              <button onclick="event.stopPropagation(); viewRoute('${r._id || r.routeId}')" class="p-2 hover:bg-primary-100 rounded-lg transition-colors" title="View on Map">
+                <i data-lucide="map" class="w-4 h-4 text-primary-600"></i>
+              </button>
+              ${locationCount >= 2 ? `
+                <button onclick="event.stopPropagation(); optimizeRouteUI('${r._id || r.routeId}')" class="p-2 hover:bg-indigo-100 rounded-lg transition-colors" title="Optimize Route">
+                  <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600"></i>
+                </button>
+              ` : ''}
+              <button onclick="event.stopPropagation(); deleteRoute('${r._id || r.routeId}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `;
     }).join('');
-    
-    showModal('Routes Management', `
-      <div class="routes-management">
-        <button onclick="showAddRouteForm()" class="btn" style="margin-bottom: 1rem;">➕ Add New Route</button>
-        
-        <div style="overflow-x: auto;">
-          <table class="user-table">
-            <thead>
+
+    hidePageLoading();
+    showPage('Routes Management', `
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="route" class="w-6 h-6 text-indigo-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Routes</p>
+              <p class="text-2xl font-bold text-gray-800">${routes.length}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="calendar" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Planned</p>
+              <p class="text-2xl font-bold text-gray-800">${plannedCount}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="play" class="w-6 h-6 text-yellow-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Active</p>
+              <p class="text-2xl font-bold text-gray-800">${activeCount}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Completed</p>
+              <p class="text-2xl font-bold text-gray-800">${completedCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Routes Table Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Table Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 class="font-semibold text-gray-800">All Routes</h2>
+            <p class="text-sm text-gray-500">${assignedCount} routes assigned to drivers <span class="text-primary-500 ml-2">• Click a row to view on map</span></p>
+          </div>
+          <button onclick="showAddRouteForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Add Route</span>
+          </button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th>Route ID</th>
-                <th>Name</th>
-                <th>Locations</th>
-                <th>Distance</th>
-                <th>Assigned Driver</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Route</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Locations</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Distance</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${routesList || '<tr><td colspan="6" style="text-align:center;">No routes found</td></tr>'}
+              ${routeRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No routes found</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -956,48 +2314,138 @@ async function showRoutesManagement() {
     `);
   } catch (error) {
     console.error('Error loading routes:', error);
-    showModal('Routes Management', '<p style="color: red;">Error loading routes</p>');
+    hidePageLoading();
+    showPage('Routes Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading routes: ${error.message}</p>
+        <button onclick="showRoutesManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
   }
 }
 
 window.showAddRouteForm = function() {
   routeLocations = [];
   clearTempMarkers();
-  
+
   showModal('Add New Route', `
-    <form id="addRouteForm">
-      <div class="form-group">
-        <label>Route Name *</label>
-        <input type="text" id="newRouteName" placeholder="e.g., Downtown Collection Route" required>
+    <form id="addRouteForm" class="space-y-6">
+      <!-- Route Name Input -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          <span class="flex items-center gap-2">
+            <i data-lucide="route" class="w-4 h-4 text-primary-500"></i>
+            Route Name <span class="text-red-500">*</span>
+          </span>
+        </label>
+        <input
+          type="text"
+          id="newRouteName"
+          placeholder="e.g., Downtown Collection Route"
+          required
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-gray-700 placeholder-gray-400"
+        >
       </div>
-      <div class="form-group">
-        <label>Locations</label>
-        <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <div id="locationsList" style="max-height: 150px; overflow-y: auto;">
-            <p style="color: #999; font-style: italic;">No locations added yet</p>
+
+      <!-- Locations Section -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          <span class="flex items-center gap-2">
+            <i data-lucide="map-pin" class="w-4 h-4 text-primary-500"></i>
+            Collection Points
+          </span>
+        </label>
+
+        <!-- Locations List Container -->
+        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 overflow-hidden">
+          <div id="locationsList" class="max-h-48 overflow-y-auto p-4 custom-scrollbar">
+            <div class="flex flex-col items-center justify-center py-6 text-gray-400">
+              <i data-lucide="map-pin-off" class="w-10 h-10 mb-2 opacity-50"></i>
+              <p class="text-sm">No locations added yet</p>
+              <p class="text-xs mt-1">Click the button below to add collection points</p>
+            </div>
+          </div>
+
+          <!-- Location Counter -->
+          <div id="locationCounter" class="hidden px-4 py-2 bg-primary-50 border-t border-primary-100">
+            <span class="text-sm font-medium text-primary-700">
+              <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>
+              <span id="locationCountText">0 locations added</span>
+            </span>
           </div>
         </div>
-        <button type="button" onclick="openMapPicker()" class="btn" style="background: #4caf50;">
-          🗺️ Add Location (Open Map)
+
+        <!-- Location Action Buttons -->
+        <div class="flex gap-3 mt-3">
+          <button
+            type="button"
+            onclick="openMapPicker()"
+            class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <i data-lucide="map" class="w-5 h-5"></i>
+            <span>Open Map to Add Points</span>
+          </button>
+          <button
+            type="button"
+            onclick="clearLocations()"
+            class="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl transition-all duration-200 border border-red-200"
+          >
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+            <span class="hidden sm:inline">Clear</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          <span class="flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4 text-primary-500"></i>
+            Notes <span class="text-gray-400 font-normal">(Optional)</span>
+          </span>
+        </label>
+        <textarea
+          id="newRouteNotes"
+          rows="3"
+          placeholder="Additional information about the route..."
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-gray-700 placeholder-gray-400 resize-none"
+        ></textarea>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex gap-3 pt-4 border-t border-gray-100">
+        <button
+          type="button"
+          onclick="cancelAddRoute()"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-all duration-200"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+          <span>Cancel</span>
         </button>
-        <button type="button" onclick="clearLocations()" class="btn" style="background: #f44336; margin-top: 0.5rem;">
-          Clear All Locations
+        <button
+          type="submit"
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+        >
+          <i data-lucide="save" class="w-5 h-5"></i>
+          <span>Save Route</span>
         </button>
       </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea id="newRouteNotes" rows="3" placeholder="Additional information about the route"></textarea>
-      </div>
-      <button type="submit" class="btn">Save Route</button>
-      <button type="button" onclick="cancelAddRoute()" class="btn" style="background: #999;">Cancel</button>
     </form>
   `);
+
+  // Re-initialize Lucide icons for the modal
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
   
   document.getElementById('addRouteForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     if (routeLocations.length < 2) {
-      alert('Please add at least 2 locations for the route');
+      showToast('Please add at least 2 locations for the route', 'warning');
       return;
     }
     
@@ -1023,15 +2471,16 @@ window.showAddRouteForm = function() {
       });
       
       if (response.ok) {
-        alert('Route added successfully!');
+        closeModal();
+        showToast('Route added successfully!', 'success');
         clearTempMarkers();
         showRoutesManagement();
       } else {
         const error = await response.json();
-        alert('Error: ' + (error.error || 'Failed to add route'));
+        showToast(error.error || 'Failed to add route', 'error');
       }
     } catch (error) {
-      alert('Error adding route: ' + error.message);
+      showToast('Error adding route: ' + error.message, 'error');
     }
   });
 };
@@ -1040,47 +2489,90 @@ window.openMapPicker = function() {
   // Create map picker modal
   const mapModal = document.createElement('div');
   mapModal.id = 'mapPickerModal';
-  mapModal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;';
-  
+  mapModal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-fade-in';
+
   mapModal.innerHTML = `
-    <div style="background: white; border-radius: 15px; width: 95%; max-width: 1400px; height: 90%; display: flex; overflow: hidden;">
+    <div class="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col lg:flex-row overflow-hidden shadow-2xl">
       <!-- Left Panel: Map -->
-      <div style="flex: 1; display: flex; flex-direction: column;">
-        <div style="padding: 1.5rem; border-bottom: 2px solid #e0e0e0;">
-          <h2 style="margin: 0; color: #333;">📍 Click on Map to Add Location</h2>
-          <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">💡 Click anywhere on the map to add a location</p>
+      <div class="flex-1 flex flex-col min-h-0">
+        <!-- Map Header -->
+        <div class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-primary-50 to-white">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center shadow-sm">
+              <i data-lucide="map-pin" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-gray-800">Select Collection Points</h2>
+              <p class="text-sm text-gray-500">Click anywhere on the map to add a location</p>
+            </div>
+          </div>
         </div>
-        <div id="mapPickerContainer" style="flex: 1; position: relative;"></div>
+        <!-- Map Container -->
+        <div id="mapPickerContainer" class="flex-1 relative"></div>
       </div>
-      
+
       <!-- Right Panel: Locations List -->
-      <div style="width: 350px; border-left: 2px solid #e0e0e0; display: flex; flex-direction: column; background: #f9f9f9;">
-        <div style="padding: 1rem; border-bottom: 2px solid #e0e0e0; background: #4caf50; color: white;">
-          <h3 style="margin: 0; font-size: 1.1rem;">📋 Added Locations</h3>
-          <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem;" id="locationCount">0 locations</p>
+      <div class="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col bg-gray-50 max-h-[40vh] lg:max-h-none">
+        <!-- Panel Header -->
+        <div class="px-4 py-4 bg-gradient-to-r from-primary-600 to-primary-500 text-white">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="list" class="w-5 h-5"></i>
+              <h3 class="font-semibold">Added Locations</h3>
+            </div>
+            <span id="locationCount" class="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">0 points</span>
+          </div>
         </div>
-        
-        <div id="pickerLocationsList" style="flex: 1; overflow-y: auto; padding: 1rem;">
-          <p style="color: #999; text-align: center; font-style: italic;">No locations added yet</p>
+
+        <!-- Locations List -->
+        <div id="pickerLocationsList" class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          <div class="flex flex-col items-center justify-center py-8 text-gray-400">
+            <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+              <i data-lucide="map-pin-off" class="w-8 h-8 opacity-50"></i>
+            </div>
+            <p class="text-sm font-medium">No locations yet</p>
+            <p class="text-xs mt-1">Click on the map to add points</p>
+          </div>
         </div>
-        
-        <div style="padding: 1rem; border-top: 2px solid #e0e0e0; background: white;">
-          <button onclick="saveAndCloseMapPicker()" class="btn" style="width: 100%; background: #4caf50; margin-bottom: 0.5rem;">
-            ✓ Save Locations
+
+        <!-- Action Buttons -->
+        <div class="p-4 border-t border-gray-200 bg-white space-y-2">
+          <button
+            onclick="saveAndCloseMapPicker()"
+            class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <i data-lucide="check" class="w-5 h-5"></i>
+            <span>Save Locations</span>
           </button>
-          <button onclick="clearPickerLocations()" class="btn" style="width: 100%; background: #f44336;">
-            🗑️ Clear All
-          </button>
-          <button onclick="closeMapPicker()" class="btn" style="width: 100%; background: #999; margin-top: 0.5rem;">
-            ✕ Cancel
-          </button>
+          <div class="flex gap-2">
+            <button
+              onclick="clearPickerLocations()"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl transition-all duration-200 border border-red-200"
+            >
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              <span>Clear All</span>
+            </button>
+            <button
+              onclick="closeMapPicker()"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-all duration-200"
+            >
+              <i data-lucide="x" class="w-4 h-4"></i>
+              <span>Cancel</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   `;
-  
+
+  // Add modal to DOM
   document.body.appendChild(mapModal);
-  
+
+  // Re-initialize Lucide icons after adding to DOM
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
   // Create a new map instance for the picker
   setTimeout(() => {
     const pickerMap = L.map('mapPickerContainer').setView(MATI_CENTER, 13);
@@ -1097,168 +2589,357 @@ window.openMapPicker = function() {
       dashArray: '5, 5'
     }).addTo(pickerMap);
     
-    // Add existing locations
-    routeLocations.forEach((loc, index) => {
-      const marker = L.circleMarker([loc[1], loc[0]], {
-        radius: 8,
-        fillColor: '#667eea',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(pickerMap);
-      marker.bindPopup(`Location ${index + 1}`);
-      
-      if (index > 0) {
-        const prevLoc = routeLocations[index - 1];
-        L.polyline([[prevLoc[1], prevLoc[0]], [loc[1], loc[0]]], {
-          color: '#667eea',
-          weight: 3
-        }).addTo(pickerMap);
+    // Store markers and paths for the picker
+    window.pickerMarkers = [];
+    window.pickerPaths = [];
+
+    // Add existing locations with road paths
+    const loadExistingLocations = async () => {
+      for (let i = 0; i < routeLocations.length; i++) {
+        const loc = routeLocations[i];
+        const isFirst = i === 0;
+
+        // Create custom marker
+        const markerHtml = `
+          <div class="flex items-center justify-center w-8 h-8 rounded-full shadow-lg ${isFirst ? 'bg-green-500' : 'bg-primary-500'} text-white font-bold text-sm border-2 border-white">
+            ${isFirst ? '<i data-lucide="play" class="w-4 h-4"></i>' : i + 1}
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: markerHtml,
+          className: 'custom-route-marker',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker([loc[1], loc[0]], { icon: customIcon }).addTo(pickerMap);
+        marker.bindPopup(`<div class="p-2"><p class="font-bold">${isFirst ? 'Start Point' : `Point ${i + 1}`}</p></div>`);
+        window.pickerMarkers.push(marker);
+
+        // Draw road path from previous point
+        if (i > 0) {
+          const prevLoc = routeLocations[i - 1];
+          await drawRoadPath(pickerMap, prevLoc, loc);
+        }
       }
-    });
-    
+
+      // Re-initialize Lucide icons
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    };
+
+    if (routeLocations.length > 0) {
+      loadExistingLocations();
+    }
+
     // Handle map clicks
-    pickerMap.on('click', (e) => {
+    pickerMap.on('click', async (e) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
-      
+
       // Validate bounds
       if (lat < 6.85 || lat > 7.05 || lng < 126.10 || lng > 126.35) {
-        alert('Please click within Mati City boundaries!');
+        showToast('Please click within Mati City boundaries!', 'warning');
         return;
       }
-      
+
+      const pointIndex = routeLocations.length;
       routeLocations.push([lng, lat]);
-      
-      // Add marker
-      const marker = L.circleMarker([lat, lng], {
-        radius: 8,
-        fillColor: '#4caf50',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(pickerMap);
-      marker.bindPopup(`Location ${routeLocations.length}`).openPopup();
-      
-      // Draw line
+
+      // Create custom marker
+      const isFirst = pointIndex === 0;
+      const markerHtml = `
+        <div class="flex items-center justify-center w-8 h-8 rounded-full shadow-lg ${isFirst ? 'bg-green-500' : 'bg-primary-500'} text-white font-bold text-sm border-2 border-white">
+          ${isFirst ? '<i data-lucide="play" class="w-4 h-4"></i>' : pointIndex + 1}
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'custom-route-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(pickerMap);
+      marker.bindPopup(`
+        <div class="p-2">
+          <p class="font-bold">${isFirst ? 'Start Point' : `Point ${pointIndex + 1}`}</p>
+          <p class="text-xs text-gray-500 mt-1">Lat: ${lat.toFixed(6)}</p>
+          <p class="text-xs text-gray-500">Lng: ${lng.toFixed(6)}</p>
+        </div>
+      `).openPopup();
+      window.pickerMarkers.push(marker);
+
+      // Draw road path from previous point
       if (routeLocations.length > 1) {
         const prevLoc = routeLocations[routeLocations.length - 2];
-        L.polyline([[prevLoc[1], prevLoc[0]], [lat, lng]], {
-          color: '#4caf50',
-          weight: 3
-        }).addTo(pickerMap);
+        await drawRoadPath(pickerMap, prevLoc, [lng, lat]);
       }
-      
+
+      // Re-initialize Lucide icons
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+
       updatePickerLocationsList();
     });
-    
+
     // Initial update of locations list
     updatePickerLocationsList();
-    
+
     // Store map instance for cleanup
     window.pickerMapInstance = pickerMap;
   }, 100);
 };
 
+// Draw road path between two points using Leaflet Routing Machine
+async function drawRoadPath(mapInstance, fromCoord, toCoord) {
+  return new Promise((resolve) => {
+    try {
+      // Use Leaflet Routing Machine for road path
+      const routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(fromCoord[1], fromCoord[0]),
+          L.latLng(toCoord[1], toCoord[0])
+        ],
+        router: L.Routing.osrmv1({
+          serviceUrl: 'https://router.project-osrm.org/route/v1',
+          timeout: 10000
+        }),
+        lineOptions: {
+          styles: [
+            { color: '#1e3a1e', weight: 7, opacity: 0.3 },
+            { color: '#22c55e', weight: 4, opacity: 0.9 }
+          ],
+          extendToWaypoints: false,
+          missingRouteTolerance: 0
+        },
+        show: false,
+        addWaypoints: false,
+        routeWhileDragging: false,
+        fitSelectedRoutes: false,
+        showAlternatives: false,
+        createMarker: () => null // Don't create default markers
+      }).addTo(mapInstance);
+
+      // Store the routing control to remove later
+      window.pickerPaths.push(routingControl);
+
+      // Hide the routing instructions panel
+      routingControl.on('routesfound', (e) => {
+        // Hide the itinerary container
+        const container = routingControl.getContainer();
+        if (container) {
+          container.style.display = 'none';
+        }
+        resolve(true);
+      });
+
+      routingControl.on('routingerror', (e) => {
+        console.warn('Routing error:', e.error);
+        mapInstance.removeControl(routingControl);
+        // Remove from pickerPaths
+        const idx = window.pickerPaths.indexOf(routingControl);
+        if (idx > -1) window.pickerPaths.splice(idx, 1);
+        // Fallback to straight line
+        drawStraightLine(mapInstance, fromCoord, toCoord);
+        resolve(false);
+      });
+
+      // Timeout fallback
+      setTimeout(() => {
+        resolve(true);
+      }, 5000);
+
+    } catch (error) {
+      console.warn('Routing setup failed:', error);
+      drawStraightLine(mapInstance, fromCoord, toCoord);
+      resolve(false);
+    }
+  });
+}
+
+// Fallback straight line
+function drawStraightLine(mapInstance, fromCoord, toCoord) {
+  // Draw shadow
+  const shadow = L.polyline([[fromCoord[1], fromCoord[0]], [toCoord[1], toCoord[0]]], {
+    color: '#1e3a1e',
+    weight: 6,
+    opacity: 0.3
+  }).addTo(mapInstance);
+  window.pickerPaths.push(shadow);
+
+  // Draw main line (dashed to indicate it's not a real road path)
+  const line = L.polyline([[fromCoord[1], fromCoord[0]], [toCoord[1], toCoord[0]]], {
+    color: '#22c55e',
+    weight: 3,
+    dashArray: '10, 6',
+    opacity: 0.9
+  }).addTo(mapInstance);
+  window.pickerPaths.push(line);
+}
+
 // Update locations list in picker modal
 function updatePickerLocationsList() {
   const listContainer = document.getElementById('pickerLocationsList');
   const countElement = document.getElementById('locationCount');
-  
+
   if (!listContainer) return;
-  
+
   if (routeLocations.length === 0) {
-    listContainer.innerHTML = '<p style="color: #999; text-align: center; font-style: italic;">No locations added yet</p>';
-    if (countElement) countElement.textContent = '0 locations';
+    listContainer.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-8 text-gray-400">
+        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+          <i data-lucide="map-pin-off" class="w-8 h-8 opacity-50"></i>
+        </div>
+        <p class="text-sm font-medium">No locations yet</p>
+        <p class="text-xs mt-1">Click on the map to add points</p>
+      </div>
+    `;
+    if (countElement) countElement.textContent = '0 points';
   } else {
-    if (countElement) countElement.textContent = `${routeLocations.length} location${routeLocations.length > 1 ? 's' : ''}`;
-    
+    if (countElement) countElement.textContent = `${routeLocations.length} point${routeLocations.length > 1 ? 's' : ''}`;
+
     listContainer.innerHTML = routeLocations.map((loc, index) => `
-      <div style="background: white; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 8px; border-left: 4px solid #4caf50;">
-        <div style="display: flex; justify-content: space-between; align-items: start;">
-          <div style="flex: 1;">
-            <div style="font-weight: 600; color: #4caf50; margin-bottom: 0.25rem;">📍 Location ${index + 1}</div>
-            <div style="font-size: 0.85rem; color: #666;">
-              Lat: ${loc[1].toFixed(6)}<br>
-              Lng: ${loc[0].toFixed(6)}
+      <div class="bg-white rounded-xl p-3 mb-2 border-l-4 border-primary-500 shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="w-6 h-6 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-xs font-bold">${index + 1}</span>
+              <span class="font-semibold text-gray-800 text-sm">Point ${index + 1}</span>
+            </div>
+            <div class="text-xs text-gray-500 font-mono pl-8">
+              <div>Lat: ${loc[1].toFixed(6)}</div>
+              <div>Lng: ${loc[0].toFixed(6)}</div>
             </div>
           </div>
-          <button onclick="removePickerLocation(${index})" style="background: #f44336; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">✕</button>
+          <button
+            onclick="removePickerLocation(${index})"
+            class="flex-shrink-0 w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-lg flex items-center justify-center transition-colors duration-200"
+            title="Remove location"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
         </div>
       </div>
     `).join('');
   }
+
+  // Re-initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
 // Remove location from picker
-window.removePickerLocation = function(index) {
+window.removePickerLocation = async function(index) {
   routeLocations.splice(index, 1);
-  
-  // Refresh the map
-  if (window.pickerMapInstance) {
-    window.pickerMapInstance.eachLayer(layer => {
-      if (layer instanceof L.CircleMarker || layer instanceof L.Polyline) {
-        window.pickerMapInstance.removeLayer(layer);
-      }
-    });
-    
-    // Redraw all locations
-    routeLocations.forEach((loc, i) => {
-      const marker = L.circleMarker([loc[1], loc[0]], {
-        radius: 8,
-        fillColor: '#4caf50',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(window.pickerMapInstance);
-      marker.bindPopup(`Location ${i + 1}`);
-      
+
+  // Clear existing markers and paths
+  clearPickerMarkersAndPaths();
+
+  // Redraw all locations with road paths
+  if (window.pickerMapInstance && routeLocations.length > 0) {
+    for (let i = 0; i < routeLocations.length; i++) {
+      const loc = routeLocations[i];
+      const isFirst = i === 0;
+
+      // Create custom marker
+      const markerHtml = `
+        <div class="flex items-center justify-center w-8 h-8 rounded-full shadow-lg ${isFirst ? 'bg-green-500' : 'bg-primary-500'} text-white font-bold text-sm border-2 border-white">
+          ${isFirst ? '<i data-lucide="play" class="w-4 h-4"></i>' : i + 1}
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'custom-route-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([loc[1], loc[0]], { icon: customIcon }).addTo(window.pickerMapInstance);
+      marker.bindPopup(`<div class="p-2"><p class="font-bold">${isFirst ? 'Start Point' : `Point ${i + 1}`}</p></div>`);
+      window.pickerMarkers.push(marker);
+
+      // Draw road path from previous point
       if (i > 0) {
         const prevLoc = routeLocations[i - 1];
-        L.polyline([[prevLoc[1], prevLoc[0]], [loc[1], loc[0]]], {
-          color: '#4caf50',
-          weight: 3
-        }).addTo(window.pickerMapInstance);
+        await drawRoadPath(window.pickerMapInstance, prevLoc, loc);
       }
-    });
+    }
+
+    // Re-initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
   }
-  
+
   updatePickerLocationsList();
 };
 
-// Clear all locations in picker
-window.clearPickerLocations = function() {
-  if (routeLocations.length === 0) return;
-  
-  if (!confirm('Clear all locations?')) return;
-  
-  routeLocations = [];
-  
-  // Clear map markers
-  if (window.pickerMapInstance) {
-    window.pickerMapInstance.eachLayer(layer => {
-      if (layer instanceof L.CircleMarker || layer instanceof L.Polyline) {
-        window.pickerMapInstance.removeLayer(layer);
+// Helper function to clear all picker markers and paths
+function clearPickerMarkersAndPaths() {
+  if (window.pickerMarkers) {
+    window.pickerMarkers.forEach(m => {
+      if (window.pickerMapInstance) {
+        try {
+          window.pickerMapInstance.removeLayer(m);
+        } catch (e) {}
       }
     });
+    window.pickerMarkers = [];
   }
-  
+  if (window.pickerPaths) {
+    window.pickerPaths.forEach(p => {
+      if (window.pickerMapInstance) {
+        try {
+          // Check if it's a routing control or a regular layer
+          if (p.remove) {
+            p.remove();
+          } else if (p._map) {
+            window.pickerMapInstance.removeLayer(p);
+          } else {
+            window.pickerMapInstance.removeControl(p);
+          }
+        } catch (e) {
+          try {
+            window.pickerMapInstance.removeLayer(p);
+          } catch (e2) {}
+        }
+      }
+    });
+    window.pickerPaths = [];
+  }
+}
+
+// Clear all locations in picker
+window.clearPickerLocations = async function() {
+  if (routeLocations.length === 0) return;
+
+  if (!await showConfirm('Clear Locations', 'Clear all locations?')) return;
+
+  routeLocations = [];
+
+  // Clear markers and paths
+  clearPickerMarkersAndPaths();
+
   updatePickerLocationsList();
 };
 
 // Save and close map picker
 window.saveAndCloseMapPicker = function() {
   if (routeLocations.length < 2) {
-    alert('Please add at least 2 locations for the route');
+    showToast('Please add at least 2 locations for the route', 'warning');
     return;
   }
   
   closeMapPicker();
   updateLocationsList();
-  alert(`✓ ${routeLocations.length} locations saved!`);
+  showToast(`${routeLocations.length} locations saved!`, 'success');
 };
 
 window.closeMapPicker = function() {
@@ -1276,17 +2957,54 @@ window.closeMapPicker = function() {
 
 function updateLocationsList() {
   const container = document.getElementById('locationsList');
+  const counterContainer = document.getElementById('locationCounter');
+  const counterText = document.getElementById('locationCountText');
+
   if (!container) return;
-  
+
   if (routeLocations.length === 0) {
-    container.innerHTML = '<p style="color: #999; font-style: italic;">No locations added yet</p>';
-  } else {
-    container.innerHTML = routeLocations.map((loc, index) => `
-      <div style="padding: 0.5rem; background: white; margin-bottom: 0.25rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
-        <span><strong>Location ${index + 1}:</strong> ${loc[1].toFixed(6)}, ${loc[0].toFixed(6)}</span>
-        <button onclick="removeLocation(${index})" style="background: #f44336; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">✕</button>
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-6 text-gray-400">
+        <i data-lucide="map-pin-off" class="w-10 h-10 mb-2 opacity-50"></i>
+        <p class="text-sm">No locations added yet</p>
+        <p class="text-xs mt-1">Click the button below to add collection points</p>
       </div>
-    `).join('');
+    `;
+    if (counterContainer) counterContainer.classList.add('hidden');
+  } else {
+    container.innerHTML = `
+      <div class="space-y-2">
+        ${routeLocations.map((loc, index) => `
+          <div class="bg-white rounded-lg p-3 border border-gray-200 hover:border-primary-300 transition-colors duration-200">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <span class="flex-shrink-0 w-7 h-7 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-xs font-bold">${index + 1}</span>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate">Point ${index + 1}</p>
+                  <p class="text-xs text-gray-500 font-mono">${loc[1].toFixed(5)}, ${loc[0].toFixed(5)}</p>
+                </div>
+              </div>
+              <button
+                onclick="removeLocation(${index})"
+                class="flex-shrink-0 w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 rounded-lg flex items-center justify-center transition-colors duration-200"
+                title="Remove location"
+              >
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    if (counterContainer) {
+      counterContainer.classList.remove('hidden');
+      if (counterText) counterText.textContent = `${routeLocations.length} location${routeLocations.length > 1 ? 's' : ''} added`;
+    }
+  }
+
+  // Re-initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
   }
 }
 
@@ -1321,8 +3039,8 @@ window.removeLocation = function(index) {
   updateLocationsList();
 };
 
-window.clearLocations = function() {
-  if (routeLocations.length > 0 && !confirm('Clear all locations?')) {
+window.clearLocations = async function() {
+  if (routeLocations.length > 0 && !await showConfirm('Clear Locations', 'Clear all locations?')) {
     return;
   }
   routeLocations = [];
@@ -1331,7 +3049,22 @@ window.clearLocations = function() {
 };
 
 function clearTempMarkers() {
-  tempMarkers.forEach(marker => map.removeLayer(marker));
+  tempMarkers.forEach(item => {
+    try {
+      // Check if it's a routing control
+      if (item.getPlan) {
+        map.removeControl(item);
+      } else if (item.remove) {
+        item.remove();
+      } else {
+        map.removeLayer(item);
+      }
+    } catch (e) {
+      try {
+        map.removeLayer(item);
+      } catch (e2) {}
+    }
+  });
   tempMarkers = [];
 }
 
@@ -1351,34 +3084,496 @@ window.viewRoute = async function(routeId) {
       }
     });
     const route = await response.json();
-    
-    showModal('View Route', `
-      <div>
-        <p><strong>Route ID:</strong> ${route.routeId}</p>
-        <p><strong>Name:</strong> ${route.name || '-'}</p>
-        <p><strong>Status:</strong> ${route.status}</p>
-        <p><strong>Locations:</strong> ${route.path ? route.path.coordinates.length : 0}</p>
-        <p><strong>Distance:</strong> ${route.distance ? (route.distance / 1000).toFixed(2) + ' km' : '-'}</p>
-        <p><strong>Notes:</strong> ${route.notes || '-'}</p>
-        <button onclick="showRoutesManagement()" class="btn">Back</button>
-      </div>
-    `);
-    
-    // Display route on map
-    if (route.path && route.path.coordinates) {
+
+    // Close any existing panels and modals
+    closeModal();
+    closeLiveTrackingPanel();
+
+    // Switch to map view
+    showMapView();
+
+    // Update sidebar to show Routes is active
+    setActiveSidebarButton('routesManagementBtn');
+
+    // Display route on map with Leaflet Routing Machine
+    if (route.path && route.path.coordinates && route.path.coordinates.length >= 2) {
       clearTempMarkers();
-      const coords = route.path.coordinates.map(c => [c[1], c[0]]);
-      const line = L.polyline(coords, { color: '#667eea', weight: 4 }).addTo(map);
-      tempMarkers.push(line);
-      map.fitBounds(line.getBounds());
+
+      const coords = route.path.coordinates; // [lng, lat] format
+
+      // Show loading toast
+      showToast('Loading route path...', 'info');
+
+      // Convert coordinates to Leaflet LatLng waypoints
+      const waypoints = coords.map(c => L.latLng(c[1], c[0]));
+
+      // Add markers for each collection point first
+      coords.forEach((coord, index) => {
+        const isStart = index === 0;
+        const isEnd = index === coords.length - 1;
+
+        // Create custom icon
+        const markerHtml = `
+          <div class="flex items-center justify-center w-8 h-8 rounded-full shadow-lg ${isStart ? 'bg-green-500' : isEnd ? 'bg-red-500' : 'bg-primary-500'} text-white font-bold text-sm border-2 border-white">
+            ${isStart ? '<i data-lucide="play" class="w-4 h-4"></i>' : isEnd ? '<i data-lucide="flag" class="w-4 h-4"></i>' : index}
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: markerHtml,
+          className: 'custom-route-marker',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker([coord[1], coord[0]], { icon: customIcon }).addTo(map);
+        marker.bindPopup(`
+          <div class="p-2">
+            <p class="font-bold text-gray-800">${isStart ? 'Start Point' : isEnd ? 'End Point' : `Point ${index}`}</p>
+            <p class="text-xs text-gray-500 mt-1">Lat: ${coord[1].toFixed(6)}</p>
+            <p class="text-xs text-gray-500">Lng: ${coord[0].toFixed(6)}</p>
+          </div>
+        `);
+        tempMarkers.push(marker);
+      });
+
+      // Use Leaflet Routing Machine for road path
+      const routingControl = L.Routing.control({
+        waypoints: waypoints,
+        router: L.Routing.osrmv1({
+          serviceUrl: 'https://router.project-osrm.org/route/v1',
+          timeout: 15000
+        }),
+        lineOptions: {
+          styles: [
+            { color: '#1e1b4b', weight: 8, opacity: 0.3 },
+            { color: '#4f46e5', weight: 5, opacity: 0.9 }
+          ],
+          extendToWaypoints: false,
+          missingRouteTolerance: 0
+        },
+        show: false,
+        addWaypoints: false,
+        routeWhileDragging: false,
+        fitSelectedRoutes: true,
+        showAlternatives: false,
+        createMarker: () => null
+      }).addTo(map);
+
+      tempMarkers.push(routingControl);
+
+      // Handle route found
+      routingControl.on('routesfound', (e) => {
+        const routes = e.routes;
+        if (routes && routes.length > 0) {
+          const summary = routes[0].summary;
+          const distanceKm = (summary.totalDistance / 1000).toFixed(2);
+          const durationMin = Math.round(summary.totalTime / 60);
+
+          // Hide the routing container
+          const container = routingControl.getContainer();
+          if (container) container.style.display = 'none';
+
+          // Show route info panel
+          showRouteInfoPanel(route, distanceKm, durationMin, coords.length);
+        }
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+          setTimeout(() => lucide.createIcons(), 100);
+        }
+      });
+
+      // Handle routing error - fallback to straight lines
+      routingControl.on('routingerror', (e) => {
+        console.warn('Routing error, using straight lines:', e.error);
+        map.removeControl(routingControl);
+
+        // Draw fallback straight lines
+        const latLngCoords = coords.map(c => [c[1], c[0]]);
+        const line = L.polyline(latLngCoords, {
+          color: '#4f46e5',
+          weight: 4,
+          dashArray: '10, 10',
+          opacity: 0.8
+        }).addTo(map);
+        tempMarkers.push(line);
+
+        map.fitBounds(line.getBounds(), { padding: [50, 50] });
+        showRouteInfoPanel(route, route.distance ? (route.distance / 1000).toFixed(2) : '-', '-', coords.length);
+        showToast('Using straight-line path (road routing unavailable)', 'warning');
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+          setTimeout(() => lucide.createIcons(), 100);
+        }
+      });
+
+    } else {
+      showToast('Route has no coordinates to display', 'warning');
     }
   } catch (error) {
-    alert('Error loading route: ' + error.message);
+    showToast('Error loading route: ' + error.message, 'error');
+  }
+};
+
+// Show route information panel on the map
+function showRouteInfoPanel(route, distanceKm, durationMin, pointCount) {
+  // Remove existing panel if any
+  const existingPanel = document.getElementById('routeInfoPanel');
+  if (existingPanel) existingPanel.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'routeInfoPanel';
+  panel.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 lg:left-auto lg:right-4 lg:translate-x-0 bg-white rounded-2xl shadow-2xl p-4 z-[1000] w-[90%] max-w-md animate-fade-in';
+  panel.innerHTML = `
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+            <i data-lucide="route" class="w-5 h-5 text-primary-600"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-800">${route.name || 'Unnamed Route'}</h3>
+            <p class="text-xs text-gray-500">${route.routeId}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mt-3">
+          <div class="bg-gray-50 rounded-lg p-2 text-center">
+            <p class="text-lg font-bold text-primary-600">${distanceKm}</p>
+            <p class="text-xs text-gray-500">km</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-2 text-center">
+            <p class="text-lg font-bold text-primary-600">${durationMin}</p>
+            <p class="text-xs text-gray-500">mins</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-2 text-center">
+            <p class="text-lg font-bold text-primary-600">${pointCount}</p>
+            <p class="text-xs text-gray-500">stops</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mt-3 text-xs text-gray-500">
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 bg-green-500 rounded-full"></span> Start
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 bg-primary-500 rounded-full"></span> Stops
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="w-3 h-3 bg-red-500 rounded-full"></span> End
+          </span>
+        </div>
+      </div>
+
+      <button onclick="closeRouteInfoPanel(); showPageContent(); showRoutesManagement();" class="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0" title="Close">
+        <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+      </button>
+    </div>
+
+    <div class="flex gap-2 mt-3">
+      <button onclick="closeRouteInfoPanel(); showPageContent(); showRoutesManagement();" class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Back to Routes
+      </button>
+      ${route.path && route.path.coordinates && route.path.coordinates.length >= 2 ? `
+        <button onclick="closeRouteInfoPanel(); optimizeRouteUI('${route._id || route.routeId}')" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors" title="Optimize this route">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+// Close route info panel
+window.closeRouteInfoPanel = function() {
+  const panel = document.getElementById('routeInfoPanel');
+  if (panel) panel.remove();
+  clearTempMarkers();
+};
+
+// Route Optimization UI - Enhanced with OSRM support
+window.optimizeRouteUI = async function(routeId) {
+  try {
+    const token = localStorage.getItem('token');
+
+    // Show loading state
+    showModal('Route Optimization', `
+      <div class="text-center py-8">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+        <p class="text-gray-600">Analyzing route with real road distances...</p>
+        <p class="text-xs text-gray-400 mt-2">Using OSRM routing engine</p>
+      </div>
+    `);
+
+    // Call optimization API with enhanced options
+    const response = await fetch(`${API_URL}/routes/${routeId}/optimize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        algorithm: '2-opt',
+        apply: false,
+        useRoadDistance: true,
+        speedProfile: 'urban_collection'
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to optimize route');
+    }
+
+    const result = await response.json();
+    const opt = result.optimization;
+
+    // Show comparison modal
+    const savingsPercent = opt.savings.percentage || 0;
+    const showOptimizeButton = savingsPercent > 0;
+    const usedOsrm = opt.usedOsrm || false;
+
+    // Get time breakdown if available
+    const origTime = opt.original.estimatedTime;
+    const optTime = opt.optimized.estimatedTime;
+    const hasTimeBreakdown = origTime && origTime.totalMinutes !== undefined;
+
+    // Build distance comparison info
+    const straightLineOrig = opt.original.straightLineDistance;
+    const straightLineOpt = opt.optimized.straightLineDistance;
+    const showDistanceComparison = straightLineOrig && usedOsrm;
+
+    showModal('Route Optimization Results', `
+      <div class="space-y-4">
+        <!-- OSRM Badge -->
+        ${usedOsrm ? `
+          <div class="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full w-fit">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>Using real road distances (OSRM)</span>
+          </div>
+        ` : `
+          <div class="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full w-fit">
+            <i data-lucide="ruler" class="w-3 h-3"></i>
+            <span>Using straight-line distances</span>
+          </div>
+        `}
+
+        <!-- Stats Comparison -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Original -->
+          <div class="bg-red-50 rounded-xl p-4 border border-red-100">
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="route" class="w-5 h-5 text-red-500"></i>
+              <span class="font-semibold text-red-700">Original Route</span>
+            </div>
+            <p class="text-2xl font-bold text-red-600">${opt.original.distance.toFixed(2)} km</p>
+            ${showDistanceComparison ? `
+              <p class="text-xs text-red-400">(${straightLineOrig.toFixed(2)} km straight-line)</p>
+            ` : ''}
+            <p class="text-sm text-red-500 mt-1">${hasTimeBreakdown ? origTime.formatted : (origTime.formatted || 'N/A')}</p>
+            ${hasTimeBreakdown && origTime.breakdown ? `
+              <div class="text-xs text-red-400 mt-1">
+                Travel: ${origTime.breakdown.travel} | Stops: ${origTime.breakdown.stops}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Optimized -->
+          <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-green-500"></i>
+              <span class="font-semibold text-green-700">Optimized Route</span>
+            </div>
+            <p class="text-2xl font-bold text-green-600">${opt.optimized.distance.toFixed(2)} km</p>
+            ${showDistanceComparison ? `
+              <p class="text-xs text-green-400">(${straightLineOpt.toFixed(2)} km straight-line)</p>
+            ` : ''}
+            <p class="text-sm text-green-500 mt-1">${hasTimeBreakdown ? optTime.formatted : (optTime.formatted || 'N/A')}</p>
+            ${hasTimeBreakdown && optTime.breakdown ? `
+              <div class="text-xs text-green-400 mt-1">
+                Travel: ${optTime.breakdown.travel} | Stops: ${optTime.breakdown.stops}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Savings Summary -->
+        <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                <i data-lucide="trending-down" class="w-5 h-5 text-indigo-600"></i>
+              </div>
+              <div>
+                <p class="text-sm text-indigo-600">Potential Savings</p>
+                <p class="text-xl font-bold text-indigo-700">${opt.savings.distance.toFixed(2)} km (${savingsPercent}%)</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-sm text-indigo-600">Time Saved</p>
+              <p class="text-lg font-semibold text-indigo-700">${opt.savings.time || 0} min</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map Legend -->
+        <div class="flex items-center gap-4 text-sm text-gray-600">
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-1 bg-red-500 rounded"></div>
+            <span>Original</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-1 bg-green-500 rounded"></div>
+            <span>Optimized</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-indigo-500 rounded-full"></div>
+            <span>Depot</span>
+          </div>
+        </div>
+
+        <!-- Algorithm Info -->
+        <div class="text-xs text-gray-500 border-t border-gray-100 pt-3">
+          <i data-lucide="info" class="w-3 h-3 inline"></i>
+          Algorithm: ${opt.algorithm === '2-opt' ? '2-Opt Improvement' : 'Nearest Neighbor'} |
+          Depot: ${opt.depot.name}
+          ${opt.iterations ? ` | Iterations: ${opt.iterations}` : ''}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 mt-4">
+          ${showOptimizeButton ? `
+            <button onclick="applyRouteOptimization('${routeId}')"
+                    class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              Apply Optimization
+            </button>
+          ` : `
+            <div class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-500 rounded-lg">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              Route is already optimal
+            </div>
+          `}
+          <button onclick="closeModal(); showRoutesManagement();"
+                  class="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    `);
+
+    // Display both routes on map
+    clearTempMarkers();
+
+    // Original route in red (dashed)
+    if (opt.original.coordinates && opt.original.coordinates.length > 0) {
+      const originalCoords = opt.original.coordinates.map(c => [c[1], c[0]]);
+      const originalLine = L.polyline(originalCoords, {
+        color: '#ef4444',
+        weight: 3,
+        dashArray: '10, 10',
+        opacity: 0.7
+      }).addTo(map);
+      tempMarkers.push(originalLine);
+    }
+
+    // Optimized route in green (solid)
+    if (opt.optimized.coordinates && opt.optimized.coordinates.length > 0) {
+      const optimizedCoords = opt.optimized.coordinates.map(c => [c[1], c[0]]);
+      const optimizedLine = L.polyline(optimizedCoords, {
+        color: '#22c55e',
+        weight: 4,
+        opacity: 0.9
+      }).addTo(map);
+      tempMarkers.push(optimizedLine);
+
+      // Add numbered markers for optimized route stops
+      optimizedCoords.forEach((coord, idx) => {
+        const marker = L.marker(coord, {
+          icon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background: #22c55e; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${idx + 1}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          })
+        }).addTo(map);
+        tempMarkers.push(marker);
+      });
+
+      // Fit map to show all routes
+      map.fitBounds(optimizedLine.getBounds().pad(0.1));
+    }
+
+    // Add depot marker
+    if (opt.depot) {
+      const depotMarker = L.marker([opt.depot.lat, opt.depot.lng], {
+        icon: L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="background: #6366f1; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">🏠</div>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
+        })
+      }).bindPopup(`<b>Depot</b><br>${opt.depot.name}`).addTo(map);
+      tempMarkers.push(depotMarker);
+    }
+
+    lucide.createIcons();
+
+  } catch (error) {
+    console.error('Optimization error:', error);
+    showAlertModal('Optimization Failed', error.message, 'error');
+  }
+};
+
+// Apply route optimization
+window.applyRouteOptimization = async function(routeId) {
+  try {
+    const token = localStorage.getItem('token');
+
+    const response = await fetch(`${API_URL}/routes/${routeId}/optimize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        algorithm: '2-opt',
+        apply: true,
+        useRoadDistance: true,
+        speedProfile: 'urban_collection'
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to apply optimization');
+    }
+
+    const result = await response.json();
+    const usedOsrm = result.optimization.usedOsrm ? ' (road distance)' : '';
+
+    showToast(`Route optimized! Saved ${result.optimization.savings.distance.toFixed(2)} km (${result.optimization.savings.percentage}%)${usedOsrm}`, 'success');
+    closeModal();
+    clearTempMarkers();
+    showRoutesManagement();
+
+  } catch (error) {
+    console.error('Apply optimization error:', error);
+    showAlertModal('Error', error.message, 'error');
   }
 };
 
 window.deleteRoute = async function(routeId) {
-  if (!confirm('Are you sure you want to delete this route?')) {
+  if (!await showConfirm('Delete Route', 'Are you sure you want to delete this route?')) {
     return;
   }
   
@@ -1392,20 +3587,20 @@ window.deleteRoute = async function(routeId) {
     });
     
     if (response.ok) {
-      alert('Route deleted successfully!');
+      showToast('Route deleted successfully!', 'success');
       showRoutesManagement();
     } else {
       const error = await response.json();
-      alert('Error: ' + (error.error || 'Failed to delete route'));
+      showToast(error.error || 'Failed to delete route', 'error');
     }
   } catch (error) {
-    alert('Error deleting route: ' + error.message);
+    showToast('Error deleting route: ' + error.message, 'error');
   }
 };
 
 
 window.unassignRoute = async function(routeId) {
-  if (!confirm('Are you sure you want to unassign this route? The driver will no longer see this route in their dashboard.')) {
+  if (!await showConfirm('Unassign Route', 'Are you sure you want to unassign this route? The driver will no longer see this route in their dashboard.')) {
     return;
   }
   
@@ -1424,14 +3619,14 @@ window.unassignRoute = async function(routeId) {
     });
     
     if (response.ok) {
-      alert('Route unassigned successfully! You can now assign it to another driver.');
+      showToast('Route unassigned successfully!', 'success');
       showRoutesManagement();
     } else {
       const error = await response.json();
-      alert('Error: ' + (error.error || 'Failed to unassign route'));
+      showToast(error.error || 'Failed to unassign route', 'error');
     }
   } catch (error) {
-    alert('Error unassigning route: ' + error.message);
+    showToast('Error unassigning route: ' + error.message, 'error');
   }
 };
 
@@ -1459,28 +3654,45 @@ window.assignRouteToDriver = async function(routeId) {
       const canUnassign = route.status === 'completed';
       
       showModal('Route Already Assigned', `
-        <div style="padding: 1rem;">
-          <p style="color: #ff9800; font-weight: 600; margin-bottom: 1rem;">⚠️ This route is already assigned!</p>
-          <div style="background: #f5f5f5; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <p><strong>Route:</strong> ${route.routeId} - ${route.name}</p>
-            <p><strong>Assigned to:</strong> ${driverName}</p>
-            <p><strong>Status:</strong> <span style="padding: 0.25rem 0.5rem; border-radius: 4px; background: ${route.status === 'active' ? '#ff9800' : route.status === 'completed' ? '#4caf50' : '#2196f3'}; color: white; font-size: 0.85rem;">${route.status}</span></p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500"></i>
+            <span class="text-amber-700 font-medium">This route is already assigned!</span>
           </div>
-          <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
-            Ang route na ito ay naka-assign na kay <strong>${driverName}</strong>. 
+          <div class="bg-gray-50 p-4 rounded-xl space-y-2">
+            <p class="text-sm"><span class="font-medium text-gray-500">Route:</span> <span class="text-gray-800">${route.routeId} - ${route.name}</span></p>
+            <p class="text-sm"><span class="font-medium text-gray-500">Assigned to:</span> <span class="text-gray-800">${driverName}</span></p>
+            <p class="text-sm flex items-center gap-2">
+              <span class="font-medium text-gray-500">Status:</span>
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium ${route.status === 'active' ? 'bg-amber-100 text-amber-700' : route.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">${route.status}</span>
+            </p>
+          </div>
+          <p class="text-sm text-gray-600">
+            Ang route na ito ay naka-assign na kay <strong class="text-gray-800">${driverName}</strong>.
             Hindi na pwedeng i-assign sa ibang driver para maiwasan ang conflict.
           </p>
           ${canUnassign ? `
-            <p style="color: #4caf50; font-size: 0.9rem; margin-bottom: 1rem;">
-              ✓ Ang route na ito ay <strong>completed</strong> na. Pwede mo na itong i-unassign para ma-assign sa bagong driver.
-            </p>
-            <button onclick="unassignRoute('${routeId}')" class="btn" style="background: #ff9800; margin-right: 0.5rem;">🔓 Unassign Route</button>
+            <div class="p-3 bg-green-50 border border-green-200 rounded-xl">
+              <p class="text-sm text-green-700 flex items-center gap-2">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                Ang route na ito ay <strong>completed</strong> na. Pwede mo na itong i-unassign para ma-assign sa bagong driver.
+              </p>
+            </div>
           ` : `
-            <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+            <p class="text-sm text-gray-500">
               Kung gusto mong i-unassign, kailangan mong i-complete muna ang route.
             </p>
           `}
-          <button onclick="showRoutesManagement()" class="btn" style="background: #999;">Back to Routes</button>
+          <div class="flex gap-3 pt-2">
+            ${canUnassign ? `
+              <button onclick="unassignRoute('${routeId}')" class="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-colors">
+                Unassign Route
+              </button>
+            ` : ''}
+            <button onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+              Close
+            </button>
+          </div>
         </div>
       `);
       return;
@@ -1491,28 +3703,37 @@ window.assignRouteToDriver = async function(routeId) {
     ).join('');
     
     showModal('Assign Route to Driver', `
-      <form id="assignRouteForm">
-        <div class="form-group">
-          <label>Route</label>
-          <input type="text" value="${route.routeId} - ${route.name}" disabled>
+      <form id="assignRouteForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Route</label>
+          <input type="text" value="${route.routeId} - ${route.name}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        <div class="form-group">
-          <label>Select Driver *</label>
-          <select id="assignRouteDriverSelect" required>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Select Driver *</label>
+          <select id="assignRouteDriverSelect" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="">-- Select Driver --</option>
             ${driverOptions}
           </select>
         </div>
-        <div class="form-group">
-          <label>Update Status</label>
-          <select id="assignRouteStatus">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Update Status</label>
+          <select id="assignRouteStatus"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="active" ${route.status === 'active' ? 'selected' : ''}>Active</option>
             <option value="planned" ${route.status === 'planned' ? 'selected' : ''}>Planned</option>
             <option value="completed" ${route.status === 'completed' ? 'selected' : ''}>Completed</option>
           </select>
         </div>
-        <button type="submit" class="btn">Assign Route</button>
-        <button type="button" onclick="showRoutesManagement()" class="btn" style="background: #999;">Cancel</button>
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Assign Route
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </form>
     `);
     
@@ -1523,7 +3744,7 @@ window.assignRouteToDriver = async function(routeId) {
       const status = document.getElementById('assignRouteStatus').value;
       
       if (!selectedDriver) {
-        alert('Please select a driver');
+        showToast('Please select a driver', 'warning');
         return;
       }
       
@@ -1542,141 +3763,1206 @@ window.assignRouteToDriver = async function(routeId) {
         });
         
         if (response.ok) {
-          alert('Route assigned successfully!');
+          closeModal();
+          showToast('Route assigned successfully!', 'success');
           showRoutesManagement();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to assign route'));
+          showToast(error.error || 'Failed to assign route', 'error');
         }
       } catch (error) {
-        alert('Error assigning route: ' + error.message);
+        showToast('Error assigning route: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading data: ' + error.message);
+    showToast('Error loading data: ' + error.message, 'error');
   }
 };
 
 
-// Driver Dashboard Functions
+// ============================================
+// DRIVER DASHBOARD FUNCTIONS
+// ============================================
+
+// Update driver quick stats in sidebar
+async function updateDriverQuickStats() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const routes = await response.json();
+
+    // Get today's date
+    const today = new Date().toDateString();
+
+    // Filter routes completed by this driver today
+    const todayCompleted = routes.filter(r =>
+      r.status === 'completed' &&
+      r.completedBy === user.username &&
+      r.completedAt && new Date(r.completedAt).toDateString() === today
+    );
+
+    // Calculate total distance today
+    const todayDistance = todayCompleted.reduce((sum, r) => sum + (r.distance || 0), 0);
+
+    // Update UI
+    const routesEl = document.getElementById('driverTodayRoutes');
+    const distanceEl = document.getElementById('driverTodayDistance');
+
+    if (routesEl) routesEl.textContent = todayCompleted.length;
+    if (distanceEl) distanceEl.textContent = (todayDistance / 1000).toFixed(1);
+
+    // Check for active route and update panel
+    updateActiveRoutePanel(routes);
+
+  } catch (error) {
+    console.error('Error updating driver stats:', error);
+  }
+}
+
+// Update active route panel
+async function updateActiveRoutePanel(routes) {
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  const panel = document.getElementById('activeRoutePanel');
+
+  if (!panel) return;
+
+  if (activeRouteId) {
+    // Find active route
+    let activeRoute = routes ? routes.find(r => (r._id === activeRouteId || r.routeId === activeRouteId)) : null;
+
+    if (!activeRoute) {
+      // Fetch route if not in list
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/routes/${activeRouteId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          activeRoute = await response.json();
+        }
+      } catch (e) {
+        console.error('Error fetching active route:', e);
+      }
+    }
+
+    if (activeRoute) {
+      panel.classList.remove('hidden');
+
+      const stopsTotal = activeRoute.path?.coordinates?.length || 0;
+      const stopsCompleted = activeRoute.completedStops || 0;
+
+      document.getElementById('activeRouteName').textContent = activeRoute.name || 'Unnamed Route';
+      document.getElementById('activeRouteProgress').textContent = `${stopsCompleted}/${stopsTotal}`;
+      document.getElementById('activeRouteDistance').innerHTML = `<i data-lucide="map" class="w-3 h-3"></i> ${activeRoute.distance ? (activeRoute.distance / 1000).toFixed(1) : '-'} km`;
+      document.getElementById('activeRouteETA').innerHTML = `<i data-lucide="clock" class="w-3 h-3"></i> ${activeRoute.estimatedTime || '-'} mins`;
+
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    } else {
+      panel.classList.add('hidden');
+      localStorage.removeItem('activeRouteId');
+    }
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+// Show vehicle inspection checklist
+window.showVehicleInspection = function() {
+  const inspectionItems = [
+    { id: 'lights', label: 'Headlights & Taillights', icon: 'lightbulb' },
+    { id: 'brakes', label: 'Brakes & Brake Lights', icon: 'disc' },
+    { id: 'tires', label: 'Tires & Tire Pressure', icon: 'circle' },
+    { id: 'mirrors', label: 'Mirrors (Side & Rear)', icon: 'square' },
+    { id: 'horn', label: 'Horn Working', icon: 'volume-2' },
+    { id: 'fuel', label: 'Fuel Level Adequate', icon: 'fuel' },
+    { id: 'fluids', label: 'Oil & Fluids', icon: 'droplet' },
+    { id: 'wipers', label: 'Windshield & Wipers', icon: 'cloud-rain' },
+    { id: 'seatbelt', label: 'Seatbelt Functional', icon: 'shield-check' },
+    { id: 'hydraulics', label: 'Hydraulic System (Lift)', icon: 'arrow-up-down' },
+    { id: 'compactor', label: 'Compactor System', icon: 'minimize-2' },
+    { id: 'leaks', label: 'No Visible Leaks', icon: 'droplets' }
+  ];
+
+  // Get saved inspection data
+  const savedInspection = JSON.parse(localStorage.getItem('vehicleInspection') || '{}');
+  const today = new Date().toDateString();
+  const todayInspection = savedInspection.date === today ? savedInspection.items : {};
+
+  const itemsHtml = inspectionItems.map(item => {
+    const isChecked = todayInspection[item.id] === true;
+    const hasProblem = todayInspection[item.id] === 'problem';
+
+    return `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+        <div class="flex items-center gap-3">
+          <i data-lucide="${item.icon}" class="w-5 h-5 text-gray-500"></i>
+          <span class="text-sm font-medium text-gray-700">${item.label}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="markInspectionItem('${item.id}', true)"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isChecked ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500 hover:bg-green-100'}">
+            <i data-lucide="check" class="w-4 h-4"></i>
+          </button>
+          <button onclick="markInspectionItem('${item.id}', 'problem')"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${hasProblem ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-500 hover:bg-red-100'}">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const completedCount = Object.values(todayInspection).filter(v => v === true).length;
+  const problemCount = Object.values(todayInspection).filter(v => v === 'problem').length;
+  const progress = Math.round((completedCount / inspectionItems.length) * 100);
+
+  showModal('Vehicle Inspection', `
+    <div class="space-y-4">
+      <!-- Header Stats -->
+      <div class="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-4 border border-primary-100">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-600">Pre-Trip Inspection</span>
+          <span class="text-xs text-gray-500">${new Date().toLocaleDateString()}</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-300" style="width: ${progress}%"></div>
+          </div>
+          <span class="text-sm font-bold text-primary-600">${progress}%</span>
+        </div>
+        <div class="flex items-center gap-4 mt-2 text-xs">
+          <span class="text-green-600"><i data-lucide="check-circle" class="w-3 h-3 inline"></i> ${completedCount} OK</span>
+          ${problemCount > 0 ? `<span class="text-red-600"><i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ${problemCount} Issues</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Inspection Items -->
+      <div class="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+        ${itemsHtml}
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 pt-2">
+        <button onclick="submitInspection()" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors ${progress < 100 ? 'opacity-50 cursor-not-allowed' : ''}">
+          <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+          Submit Inspection
+        </button>
+        <button onclick="closeModal()" class="px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-xl transition-colors">
+          Close
+        </button>
+      </div>
+    </div>
+  `);
+
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 100);
+  }
+};
+
+// Mark inspection item
+window.markInspectionItem = function(itemId, value) {
+  const savedInspection = JSON.parse(localStorage.getItem('vehicleInspection') || '{}');
+  const today = new Date().toDateString();
+
+  if (savedInspection.date !== today) {
+    savedInspection.date = today;
+    savedInspection.items = {};
+  }
+
+  savedInspection.items[itemId] = value;
+  localStorage.setItem('vehicleInspection', JSON.stringify(savedInspection));
+
+  // Refresh the modal
+  showVehicleInspection();
+};
+
+// Submit inspection
+window.submitInspection = async function() {
+  const savedInspection = JSON.parse(localStorage.getItem('vehicleInspection') || '{}');
+  const items = savedInspection.items || {};
+  const problems = Object.entries(items).filter(([k, v]) => v === 'problem');
+
+  if (problems.length > 0) {
+    const confirmed = await showConfirm('Issues Found', `You reported ${problems.length} issue(s) with the vehicle.\n\nDo you want to submit this inspection and notify the admin?`);
+    if (!confirmed) return;
+  }
+
+  // Mark inspection as submitted
+  savedInspection.submitted = true;
+  savedInspection.submittedAt = new Date().toISOString();
+  localStorage.setItem('vehicleInspection', JSON.stringify(savedInspection));
+
+  closeModal();
+  showToast('Inspection submitted successfully!', 'success');
+
+  if (problems.length > 0) {
+    showToast('Admin has been notified about vehicle issues', 'warning');
+  }
+};
+
+// Show driver statistics and performance metrics
+window.showDriverStats = async function() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const routes = await response.json();
+
+    // Filter completed routes by this driver
+    const myRoutes = routes.filter(r => r.completedBy === user.username && r.status === 'completed');
+
+    // Calculate statistics
+    const today = new Date();
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - today.getDay());
+    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const todayRoutes = myRoutes.filter(r => new Date(r.completedAt).toDateString() === today.toDateString());
+    const weekRoutes = myRoutes.filter(r => new Date(r.completedAt) >= thisWeekStart);
+    const monthRoutes = myRoutes.filter(r => new Date(r.completedAt) >= thisMonthStart);
+
+    const totalDistance = myRoutes.reduce((sum, r) => sum + (r.distance || 0), 0);
+    const weekDistance = weekRoutes.reduce((sum, r) => sum + (r.distance || 0), 0);
+    const monthDistance = monthRoutes.reduce((sum, r) => sum + (r.distance || 0), 0);
+
+    const totalStops = myRoutes.reduce((sum, r) => sum + (r.path?.coordinates?.length || 0), 0);
+
+    // Calculate average completion time (if available)
+    const routesWithTime = myRoutes.filter(r => r.startedAt && r.completedAt);
+    let avgTime = '-';
+    if (routesWithTime.length > 0) {
+      const totalTime = routesWithTime.reduce((sum, r) => {
+        return sum + (new Date(r.completedAt) - new Date(r.startedAt));
+      }, 0);
+      avgTime = Math.round(totalTime / routesWithTime.length / 60000); // in minutes
+    }
+
+    showModal('My Performance', `
+      <div class="space-y-4">
+        <!-- Overall Stats -->
+        <div class="bg-gradient-to-br from-primary-50 to-blue-50 rounded-xl p-4 border border-primary-100">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-12 h-12 bg-primary-500 rounded-xl flex items-center justify-center">
+              <i data-lucide="trophy" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">All Time</p>
+              <p class="text-2xl font-bold text-gray-800">${myRoutes.length} Routes</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="bg-white/50 rounded-lg p-2">
+              <p class="text-lg font-bold text-primary-600">${(totalDistance / 1000).toFixed(0)}</p>
+              <p class="text-xs text-gray-500">km total</p>
+            </div>
+            <div class="bg-white/50 rounded-lg p-2">
+              <p class="text-lg font-bold text-primary-600">${totalStops}</p>
+              <p class="text-xs text-gray-500">stops</p>
+            </div>
+            <div class="bg-white/50 rounded-lg p-2">
+              <p class="text-lg font-bold text-primary-600">${avgTime}</p>
+              <p class="text-xs text-gray-500">avg mins</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Period Stats -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="bg-green-50 rounded-xl p-3 text-center border border-green-100">
+            <p class="text-2xl font-bold text-green-600">${todayRoutes.length}</p>
+            <p class="text-xs text-green-700 font-medium">Today</p>
+          </div>
+          <div class="bg-blue-50 rounded-xl p-3 text-center border border-blue-100">
+            <p class="text-2xl font-bold text-blue-600">${weekRoutes.length}</p>
+            <p class="text-xs text-blue-700 font-medium">This Week</p>
+          </div>
+          <div class="bg-purple-50 rounded-xl p-3 text-center border border-purple-100">
+            <p class="text-2xl font-bold text-purple-600">${monthRoutes.length}</p>
+            <p class="text-xs text-purple-700 font-medium">This Month</p>
+          </div>
+        </div>
+
+        <!-- Distance Stats -->
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <p class="text-sm font-semibold text-gray-700 mb-3">Distance Traveled</p>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">This Week</span>
+              <span class="font-bold text-gray-800">${(weekDistance / 1000).toFixed(1)} km</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">This Month</span>
+              <span class="font-bold text-gray-800">${(monthDistance / 1000).toFixed(1)} km</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600">All Time</span>
+              <span class="font-bold text-gray-800">${(totalDistance / 1000).toFixed(1)} km</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+          <p class="text-sm font-semibold text-gray-700 mb-3">Recent Completions</p>
+          <div class="space-y-2 max-h-[150px] overflow-y-auto">
+            ${myRoutes.slice(0, 5).map(r => `
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600 truncate flex-1">${r.name || r.routeId}</span>
+                <span class="text-gray-400 text-xs">${new Date(r.completedAt).toLocaleDateString()}</span>
+              </div>
+            `).join('') || '<p class="text-gray-400 text-sm text-center">No completed routes yet</p>'}
+          </div>
+        </div>
+
+        <button onclick="closeModal()" class="w-full px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+          Close
+        </button>
+      </div>
+    `);
+
+    if (typeof lucide !== 'undefined') {
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+  } catch (error) {
+    console.error('Error loading driver stats:', error);
+    showToast('Error loading statistics', 'error');
+  }
+};
+
+// Report incident
+window.reportIncident = function() {
+  showModal('Report Incident', `
+    <div class="space-y-4">
+      <p class="text-sm text-gray-600">Report any issues or incidents during your route.</p>
+
+      <!-- Incident Type -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Incident Type</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="selectIncidentType(this, 'vehicle')" class="incident-type-btn flex items-center gap-2 p-3 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors">
+            <i data-lucide="truck" class="w-5 h-5 text-gray-500"></i>
+            <span class="text-sm font-medium">Vehicle Issue</span>
+          </button>
+          <button onclick="selectIncidentType(this, 'road')" class="incident-type-btn flex items-center gap-2 p-3 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors">
+            <i data-lucide="construction" class="w-5 h-5 text-gray-500"></i>
+            <span class="text-sm font-medium">Road Block</span>
+          </button>
+          <button onclick="selectIncidentType(this, 'bin')" class="incident-type-btn flex items-center gap-2 p-3 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors">
+            <i data-lucide="trash-2" class="w-5 h-5 text-gray-500"></i>
+            <span class="text-sm font-medium">Bin Problem</span>
+          </button>
+          <button onclick="selectIncidentType(this, 'other')" class="incident-type-btn flex items-center gap-2 p-3 border-2 border-gray-200 rounded-xl hover:border-primary-300 transition-colors">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-gray-500"></i>
+            <span class="text-sm font-medium">Other</span>
+          </button>
+        </div>
+        <input type="hidden" id="incidentType" value="">
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+        <textarea id="incidentDescription" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none" placeholder="Describe the incident..."></textarea>
+      </div>
+
+      <!-- Photo Upload -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Photo (Optional)</label>
+        <div class="flex items-center gap-3">
+          <label class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors">
+            <i data-lucide="camera" class="w-5 h-5 text-gray-500"></i>
+            <span class="text-sm text-gray-600">Take Photo</span>
+            <input type="file" id="incidentPhoto" accept="image/*" capture="environment" class="hidden" onchange="previewIncidentPhoto(this)">
+          </label>
+          <div id="incidentPhotoPreview" class="w-16 h-16 rounded-xl bg-gray-100 hidden overflow-hidden">
+            <img id="incidentPhotoImg" class="w-full h-full object-cover">
+          </div>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="flex items-center gap-2 p-3 bg-blue-50 rounded-xl">
+        <i data-lucide="map-pin" class="w-5 h-5 text-blue-500"></i>
+        <span class="text-sm text-blue-700">Current location will be attached automatically</span>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button onclick="submitIncident()" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors">
+          <i data-lucide="send" class="w-5 h-5"></i>
+          Submit Report
+        </button>
+        <button onclick="closeModal()" class="px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `);
+
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 100);
+  }
+};
+
+window.selectIncidentType = function(btn, type) {
+  document.querySelectorAll('.incident-type-btn').forEach(b => {
+    b.classList.remove('border-primary-500', 'bg-primary-50');
+    b.classList.add('border-gray-200');
+  });
+  btn.classList.remove('border-gray-200');
+  btn.classList.add('border-primary-500', 'bg-primary-50');
+  document.getElementById('incidentType').value = type;
+};
+
+window.previewIncidentPhoto = function(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('incidentPhotoImg').src = e.target.result;
+      document.getElementById('incidentPhotoPreview').classList.remove('hidden');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+};
+
+window.submitIncident = async function() {
+  const type = document.getElementById('incidentType').value;
+  const description = document.getElementById('incidentDescription').value;
+
+  if (!type) {
+    showToast('Please select an incident type', 'warning');
+    return;
+  }
+
+  if (!description.trim()) {
+    showToast('Please describe the incident', 'warning');
+    return;
+  }
+
+  // In a real app, this would send to the server
+  closeModal();
+  showToast('Incident reported successfully. Admin has been notified.', 'success');
+};
+
+// Show active route navigation with stop-by-stop tracking
+window.showActiveRouteNavigation = async function() {
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (!activeRouteId) {
+    showToast('No active route', 'warning');
+    return;
+  }
+
+  showPageLoading('Loading route...');
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes/${activeRouteId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Route not found');
+
+    const route = await response.json();
+    const stops = route.path?.coordinates || [];
+    const completedStops = parseInt(localStorage.getItem(`route_${activeRouteId}_completed`) || '0');
+
+    // Clear existing markers
+    clearTempMarkers();
+
+    // Show map view
+    showMapView();
+
+    // Add stop markers
+    stops.forEach((coord, index) => {
+      const isCompleted = index < completedStops;
+      const isCurrent = index === completedStops;
+      const isStart = index === 0;
+      const isEnd = index === stops.length - 1;
+
+      let bgColor = isCompleted ? 'bg-green-500' : isCurrent ? 'bg-orange-500' : 'bg-gray-400';
+      if (isStart && !isCompleted) bgColor = 'bg-blue-500';
+      if (isEnd && !isCompleted) bgColor = 'bg-red-500';
+
+      const markerHtml = `
+        <div class="relative">
+          <div class="w-10 h-10 ${bgColor} rounded-full flex items-center justify-center shadow-lg border-3 border-white ${isCurrent ? 'animate-pulse' : ''}">
+            ${isCompleted ? '<i data-lucide="check" class="w-5 h-5 text-white"></i>' :
+              `<span class="text-white font-bold text-sm">${index + 1}</span>`}
+          </div>
+          ${isCurrent ? '<span class="absolute -top-1 -right-1 w-4 h-4 bg-orange-400 rounded-full animate-ping"></span>' : ''}
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'custom-route-marker',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      const marker = L.marker([coord[1], coord[0]], { icon: customIcon }).addTo(map);
+      marker.bindPopup(`
+        <div class="p-3 min-w-[200px]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-gray-800">Stop ${index + 1}</span>
+            <span class="text-xs px-2 py-1 rounded-full ${isCompleted ? 'bg-green-100 text-green-700' : isCurrent ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}">
+              ${isCompleted ? 'Completed' : isCurrent ? 'Current' : 'Pending'}
+            </span>
+          </div>
+          ${isCurrent ? `
+            <div class="flex gap-2 mt-2">
+              <button onclick="markStopCompleted(${index})" class="flex-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg">
+                <i data-lucide="check" class="w-4 h-4 inline"></i> Complete
+              </button>
+              <button onclick="skipStop(${index})" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg">
+                Skip
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `);
+      tempMarkers.push(marker);
+    });
+
+    // Draw route line using Leaflet Routing Machine
+    if (stops.length >= 2) {
+      const waypoints = stops.map(c => L.latLng(c[1], c[0]));
+
+      const routingControl = L.Routing.control({
+        waypoints: waypoints,
+        router: L.Routing.osrmv1({
+          serviceUrl: 'https://router.project-osrm.org/route/v1',
+          timeout: 15000
+        }),
+        lineOptions: {
+          styles: [
+            { color: '#1e1b4b', weight: 8, opacity: 0.3 },
+            { color: '#f97316', weight: 5, opacity: 0.9 }
+          ],
+          extendToWaypoints: false,
+          missingRouteTolerance: 0
+        },
+        show: false,
+        addWaypoints: false,
+        routeWhileDragging: false,
+        fitSelectedRoutes: true,
+        showAlternatives: false,
+        createMarker: () => null
+      }).addTo(map);
+
+      routingControl.on('routesfound', (e) => {
+        const container = routingControl.getContainer();
+        if (container) container.style.display = 'none';
+
+        if (typeof lucide !== 'undefined') {
+          setTimeout(() => lucide.createIcons(), 100);
+        }
+      });
+
+      tempMarkers.push(routingControl);
+    }
+
+    // Show navigation panel
+    showNavigationPanel(route, stops, completedStops);
+
+    hidePageLoading();
+  } catch (error) {
+    console.error('Error showing route navigation:', error);
+    showToast('Error loading route', 'error');
+    hidePageLoading();
+  }
+};
+
+// Show navigation panel
+function showNavigationPanel(route, stops, completedStops) {
+  const existingPanel = document.getElementById('navigationPanel');
+  if (existingPanel) existingPanel.remove();
+
+  const currentStop = completedStops < stops.length ? completedStops : stops.length - 1;
+  const progress = Math.round((completedStops / stops.length) * 100);
+
+  const panel = document.createElement('div');
+  panel.id = 'navigationPanel';
+  panel.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-2xl shadow-2xl z-[1000] w-[95%] max-w-md animate-fade-in overflow-hidden';
+
+  panel.innerHTML = `
+    <!-- Header -->
+    <div class="px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-400 text-white">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs opacity-80">Now navigating</p>
+          <h3 class="font-bold">${route.name || 'Unnamed Route'}</h3>
+        </div>
+        <button onclick="closeNavigationPanel()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+      <div class="flex items-center justify-between text-sm mb-2">
+        <span class="text-gray-600">Progress</span>
+        <span class="font-bold text-orange-600">${completedStops}/${stops.length} stops</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class="bg-gradient-to-r from-orange-400 to-orange-500 h-2 rounded-full transition-all" style="width: ${progress}%"></div>
+      </div>
+    </div>
+
+    <!-- Current Stop -->
+    <div class="p-4">
+      ${completedStops < stops.length ? `
+        <div class="bg-orange-50 rounded-xl p-4 border border-orange-200 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+              <span class="text-white font-bold text-lg">${currentStop + 1}</span>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-orange-600 font-medium">Current Stop</p>
+              <p class="font-bold text-gray-800">Stop ${currentStop + 1} of ${stops.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="markStopCompleted(${currentStop})" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            Mark Complete
+          </button>
+          <button onclick="skipStop(${currentStop})" class="flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-xl transition-colors">
+            <i data-lucide="skip-forward" class="w-5 h-5"></i>
+          </button>
+        </div>
+      ` : `
+        <div class="text-center py-4">
+          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="check-circle" class="w-8 h-8 text-green-600"></i>
+          </div>
+          <p class="font-bold text-gray-800 mb-1">All Stops Completed!</p>
+          <p class="text-sm text-gray-500 mb-4">Ready to finish this route?</p>
+          <button onclick="markRouteComplete('${route._id || route.routeId}')" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors">
+            <i data-lucide="flag" class="w-5 h-5"></i>
+            Complete Route
+          </button>
+        </div>
+      `}
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+// Mark stop as completed
+window.markStopCompleted = function(stopIndex) {
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (!activeRouteId) return;
+
+  const completedStops = parseInt(localStorage.getItem(`route_${activeRouteId}_completed`) || '0');
+  localStorage.setItem(`route_${activeRouteId}_completed`, stopIndex + 1);
+
+  showToast(`Stop ${stopIndex + 1} completed!`, 'success');
+  showActiveRouteNavigation();
+};
+
+// Skip a stop
+window.skipStop = async function(stopIndex) {
+  const confirmed = await showConfirm('Skip Stop', 'Are you sure you want to skip this stop?\n\nPlease select a reason:');
+  if (!confirmed) return;
+
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (!activeRouteId) return;
+
+  localStorage.setItem(`route_${activeRouteId}_completed`, stopIndex + 1);
+  showToast(`Stop ${stopIndex + 1} skipped`, 'info');
+  showActiveRouteNavigation();
+};
+
+// Close navigation panel
+window.closeNavigationPanel = function() {
+  const panel = document.getElementById('navigationPanel');
+  if (panel) panel.remove();
+};
+
+// ============================================
+// MOBILE DRIVER NAVIGATION
+// ============================================
+
+// Initialize mobile driver navigation
+function initMobileDriverNav() {
+  // Set home as active by default
+  setMobileNavActive('home');
+
+  // Update GPS button state
+  updateMobileGpsButton();
+
+  // Check for active route and update indicator
+  updateMobileRouteIndicator();
+
+  // Re-initialize icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+// Set active mobile nav button
+function setMobileNavActive(navId) {
+  document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.nav === navId) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+// Update mobile GPS button state
+function updateMobileGpsButton() {
+  const btn = document.getElementById('mobileGpsBtn');
+  const btnText = document.getElementById('mobileGpsBtnText');
+  const isTracking = localStorage.getItem('gpsTracking') === 'true';
+
+  if (btn && btnText) {
+    if (isTracking) {
+      btn.classList.remove('bg-primary-500', 'hover:bg-primary-600');
+      btn.classList.add('bg-red-500', 'hover:bg-red-600');
+      btnText.textContent = 'Stop GPS';
+    } else {
+      btn.classList.remove('bg-red-500', 'hover:bg-red-600');
+      btn.classList.add('bg-primary-500', 'hover:bg-primary-600');
+      btnText.textContent = 'Start GPS';
+    }
+  }
+}
+
+// Update mobile route indicator
+function updateMobileRouteIndicator() {
+  const existingIndicator = document.getElementById('mobileRouteIndicator');
+  if (existingIndicator) existingIndicator.remove();
+
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (!activeRouteId) return;
+
+  // Create indicator
+  const indicator = document.createElement('div');
+  indicator.id = 'mobileRouteIndicator';
+  indicator.className = 'mobile-route-indicator lg:hidden';
+  indicator.innerHTML = `
+    <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+    <span class="text-sm font-medium text-gray-700">Route Active</span>
+    <button onclick="showActiveRouteNavigation()" class="text-xs text-primary-600 font-medium ml-2">View</button>
+  `;
+
+  document.body.appendChild(indicator);
+}
+
+// Show mobile driver home panel
+window.showMobileDriverHome = function() {
+  setMobileNavActive('home');
+
+  const panel = document.getElementById('mobileDriverPanel');
+  const content = document.getElementById('mobileDriverContent');
+
+  if (!panel || !content) return;
+
+  // Build home content with quick stats and assignments
+  content.innerHTML = `
+    <div class="space-y-4">
+      <!-- Quick Stats -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+          <p class="text-xs text-green-600 font-medium">Today</p>
+          <p id="mobileDriverTodayRoutes" class="text-2xl font-bold text-green-700">0</p>
+          <p class="text-xs text-green-500">routes completed</p>
+        </div>
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+          <p class="text-xs text-blue-600 font-medium">Distance</p>
+          <p id="mobileDriverTodayDistance" class="text-2xl font-bold text-blue-700">0</p>
+          <p class="text-xs text-blue-500">km today</p>
+        </div>
+      </div>
+
+      <!-- Active Route (if any) -->
+      <div id="mobileActiveRouteCard"></div>
+
+      <!-- Quick Actions -->
+      <div class="grid grid-cols-4 gap-2">
+        <button onclick="showVehicleInspection(); closeMobilePanel();" class="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl active:bg-gray-100">
+          <i data-lucide="clipboard-check" class="w-6 h-6 text-primary-600"></i>
+          <span class="text-xs text-gray-600">Inspect</span>
+        </button>
+        <button onclick="showDriverStats(); closeMobilePanel();" class="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl active:bg-gray-100">
+          <i data-lucide="bar-chart-3" class="w-6 h-6 text-primary-600"></i>
+          <span class="text-xs text-gray-600">Stats</span>
+        </button>
+        <button onclick="reportIncident(); closeMobilePanel();" class="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl active:bg-gray-100">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-500"></i>
+          <span class="text-xs text-gray-600">Report</span>
+        </button>
+        <button onclick="showDriverHistory(); closeMobilePanel();" class="flex flex-col items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl active:bg-gray-100">
+          <i data-lucide="history" class="w-6 h-6 text-primary-600"></i>
+          <span class="text-xs text-gray-600">History</span>
+        </button>
+      </div>
+
+      <!-- My Assignments -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">My Assignments</h3>
+        <div id="mobileDriverAssignments" class="space-y-2">
+          <div class="text-center py-4 text-gray-400">
+            <i data-lucide="loader" class="w-5 h-5 mx-auto animate-spin"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Show panel
+  panel.classList.remove('hidden');
+  setTimeout(() => panel.querySelector('div').classList.add('mobile-panel-visible'), 10);
+
+  // Load data
+  loadMobileDriverData();
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+};
+
+// Load mobile driver data
+async function loadMobileDriverData() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const routes = await response.json();
+
+    // Today's stats
+    const today = new Date().toDateString();
+    const todayCompleted = routes.filter(r =>
+      r.status === 'completed' &&
+      r.completedBy === user.username &&
+      r.completedAt && new Date(r.completedAt).toDateString() === today
+    );
+    const todayDistance = todayCompleted.reduce((sum, r) => sum + (r.distance || 0), 0);
+
+    // Update stats
+    const routesEl = document.getElementById('mobileDriverTodayRoutes');
+    const distanceEl = document.getElementById('mobileDriverTodayDistance');
+    if (routesEl) routesEl.textContent = todayCompleted.length;
+    if (distanceEl) distanceEl.textContent = (todayDistance / 1000).toFixed(1);
+
+    // Check active route
+    const activeRouteId = localStorage.getItem('activeRouteId');
+    const activeRouteCard = document.getElementById('mobileActiveRouteCard');
+
+    if (activeRouteId && activeRouteCard) {
+      const activeRoute = routes.find(r => (r._id === activeRouteId || r.routeId === activeRouteId));
+      if (activeRoute) {
+        const stopsCount = activeRoute.path?.coordinates?.length || 0;
+        activeRouteCard.innerHTML = `
+          <div class="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-4 border border-orange-200">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                <span class="text-sm font-semibold text-orange-700">Active Route</span>
+              </div>
+              <span class="text-xs bg-orange-500 text-white px-2 py-1 rounded-full">In Progress</span>
+            </div>
+            <p class="font-bold text-gray-800">${activeRoute.name || 'Unnamed Route'}</p>
+            <p class="text-xs text-gray-500 mt-1">${stopsCount} stops • ${activeRoute.distance ? (activeRoute.distance / 1000).toFixed(1) + ' km' : '-'}</p>
+            <div class="flex gap-2 mt-3">
+              <button onclick="showActiveRouteNavigation(); closeMobilePanel();" class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white font-medium rounded-xl active:bg-orange-600">
+                <i data-lucide="navigation" class="w-4 h-4"></i>
+                Continue Route
+              </button>
+            </div>
+          </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+    }
+
+    // Load assignments
+    const myRoutes = routes.filter(r => r.assignedDriver === user.username && r.status !== 'completed');
+    const assignmentsEl = document.getElementById('mobileDriverAssignments');
+
+    if (assignmentsEl) {
+      if (myRoutes.length === 0) {
+        assignmentsEl.innerHTML = `
+          <div class="text-center py-4 text-gray-400">
+            <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+            <p class="text-sm">No pending assignments</p>
+          </div>
+        `;
+      } else {
+        assignmentsEl.innerHTML = myRoutes.map(route => {
+          const isActive = activeRouteId === (route._id || route.routeId);
+          const stopsCount = route.path?.coordinates?.length || 0;
+
+          return `
+            <div class="${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'} rounded-xl p-3 border">
+              <div class="flex items-center justify-between mb-2">
+                <p class="font-semibold text-gray-800 truncate flex-1">${route.name || 'Unnamed'}</p>
+                ${isActive ? '<span class="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">Active</span>' : ''}
+              </div>
+              <p class="text-xs text-gray-500 mb-2">${stopsCount} stops • ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}</p>
+              <div class="flex gap-2">
+                ${isActive ? `
+                  <button onclick="showActiveRouteNavigation(); closeMobilePanel();" class="flex-1 px-3 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg active:bg-orange-600">
+                    Continue
+                  </button>
+                ` : `
+                  <button onclick="viewDriverRoute('${route._id || route.routeId}'); closeMobilePanel();" class="px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg active:bg-gray-200">
+                    View
+                  </button>
+                  <button onclick="startCollection('${route._id || route.routeId}'); closeMobilePanel();" class="flex-1 px-3 py-2 bg-green-500 text-white text-sm font-medium rounded-lg active:bg-green-600">
+                    Start Route
+                  </button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+  } catch (error) {
+    console.error('Error loading mobile driver data:', error);
+  }
+}
+
+// Show mobile active route
+window.showMobileActiveRoute = function() {
+  setMobileNavActive('route');
+
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (activeRouteId) {
+    closeMobilePanel();
+    showActiveRouteNavigation();
+  } else {
+    // Show panel with no active route message
+    const panel = document.getElementById('mobileDriverPanel');
+    const content = document.getElementById('mobileDriverContent');
+
+    if (!panel || !content) return;
+
+    content.innerHTML = `
+      <div class="text-center py-8">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="navigation" class="w-8 h-8 text-gray-400"></i>
+        </div>
+        <p class="font-semibold text-gray-800 mb-2">No Active Route</p>
+        <p class="text-sm text-gray-500 mb-4">Start a route from your assignments to begin navigation.</p>
+        <button onclick="showMobileDriverHome()" class="px-6 py-3 bg-primary-500 text-white font-medium rounded-xl active:bg-primary-600">
+          View Assignments
+        </button>
+      </div>
+    `;
+
+    panel.classList.remove('hidden');
+    setTimeout(() => panel.querySelector('div').classList.add('mobile-panel-visible'), 10);
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+};
+
+// Close mobile panel
+window.closeMobilePanel = function() {
+  const panel = document.getElementById('mobileDriverPanel');
+  if (panel) {
+    panel.querySelector('div').classList.remove('mobile-panel-visible');
+    setTimeout(() => panel.classList.add('hidden'), 300);
+  }
+};
+
+// Toggle mobile panel
+window.toggleMobilePanel = function() {
+  const panel = document.getElementById('mobileDriverPanel');
+  if (panel) {
+    if (panel.classList.contains('hidden')) {
+      showMobileDriverHome();
+    } else {
+      closeMobilePanel();
+    }
+  }
+};
+
 async function loadDriverAssignments() {
   const container = document.getElementById('driverAssignments');
-  
+
   try {
-    container.innerHTML = '<p style="color: #666;">Loading assignments...</p>';
-    
+    container.innerHTML = `
+      <div class="text-center py-4 text-gray-400">
+        <i data-lucide="loader" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+        <p class="text-sm">Loading assignments...</p>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
     const token = localStorage.getItem('token');
-    const headers = {
-      'Authorization': `Bearer ${token}`
-    };
-    
+    const headers = { 'Authorization': `Bearer ${token}` };
+
     const [routesRes, trucksRes] = await Promise.all([
       fetch(`${API_URL}/routes`, { headers }),
       fetch(`${API_URL}/trucks`, { headers })
     ]);
-    
+
     if (!routesRes.ok || !trucksRes.ok) {
-      const routesError = !routesRes.ok ? await routesRes.text() : '';
-      const trucksError = !trucksRes.ok ? await trucksRes.text() : '';
-      console.error('Routes error:', routesError);
-      console.error('Trucks error:', trucksError);
-      throw new Error(`Failed to load data - Routes: ${routesRes.status}, Trucks: ${trucksRes.status}`);
+      throw new Error('Failed to load data');
     }
-    
+
     const routes = await routesRes.json();
     const trucks = await trucksRes.json();
-    
-    // Filter routes assigned to this driver
-    const myRoutes = routes.filter(r => r.assignedDriver === user.username);
-    
+
+    // Filter routes assigned to this driver (not completed)
+    const myRoutes = routes.filter(r => r.assignedDriver === user.username && r.status !== 'completed');
+
     // Filter trucks assigned to this driver
     const myTrucks = trucks.filter(t => t.assignedDriver === user.username);
-    
+
     if (myRoutes.length === 0 && myTrucks.length === 0) {
-      container.innerHTML = '<p style="color: #999; font-style: italic;">No assignments yet</p>';
+      container.innerHTML = `
+        <div class="text-center py-6 text-gray-400">
+          <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+          <p class="text-sm font-medium">No assignments yet</p>
+          <p class="text-xs mt-1">Check back later for new routes</p>
+        </div>
+      `;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
       return;
     }
-    
+
     let html = '';
-    
-    // Show assigned trucks
+
+    // Show assigned trucks first
     if (myTrucks.length > 0) {
-      html += '<div style="margin-bottom: 1rem;"><strong>🚛 My Truck:</strong></div>';
       myTrucks.forEach(truck => {
+        const fuelColor = truck.fuelLevel > 50 ? 'text-green-600' : truck.fuelLevel > 20 ? 'text-yellow-600' : 'text-red-600';
         html += `
-          <div style="background: white; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid #4caf50;">
-            <div style="font-weight: 600;">${truck.truckId}</div>
-            <div style="font-size: 0.9rem; color: #666;">${truck.plateNumber} - ${truck.model}</div>
-            <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">
-              Fuel: ${truck.fuelLevel}% | Status: ${truck.status}
+          <div class="bg-white rounded-xl p-3 border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="truck" class="w-5 h-5 text-green-600"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-800 truncate">${truck.truckId}</p>
+                <p class="text-xs text-gray-500">${truck.plateNumber} • ${truck.model}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-bold ${fuelColor}">${truck.fuelLevel || 0}%</p>
+                <p class="text-xs text-gray-400">Fuel</p>
+              </div>
             </div>
           </div>
         `;
       });
     }
-    
+
     // Show assigned routes
     if (myRoutes.length > 0) {
-      html += '<div style="margin: 1rem 0 0.5rem 0;"><strong>📍 My Routes:</strong></div>';
       myRoutes.forEach(route => {
-        const statusColor = route.status === 'active' ? '#ff9800' : route.status === 'completed' ? '#4caf50' : '#2196f3';
-        const isCompleted = route.status === 'completed';
-        const isPending = route.status === 'pending';
-        const isActive = route.status === 'active';
-        
-        // Check if this route is currently being tracked
         const activeRouteId = localStorage.getItem('activeRouteId');
         const isCurrentlyActive = activeRouteId === (route._id || route.routeId);
-        
-        let actionButtons = '';
-        if (isCompleted) {
-          actionButtons = `<span style="color: #4caf50; font-size: 0.85rem;">✓ Completed ${route.completedAt ? new Date(route.completedAt).toLocaleDateString() : ''}</span>`;
-        } else if (isCurrentlyActive) {
-          actionButtons = `
-            <button onclick="markRouteComplete('${route._id || route.routeId}')" class="btn-small" style="background: #4caf50;">✓ Mark as Complete</button>
-            <button onclick="stopCollection()" class="btn-small" style="background: #f44336; margin-left: 0.5rem;">⏹️ Stop</button>
-          `;
-        } else {
-          actionButtons = `
-            <button onclick="startCollection('${route._id || route.routeId}')" class="btn-small" style="background: #4caf50;">🚀 Start Collection</button>
-          `;
-        }
-        
+        const stopsCount = route.path?.coordinates?.length || 0;
+
+        const statusConfig = {
+          'active': { bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-500', text: 'Active' },
+          'planned': { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-500', text: 'Planned' },
+          'pending': { bg: 'bg-gray-50', border: 'border-gray-200', badge: 'bg-gray-500', text: 'Pending' }
+        };
+        const config = statusConfig[route.status] || statusConfig.pending;
+
         html += `
-          <div style="background: white; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid ${statusColor};">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-              <div style="flex: 1;">
-                <div style="font-weight: 600;">${route.name}</div>
-                <div style="font-size: 0.9rem; color: #666;">${route.routeId}</div>
-                <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">
-                  ${route.path ? route.path.coordinates.length : 0} locations | ${route.distance ? (route.distance / 1000).toFixed(2) + ' km' : '-'}
-                </div>
+          <div class="${isCurrentlyActive ? 'bg-orange-50 border-orange-300' : config.bg + ' ' + config.border} rounded-xl p-3 border ${isCurrentlyActive ? 'ring-2 ring-orange-400' : ''} transition-all">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-800 truncate">${route.name || 'Unnamed Route'}</p>
+                <p class="text-xs text-gray-500">${route.routeId}</p>
               </div>
-              ${isCurrentlyActive ? '<div style="background: #4caf50; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;">🚛 In Progress</div>' : ''}
+              ${isCurrentlyActive ? `
+                <span class="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-full whitespace-nowrap">
+                  <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                  In Progress
+                </span>
+              ` : `
+                <span class="px-2 py-1 ${config.badge} text-white text-xs font-medium rounded-full">${config.text}</span>
+              `}
             </div>
-            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button onclick="viewDriverRoute('${route._id || route.routeId}')" class="btn-small">👁️ View on Map</button>
-              ${actionButtons}
+
+            <div class="flex items-center gap-3 text-xs text-gray-500 mb-3">
+              <span class="flex items-center gap-1">
+                <i data-lucide="map-pin" class="w-3 h-3"></i>
+                ${stopsCount} stops
+              </span>
+              <span class="flex items-center gap-1">
+                <i data-lucide="ruler" class="w-3 h-3"></i>
+                ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}
+              </span>
+            </div>
+
+            <div class="flex gap-2">
+              ${isCurrentlyActive ? `
+                <button onclick="showActiveRouteNavigation()" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="navigation" class="w-3 h-3"></i>
+                  Continue
+                </button>
+                <button onclick="markRouteComplete('${route._id || route.routeId}')" class="flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="check" class="w-3 h-3"></i>
+                </button>
+                <button onclick="stopCollection()" class="flex items-center justify-center px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="square" class="w-3 h-3"></i>
+                </button>
+              ` : `
+                <button onclick="viewDriverRoute('${route._id || route.routeId}')" class="flex items-center justify-center gap-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="eye" class="w-3 h-3"></i>
+                  View
+                </button>
+                <button onclick="startCollection('${route._id || route.routeId}')" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="play" class="w-3 h-3"></i>
+                  Start Route
+                </button>
+              `}
             </div>
           </div>
         `;
       });
     }
-    
+
     container.innerHTML = html;
-    
+
+    // Re-initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+
     // Auto-refresh every 30 seconds
     setTimeout(loadDriverAssignments, 30000);
   } catch (error) {
     console.error('Error loading assignments:', error);
-    const container = document.getElementById('driverAssignments');
-    if (container) {
-      container.innerHTML = `
-        <p style="color: #f44336;">Error loading assignments</p>
-        <p style="color: #999; font-size: 0.85rem; margin-top: 0.5rem;">${error.message}</p>
-        <button onclick="loadDriverAssignments()" class="btn-small" style="margin-top: 0.5rem;">🔄 Retry</button>
-      `;
-    }
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-red-500"></i>
+        </div>
+        <p class="text-sm text-red-600 font-medium">Error loading assignments</p>
+        <p class="text-xs text-gray-500 mt-1">${error.message}</p>
+        <button onclick="loadDriverAssignments()" class="mt-3 flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors mx-auto">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          Retry
+        </button>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 }
 
@@ -1722,10 +5008,10 @@ window.viewDriverRoute = async function(routeId) {
       // Fit map to route bounds
       map.fitBounds(line.getBounds());
       
-      alert(`Route: ${route.name}\nLocations: ${coords.length}\nDistance: ${route.distance ? (route.distance / 1000).toFixed(2) + ' km' : '-'}`);
+      showAlertModal('Route Information', `Route: ${route.name}\nLocations: ${coords.length}\nDistance: ${route.distance ? (route.distance / 1000).toFixed(2) + ' km' : '-'}`, 'info');
     }
   } catch (error) {
-    alert('Error loading route: ' + error.message);
+    showToast('Error loading route: ' + error.message, 'error');
   }
 };
 
@@ -1741,7 +5027,7 @@ window.startCollection = async function(routeId) {
     const route = await response.json();
     
     // Confirm start
-    const confirmed = confirm(`Start collection for:\n${route.name} (${route.routeId})\n\nThis will:\n✓ Position truck at first bin\n✓ Start GPS tracking\n✓ Begin route navigation\n\nReady to start?`);
+    const confirmed = await showConfirm('Start Collection', `Start collection for:\n${route.name} (${route.routeId})\n\nThis will:\n• Position truck at first bin\n• Start GPS tracking\n• Begin route navigation\n\nReady to start?`);
     
     if (!confirmed) return;
     
@@ -1771,74 +5057,135 @@ window.startCollection = async function(routeId) {
     }
     
     // Show success message
-    alert(`✓ Collection started!\n\nRoute: ${route.name}\nTruck positioned at first bin\nGPS tracking active`);
-    
+    showAlertModal('Collection Started', `Route: ${route.name}\n\nTruck positioned at first bin\nGPS tracking active`, 'success');
+
     // Refresh assignments to show updated status
     loadDriverAssignments();
-    
+    if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
+    if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
+    if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
+
   } catch (error) {
     console.error('Error starting collection:', error);
-    alert('Error starting collection: ' + error.message);
+    showToast('Error starting collection: ' + error.message, 'error');
   }
 };
 
 // Stop collection
-window.stopCollection = function() {
-  const confirmed = confirm('Stop current collection?\n\nThis will:\n✗ Stop GPS tracking\n✗ Remove truck from map\n✗ Clear active route\n\nYou can restart later.');
-  
+window.stopCollection = async function() {
+  const confirmed = await showConfirm('Stop Collection', 'Stop current collection?\n\nThis will:\n• Stop GPS tracking\n• Remove truck from map\n• Clear active route\n\nYou can restart later.');
+
   if (!confirmed) return;
-  
+
   // Stop GPS tracking
   stopGPSTracking();
-  
+
   // Clear active route
   localStorage.removeItem('activeRouteId');
-  
+
   // Refresh assignments
   loadDriverAssignments();
-  
-  alert('✓ Collection stopped\n\nYou can restart anytime from your assignments.');
+  if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
+  if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
+  if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
+
+  showAlertModal('Collection Stopped', 'You can restart anytime from your assignments.', 'info');
 };
 
 window.markRouteComplete = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    const route = await response.json();
-    
+
+    // Fetch route info and trip data in parallel
+    const [routeResponse, tripResponse] = await Promise.all([
+      fetch(`${API_URL}/routes/${routeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }),
+      fetch(`${API_URL}/tracking/my-trip`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+    ]);
+
+    const route = await routeResponse.json();
+    const tripResult = await tripResponse.json();
+
+    // Extract trip data (auto-calculated from GPS)
+    const tripData = tripResult.hasActiveTrip && tripResult.trip ? tripResult.trip : null;
+    const distanceKm = tripData?.distance?.km || 0;
+    const fuelLiters = tripData?.fuel?.liters || 0;
+    const stops = tripData?.stops || 0;
+    const avgSpeed = tripData?.averageSpeed || 0;
+
     showModal('Mark Route as Complete', `
-      <form id="completeRouteForm" enctype="multipart/form-data">
-        <div class="form-group">
-          <label>Route</label>
-          <input type="text" value="${route.name} (${route.routeId})" disabled>
+      <form id="completeRouteForm" enctype="multipart/form-data" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Route</label>
+          <input type="text" value="${route.name} (${route.routeId})" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        
-        <div class="form-group">
-          <label>Upload Proof Photos * (1-10 photos)</label>
-          <input type="file" id="completionPhotos" accept="image/*" multiple required style="padding: 0.5rem; border: 2px dashed #667eea; border-radius: 8px; width: 100%;">
-          <p style="color: #666; font-size: 0.85rem; margin-top: 0.5rem;">
-            📸 Upload photos ng collected waste as proof. Max 5MB per photo.
+
+        <!-- Auto-calculated Trip Summary -->
+        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="calculator" class="w-5 h-5 text-green-600"></i>
+            <span class="font-semibold text-green-800">Trip Summary (Auto-calculated)</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white rounded-lg p-3 text-center border border-green-100">
+              <div class="text-2xl font-bold text-green-600">${distanceKm.toFixed(2)}</div>
+              <div class="text-xs text-gray-500">Distance (km)</div>
+            </div>
+            <div class="bg-white rounded-lg p-3 text-center border border-green-100">
+              <div class="text-2xl font-bold text-orange-600">${fuelLiters.toFixed(2)}</div>
+              <div class="text-xs text-gray-500">Est. Fuel (L)</div>
+            </div>
+            <div class="bg-white rounded-lg p-3 text-center border border-green-100">
+              <div class="text-2xl font-bold text-blue-600">${stops}</div>
+              <div class="text-xs text-gray-500">Stops Made</div>
+            </div>
+            <div class="bg-white rounded-lg p-3 text-center border border-green-100">
+              <div class="text-2xl font-bold text-purple-600">${avgSpeed}</div>
+              <div class="text-xs text-gray-500">Avg Speed (km/h)</div>
+            </div>
+          </div>
+          ${distanceKm === 0 ? '<p class="text-xs text-amber-600 mt-2 text-center">⚠️ No GPS data recorded. Enable GPS tracking next time.</p>' : ''}
+        </div>
+
+        <!-- Hidden fields for trip data -->
+        <input type="hidden" id="tripDistanceKm" value="${distanceKm}">
+        <input type="hidden" id="tripFuelLiters" value="${fuelLiters}">
+        <input type="hidden" id="tripStops" value="${stops}">
+        <input type="hidden" id="tripAvgSpeed" value="${avgSpeed}">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Upload Proof Photos * (1-10 photos)</label>
+          <input type="file" id="completionPhotos" accept="image/*" multiple required
+            class="w-full px-4 py-2.5 border-2 border-dashed border-primary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-primary-50 hover:bg-primary-100 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-500 file:text-white hover:file:bg-primary-600">
+          <p class="mt-2 text-xs text-gray-500">Upload photos ng collected waste as proof. Max 5MB per photo.</p>
+          <div id="photoPreview" class="flex flex-wrap gap-2 mt-3"></div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Completion Notes</label>
+          <textarea id="completionNotes" rows="3" placeholder="Add any notes about the collection (optional)"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"></textarea>
+        </div>
+
+        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <p class="text-sm text-amber-700 flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            Once marked as complete, the admin will be notified and this route will be locked.
           </p>
-          <div id="photoPreview" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;"></div>
         </div>
-        
-        <div class="form-group">
-          <label>Completion Notes</label>
-          <textarea id="completionNotes" rows="3" placeholder="Add any notes about the collection (optional)"></textarea>
+
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors">
+            Mark as Complete
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
         </div>
-        
-        <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <p style="color: #e65100; margin: 0; font-size: 0.9rem;">
-            ⚠️ Once marked as complete, the admin will be notified and this route will be locked.
-          </p>
-        </div>
-        
-        <button type="submit" class="btn" style="background: #4caf50;">✓ Mark as Complete</button>
-        <button type="button" onclick="closeModal()" class="btn" style="background: #999;">Cancel</button>
       </form>
     `);
     
@@ -1849,14 +5196,14 @@ window.markRouteComplete = async function(routeId) {
       const files = Array.from(e.target.files);
       
       if (files.length > 10) {
-        alert('Maximum 10 photos allowed');
+        showToast('Maximum 10 photos allowed', 'warning');
         e.target.value = '';
         return;
       }
       
       files.forEach(file => {
         if (file.size > 5 * 1024 * 1024) {
-          alert(`File ${file.name} is too large. Max 5MB per photo.`);
+          showToast(`File ${file.name} is too large. Max 5MB.`, 'warning');
           return;
         }
         
@@ -1874,21 +5221,32 @@ window.markRouteComplete = async function(routeId) {
     // Form submission
     document.getElementById('completeRouteForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      
+
       const photos = document.getElementById('completionPhotos').files;
       const notes = document.getElementById('completionNotes').value;
-      
+
+      // Get auto-calculated trip data
+      const tripDistanceKm = parseFloat(document.getElementById('tripDistanceKm').value) || 0;
+      const tripFuelLiters = parseFloat(document.getElementById('tripFuelLiters').value) || 0;
+      const tripStops = parseInt(document.getElementById('tripStops').value) || 0;
+      const tripAvgSpeed = parseFloat(document.getElementById('tripAvgSpeed').value) || 0;
+
       if (photos.length === 0) {
-        alert('Please upload at least one photo as proof');
+        showToast('Please upload at least one photo as proof', 'warning');
         return;
       }
-      
+
       const formData = new FormData();
       for (let i = 0; i < photos.length; i++) {
         formData.append('photos', photos[i]);
       }
       formData.append('notes', notes);
-      
+      // Include trip data in completion
+      formData.append('distanceTraveled', tripDistanceKm);
+      formData.append('fuelConsumed', tripFuelLiters);
+      formData.append('stopsCompleted', tripStops);
+      formData.append('averageSpeed', tripAvgSpeed);
+
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/completions/${routeId}/complete`, {
@@ -1898,22 +5256,42 @@ window.markRouteComplete = async function(routeId) {
           },
           body: formData
         });
-        
+
         if (response.ok) {
           const result = await response.json();
-          alert('✓ Route marked as complete! Admin has been notified.');
+
+          // Auto-log fuel consumption if we have distance data
+          if (tripDistanceKm > 0 && tripFuelLiters > 0) {
+            try {
+              await fetch(`${API_URL}/tracking/end-trip`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              console.log('Trip ended and fuel logged:', tripDistanceKm, 'km,', tripFuelLiters, 'L');
+            } catch (err) {
+              console.log('Could not end trip:', err);
+            }
+          }
+
+          showAlertModal('Route Completed', `Route marked as complete! Admin has been notified.\n\n📊 Trip Summary:\n• Distance: ${tripDistanceKm.toFixed(2)} km\n• Est. Fuel: ${tripFuelLiters.toFixed(2)} L`, 'success');
           closeModal();
+          localStorage.removeItem('activeRouteId');
           loadDriverAssignments();
+          if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
+          if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
+          stopGPSTracking();
+          if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
+          if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to complete route'));
+          showToast(error.error || 'Failed to complete route', 'error');
         }
       } catch (error) {
-        alert('Error completing route: ' + error.message);
+        showToast('Error completing route: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading route: ' + error.message);
+    showToast('Error loading route: ' + error.message, 'error');
   }
 };
 
@@ -1928,28 +5306,38 @@ window.updateRouteStatus = async function(routeId) {
     const route = await response.json();
     
     showModal('Update Route Status', `
-      <form id="updateStatusForm">
-        <div class="form-group">
-          <label>Route</label>
-          <input type="text" value="${route.name}" disabled>
+      <form id="updateStatusForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Route</label>
+          <input type="text" value="${route.name}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        <div class="form-group">
-          <label>Current Status</label>
-          <input type="text" value="${route.status}" disabled>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Current Status</label>
+          <input type="text" value="${route.status}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed capitalize">
         </div>
-        <div class="form-group">
-          <label>New Status *</label>
-          <select id="newStatus" required>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">New Status *</label>
+          <select id="newStatus" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
             <option value="active" ${route.status === 'active' ? 'selected' : ''}>Active (In Progress)</option>
             <option value="completed" ${route.status === 'completed' ? 'selected' : ''}>Completed</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>Notes</label>
-          <textarea id="statusNotes" rows="3" placeholder="Add any notes about this update..."></textarea>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <textarea id="statusNotes" rows="3" placeholder="Add any notes about this update..."
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none"></textarea>
         </div>
-        <button type="submit" class="btn">Update Status</button>
-        <button type="button" onclick="closeModal()" class="btn" style="background: #999;">Cancel</button>
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Update Status
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </form>
     `);
     
@@ -1974,19 +5362,19 @@ window.updateRouteStatus = async function(routeId) {
         });
         
         if (updateResponse.ok) {
-          alert('Status updated successfully!');
+          showToast('Status updated successfully!', 'success');
           closeModal();
           loadDriverAssignments();
         } else {
           const error = await updateResponse.json();
-          alert('Error: ' + (error.error || 'Failed to update status'));
+          showToast(error.error || 'Failed to update status', 'error');
         }
       } catch (error) {
-        alert('Error updating status: ' + error.message);
+        showToast('Error updating status: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading route: ' + error.message);
+    showToast('Error loading route: ' + error.message, 'error');
   }
 };
 
@@ -1995,55 +5383,41 @@ window.updateRouteStatus = async function(routeId) {
 // Create permanent notification icon in header
 function createNotificationIcon() {
   console.log('createNotificationIcon called, user role:', user.role);
-  
+
   if (user.role !== 'admin') {
     console.log('Not admin, skipping notification icon');
     return;
   }
-  
+
   let badge = document.getElementById('notificationBadge');
   if (badge) {
     console.log('Notification badge already exists');
     return; // Already exists
   }
-  
+
   const container = document.getElementById('headerNotificationContainer');
   console.log('Container found:', container);
-  
+
   if (!container) {
     console.error('headerNotificationContainer not found!');
     return;
   }
-  
+
   badge = document.createElement('button');
   badge.id = 'notificationBadge';
-  badge.style.cssText = `
-    position: relative;
-    background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
-    color: #666;
-    padding: 0.5rem 1rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  badge.className = 'relative p-2 hover:bg-white/10 rounded-lg transition-colors';
+  badge.title = 'Click to view notifications';
+  badge.innerHTML = `
+    <i data-lucide="bell" class="w-5 h-5"></i>
+    <span id="notificationCount" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold"></span>
   `;
-  badge.innerHTML = '<span style="font-size: 1.2rem;">🔔</span><span id="notificationText" style="color: #999;">No New</span>';
-  badge.title = 'Click to view notification history';
   badge.onclick = () => showNotificationHistory();
-  badge.onmouseover = () => {
-    badge.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-    badge.style.transform = 'translateY(-2px)';
-  };
-  badge.onmouseout = () => {
-    badge.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-    badge.style.transform = 'translateY(0)';
-  };
   container.appendChild(badge);
+
+  // Initialize Lucide icon
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
   console.log('Notification badge created successfully!');
 }
 
@@ -2077,28 +5451,18 @@ function showCompletionNotifications(notifications) {
     createNotificationIcon();
     badge = document.getElementById('notificationBadge');
   }
-  
+
   if (badge) {
-    // Update badge appearance for new notifications
-    badge.style.background = 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)';
-    badge.style.borderColor = '#4caf50';
-    badge.style.animation = 'pulse 2s infinite';
     badge.title = `${notifications.length} new notification${notifications.length > 1 ? 's' : ''} - Click to view`;
-    
-    const notificationText = document.getElementById('notificationText');
-    if (notificationText) {
-      notificationText.textContent = `${notifications.length} New`;
-      notificationText.style.cssText = `
-        background: white;
-        color: #4caf50;
-        padding: 0.15rem 0.5rem;
-        border-radius: 12px;
-        font-size: 0.85rem;
-        font-weight: bold;
-      `;
+    badge.classList.add('notification-pulse');
+
+    // Update notification count badge
+    const countBadge = document.getElementById('notificationCount');
+    if (countBadge) {
+      countBadge.textContent = notifications.length;
+      countBadge.classList.remove('hidden');
     }
-    badge.style.background = 'white';
-    badge.style.color = '#f44336';
+
     badge.onclick = () => showNotificationDetails(notifications);
   }
 }
@@ -2146,12 +5510,14 @@ async function showNotificationDetails(notifications) {
       <div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
         ${notificationsList}
       </div>
-      <div style="display: flex; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
-        <button onclick="markAllNotificationsRead()" class="btn" style="background: #4caf50; color: white; flex: 1; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <span>✓</span> Acknowledge All
+      <div class="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+        <button onclick="markAllNotificationsRead()" class="flex-1 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          Acknowledge All
         </button>
-        <button onclick="deleteAllNotifications()" class="btn" style="background: #f44336; color: white; flex: 1; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <span>🗑️</span> Delete All
+        <button onclick="deleteAllNotifications()" class="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          Delete All
         </button>
       </div>
     </div>
@@ -2196,12 +5562,12 @@ window.viewCompletionDetails = async function(routeId) {
             ${photosHtml}
           </div>
         </div>
-        <button onclick="closeModal(); checkCompletionNotifications();" class="btn" style="margin-top: 1rem; width: 100%;">Close</button>
+        <button onclick="closeModal(); checkCompletionNotifications();" class="w-full px-4 py-2.5 mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Close</button>
       </div>
     `);
   } catch (error) {
     console.error('Error viewing details:', error);
-    alert('Error loading completion details: ' + error.message);
+    showToast('Error loading completion details: ' + error.message, 'error');
   }
 };
 
@@ -2241,7 +5607,7 @@ window.markNotificationRead = async function(routeId) {
 
 // Delete single notification
 window.deleteNotification = async function(routeId) {
-  if (!confirm('Permanently delete this route from history? This cannot be undone.')) {
+  if (!await showConfirm('Delete from History', 'Permanently delete this route from history? This cannot be undone.')) {
     return;
   }
   
@@ -2257,23 +5623,23 @@ window.deleteNotification = async function(routeId) {
     });
     
     if (response.ok) {
-      alert('Route deleted permanently');
+      showToast('Route deleted permanently', 'success');
       checkCompletionNotifications();
       closeModal();
     } else {
       const error = await response.text();
       console.error('Delete failed:', error);
-      alert('Failed to delete route: ' + error);
+      showToast('Failed to delete route: ' + error, 'error');
     }
   } catch (error) {
     console.error('Error deleting notification:', error);
-    alert('Error deleting notification: ' + error.message);
+    showToast('Error deleting notification: ' + error.message, 'error');
   }
 };
 
 // Delete all notifications
 window.deleteAllNotifications = async function() {
-  if (!confirm('Delete all notifications? This cannot be undone.')) {
+  if (!await showConfirm('Delete All Notifications', 'Delete all notifications? This cannot be undone.')) {
     return;
   }
   
@@ -2313,14 +5679,14 @@ window.deleteAllNotifications = async function() {
       }
     }
     
-    alert('All notifications deleted');
+    showToast('All notifications deleted', 'success');
     closeModal();
     
     // Check for new notifications after 5 seconds
     setTimeout(checkCompletionNotifications, 5000);
   } catch (error) {
     console.error('Error deleting all notifications:', error);
-    alert('Error deleting notifications');
+    showToast('Error deleting notifications', 'error');
   }
 };
 
@@ -2343,107 +5709,184 @@ function saveNotificationToHistory(routeId) {
 window.showNotificationHistory = async function() {
   try {
     const token = localStorage.getItem('token');
-    
-    // Get all completed routes with photos for history view
+
     const response = await fetch(`${API_URL}/routes?includePhotos=true`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    
+
     const routes = await response.json();
     const completedRoutes = routes.filter(r => r.status === 'completed' && r.completedAt);
-    
-    // Sort by completion date (newest first)
     completedRoutes.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
-    
-    if (completedRoutes.length === 0) {
-      showModal('📜 Notification History', `
-        <p style="text-align: center; color: #999; padding: 2rem;">No completion history found</p>
-        <button onclick="closeModal()" class="btn" style="width: 100%;">Close</button>
-      `);
-      return;
-    }
-    
-    const historyList = completedRoutes.map(route => {
-      const completedDate = new Date(route.completedAt).toLocaleString();
+
+    // Stats
+    const acknowledgedCount = completedRoutes.filter(r => r.notificationSent).length;
+    const pendingCount = completedRoutes.filter(r => !r.notificationSent).length;
+    const withPhotosCount = completedRoutes.filter(r => r.completionPhotos && r.completionPhotos.length > 0).length;
+
+    const historyCards = completedRoutes.map(route => {
+      const completedDate = new Date(route.completedAt).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+      const completedTime = new Date(route.completedAt).toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit'
+      });
       const isAcknowledged = route.notificationSent;
-      const photosHtml = route.completionPhotos && route.completionPhotos.length > 0 ? 
-        route.completionPhotos.map(photo => 
-          `<img src="${photo}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin: 0.25rem; cursor: pointer; border: 2px solid #e0e0e0;" onclick="window.open('${photo}', '_blank')" title="Click to view full size">`
-        ).join('') : 
-        '<p style="color: #999; font-size: 0.85rem; font-style: italic;">No photos</p>';
-      
+      const photoCount = route.completionPhotos ? route.completionPhotos.length : 0;
+
       return `
-        <div style="background: ${isAcknowledged ? 'linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)' : 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)'}; padding: 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 5px solid ${isAcknowledged ? '#999' : '#4caf50'}; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-            <div style="flex: 1;">
-              <h4 style="margin: 0 0 0.25rem 0; color: ${isAcknowledged ? '#666' : '#4caf50'}; font-size: 1rem;">
-                ${isAcknowledged ? '✓' : '🔔'} ${route.name}
-              </h4>
-              <p style="margin: 0; color: #666; font-size: 0.8rem; font-weight: 500;">${route.routeId}</p>
+        <div class="bg-white rounded-xl shadow-sm border ${isAcknowledged ? 'border-gray-100' : 'border-green-200'} overflow-hidden">
+          <!-- Card Header -->
+          <div class="flex items-center justify-between px-5 py-4 ${isAcknowledged ? 'bg-gray-50' : 'bg-green-50'} border-b ${isAcknowledged ? 'border-gray-100' : 'border-green-100'}">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full ${isAcknowledged ? 'bg-gray-200' : 'bg-green-100'} flex items-center justify-center">
+                <i data-lucide="${isAcknowledged ? 'check-circle' : 'bell'}" class="w-5 h-5 ${isAcknowledged ? 'text-gray-600' : 'text-green-600'}"></i>
+              </div>
+              <div>
+                <h3 class="font-semibold ${isAcknowledged ? 'text-gray-700' : 'text-green-700'}">${route.name || 'Unnamed Route'}</h3>
+                <p class="text-sm text-gray-500">${route.routeId}</p>
+              </div>
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <span style="background: ${isAcknowledged ? '#999' : '#4caf50'}; color: white; padding: 0.3rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;">
-                ${isAcknowledged ? '✓ Acknowledged' : '✓ Completed'}
-              </span>
-              <button onclick="deleteHistoryItem('${route._id || route.routeId}')" class="btn-small" style="background: #f44336; color: white; padding: 0.3rem 0.6rem; border: none; border-radius: 5px; cursor: pointer; font-size: 0.75rem; font-weight: 600;" title="Delete from history">
-                🗑️
-              </button>
-            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${isAcknowledged ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}">
+              ${isAcknowledged ? 'Acknowledged' : 'New'}
+            </span>
           </div>
-          
-          <div style="background: white; padding: 0.6rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.85rem; border: 1px solid #e0e0e0;">
-            <p style="margin: 0.25rem 0;"><strong style="color: #333;">👤 Driver:</strong> <span style="color: ${isAcknowledged ? '#666' : '#4caf50'}; font-weight: 600;">${route.completedBy}</span></p>
-            <p style="margin: 0.25rem 0;"><strong style="color: #333;">🕐 Completed:</strong> ${completedDate}</p>
-            ${route.completionNotes ? `<p style="margin: 0.25rem 0;"><strong style="color: #333;">📝 Notes:</strong> ${route.completionNotes}</p>` : ''}
-          </div>
-          
-          <div style="margin-top: 0.5rem;">
-            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; color: #333;">📷 Photos:</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-              ${photosHtml}
+
+          <!-- Card Body -->
+          <div class="p-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-xs text-gray-500 mb-1">Completed By</p>
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
+                    ${(route.completedBy || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <span class="font-medium text-gray-800">${route.completedBy || 'Unknown'}</span>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 mb-1">Completed</p>
+                <p class="font-medium text-gray-800">${completedDate}</p>
+                <p class="text-sm text-gray-500">${completedTime}</p>
+              </div>
             </div>
+
+            ${route.completionNotes ? `
+              <div>
+                <p class="text-xs text-gray-500 mb-1">Notes</p>
+                <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${route.completionNotes}</p>
+              </div>
+            ` : ''}
+
+            ${photoCount > 0 ? `
+              <div>
+                <p class="text-xs text-gray-500 mb-2">Photos (${photoCount})</p>
+                <div class="flex flex-wrap gap-2">
+                  ${route.completionPhotos.slice(0, 4).map((photo, i) => `
+                    <img src="${photo}" class="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
+                      onclick="window.open('${photo}', '_blank')" title="View full size">
+                  `).join('')}
+                  ${photoCount > 4 ? `
+                    <div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
+                      +${photoCount - 4}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Card Footer -->
+          <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+            <button onclick="deleteHistoryItem('${route._id || route.routeId}')" class="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              <span>Delete</span>
+            </button>
           </div>
         </div>
       `;
     }).join('');
-    
-    showModal('📜 Notification History', `
-      <div>
-        <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #2196f3;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <p style="color: #1976d2; font-weight: 700; margin: 0; font-size: 1.1rem;">
-                📜 Complete History
-              </p>
-              <p style="color: #666; margin: 0.25rem 0 0 0; font-size: 0.85rem;">
-                Showing ${completedRoutes.length} completed route${completedRoutes.length > 1 ? 's' : ''}
-              </p>
+
+    showPage('Completion History', `
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-6 h-6 text-blue-600"></i>
             </div>
-            <button onclick="closeModal(); checkCompletionNotifications();" class="btn-small" style="background: #4caf50; color: white; padding: 0.5rem 1rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;" title="View active notifications">
-              <span>🔔</span> Active
-            </button>
+            <div>
+              <p class="text-sm text-gray-500">Total Completed</p>
+              <p class="text-2xl font-bold text-gray-800">${completedRoutes.length}</p>
+            </div>
           </div>
         </div>
-        <div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
-          ${historyList}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 ${pendingCount > 0 ? 'bg-green-100' : 'bg-gray-100'} rounded-xl flex items-center justify-center">
+              <i data-lucide="bell" class="w-6 h-6 ${pendingCount > 0 ? 'text-green-600' : 'text-gray-600'}"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Pending Review</p>
+              <p class="text-2xl font-bold ${pendingCount > 0 ? 'text-green-600' : 'text-gray-800'}">${pendingCount}</p>
+            </div>
+          </div>
         </div>
-        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-          <button onclick="clearAllHistory()" class="btn" style="flex: 1; background: #f44336; color: white; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem;">🗑️ Clear All</button>
-          <button onclick="closeModal()" class="btn" style="flex: 1; background: #2196f3; color: white; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem;">Close</button>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="camera" class="w-6 h-6 text-purple-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">With Photos</p>
+              <p class="text-2xl font-bold text-gray-800">${withPhotosCount}</p>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Action Bar -->
+      ${completedRoutes.length > 0 ? `
+        <div class="flex items-center justify-between mb-6">
+          <p class="text-sm text-gray-500">Showing ${completedRoutes.length} completed route${completedRoutes.length !== 1 ? 's' : ''}</p>
+          <button onclick="clearAllHistory()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Clear All History</span>
+          </button>
+        </div>
+      ` : ''}
+
+      <!-- History Cards Grid -->
+      ${completedRoutes.length > 0 ? `
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          ${historyCards}
+        </div>
+      ` : `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="inbox" class="w-8 h-8 text-gray-400"></i>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-700 mb-2">No Completion History</h3>
+          <p class="text-gray-500">Completed routes will appear here</p>
+        </div>
+      `}
     `);
   } catch (error) {
     console.error('Error loading history:', error);
-    alert('Error loading notification history');
+    showPage('Completion History', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading history: ${error.message}</p>
+        <button onclick="showNotificationHistory()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
   }
 };
 
 // Delete single history item
 window.deleteHistoryItem = async function(routeId) {
-  if (!confirm('Delete this history item? This will permanently remove it.')) {
+  if (!await showConfirm('Delete History Item', 'Delete this history item? This will permanently remove it.')) {
     return;
   }
   
@@ -2457,20 +5900,20 @@ window.deleteHistoryItem = async function(routeId) {
     });
     
     if (response.ok) {
-      alert('History item deleted');
+      showToast('History item deleted', 'success');
       showNotificationHistory(); // Refresh the list
     } else {
-      alert('Failed to delete history item');
+      showToast('Failed to delete history item', 'error');
     }
   } catch (error) {
     console.error('Error deleting history:', error);
-    alert('Error deleting history item');
+    showToast('Error deleting history item', 'error');
   }
 };
 
 // Clear all history
 window.clearAllHistory = async function() {
-  if (!confirm('Delete ALL history? This will permanently remove all completed routes from history.')) {
+  if (!await showConfirm('Clear All History', 'Delete ALL history? This will permanently remove all completed routes from history.')) {
     return;
   }
   
@@ -2497,11 +5940,11 @@ window.clearAllHistory = async function() {
       })
     ));
     
-    alert('All history cleared');
+    showToast('All history cleared', 'success');
     closeModal();
   } catch (error) {
     console.error('Error clearing history:', error);
-    alert('Error clearing history');
+    showToast('Error clearing history', 'error');
   }
 };
 
@@ -2541,7 +5984,7 @@ window.markAllNotificationsRead = async function() {
       }
     }
     
-    alert('All notifications acknowledged!');
+    showToast('All notifications acknowledged!', 'success');
     closeModal();
     
     // Check for new notifications after 5 seconds
@@ -2565,31 +6008,60 @@ let truckPathCoords = []; // Array of coordinates
 let routingControl = null; // Routing control for road snapping
 let lastPosition = null; // Store last position for routing
 
-// Create custom truck icon with rotation support
+// Create custom truck icon with rotation support (facing right by default)
 const truckIcon = L.divIcon({
   className: 'truck-marker',
   html: `
     <div class="truck-icon-wrapper" style="
-      font-size: 2rem;
-      text-align: center;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-      animation: truck-bounce 2s ease-in-out infinite;
-      transition: transform 0.5s ease;
-    ">🚛</div>
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 50%;
+      border: 3px solid #16a34a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: transform 0.3s ease;
+    ">
+      <span style="font-size: 24px;">🚛</span>
+    </div>
   `,
-  iconSize: [40, 40],
-  iconAnchor: [20, 20]
+  iconSize: [48, 48],
+  iconAnchor: [24, 24]
 });
+
+// Variables for navigation and ETA
+let navigationLine = null;
+let nextDestination = null;
+let etaPanel = null;
+let currentSpeed = 0;
+let distanceToDestination = 0;
+
+// Variables for route path visualization
+let currentPathLine = null;      // Red line - current location to first point (pathfinding)
+let assignedRouteLine = null;    // Green line - the entire assigned route
+let routeWaypointMarkers = [];   // Markers for each waypoint
 
 // Start GPS tracking for drivers
 async function startGPSTracking() {
-  if (user.role !== 'driver') return;
-  
-  if (!navigator.geolocation) {
-    console.error('❌ Geolocation is not supported by this browser');
-    alert('GPS Error: Your browser does not support geolocation. Please use a modern browser.');
+  console.log('🚀 startGPSTracking called');
+  console.log('👤 Checking user role:', user?.role);
+
+  if (!user || user.role !== 'driver') {
+    console.log('❌ User is not a driver, returning');
+    showToast('GPS tracking is only available for drivers', 'warning');
     return;
   }
+
+  if (!navigator.geolocation) {
+    console.error('❌ Geolocation is not supported by this browser');
+    showAlertModal('GPS Not Supported', 'Your browser does not support geolocation. Please use a modern browser.', 'error');
+    return;
+  }
+
+  // Show immediate feedback
+  showToast('Starting GPS tracking...', 'info');
   
   // Check if we're on HTTPS (required for geolocation on mobile)
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -2609,10 +6081,21 @@ async function startGPSTracking() {
       console.log('📊 Accuracy:', position.coords.accuracy, 'meters');
       currentPosition = position;
       updateLocationOnServer(position);
-      
+
       // Update truck marker with real GPS position
       updateTruckMarker(position);
       showTrackingStatus(true);
+
+      // Start live fuel estimation polling
+      startTripDataPolling();
+
+      // Show success feedback
+      showToast('GPS tracking active!', 'success');
+
+      // Sync overlay GPS state
+      if (typeof syncOverlayGPSState === 'function') {
+        syncOverlayGPSState();
+      }
     },
     error => {
       console.error('❌ GPS Error:', error.code, error.message);
@@ -2620,17 +6103,26 @@ async function startGPSTracking() {
       switch(error.code) {
         case error.PERMISSION_DENIED:
           errorMsg = 'Location permission denied. Please allow GPS access in your browser settings.';
-          alert('📍 GPS Permission Denied!\n\nPlease allow location access:\n1. Click the lock icon in the address bar\n2. Allow Location access\n3. Refresh the page');
+          showAlertModal('GPS Permission Denied', 'Please allow location access:\n\n1. Click the lock icon in the address bar\n2. Allow Location access\n3. Refresh the page', 'warning');
+          trackingEnabled = false;
+          updateGPSButtonState(false);
           break;
         case error.POSITION_UNAVAILABLE:
           errorMsg = 'Location unavailable. Make sure GPS is enabled on your device.';
+          showToast(errorMsg, 'error');
           break;
         case error.TIMEOUT:
           errorMsg = 'Location request timed out. Please try again.';
+          showToast(errorMsg, 'warning');
           break;
       }
       console.error('GPS Error Details:', errorMsg);
       showTrackingStatus(false, errorMsg);
+
+      // Sync overlay GPS state on error too
+      if (typeof syncOverlayGPSState === 'function') {
+        syncOverlayGPSState();
+      }
     },
     {
       enableHighAccuracy: true,
@@ -2673,33 +6165,33 @@ async function positionTruckAtFirstBin() {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     if (!response.ok) return;
-    
+
     const routes = await response.json();
-    
+
     // Find active/pending routes assigned to this driver
-    const myActiveRoutes = routes.filter(r => 
-      r.assignedDriver === user.username && 
+    const myActiveRoutes = routes.filter(r =>
+      r.assignedDriver === user.username &&
       (r.status === 'active' || r.status === 'pending')
     );
-    
+
     if (myActiveRoutes.length === 0) {
       console.log('No active routes assigned');
       return;
     }
-    
+
     // Get the first active route
     const firstRoute = myActiveRoutes[0];
-    
+
     // Check if route has path with coordinates
     if (firstRoute.path && firstRoute.path.coordinates && firstRoute.path.coordinates.length > 0) {
       // Get first bin location [lng, lat] -> convert to [lat, lng]
       const firstBin = firstRoute.path.coordinates[0];
       const firstBinLatLng = [firstBin[1], firstBin[0]];
-      
+
       console.log('Positioning truck at first bin:', firstBinLatLng);
-      
+
       // Create a mock position object
       const mockPosition = {
         coords: {
@@ -2709,46 +6201,22 @@ async function positionTruckAtFirstBin() {
           heading: 0
         }
       };
-      
-      // Draw the route on map first
-      const coords = firstRoute.path.coordinates.map(c => [c[1], c[0]]);
-      
-      // Draw route line
-      const routeLine = L.polyline(coords, { 
-        color: '#2196f3', 
-        weight: 3,
-        opacity: 0.6,
-        dashArray: '5, 10'
-      }).addTo(map);
-      
-      // Add markers for each bin
-      coords.forEach((coord, index) => {
-        const binMarker = L.circleMarker(coord, {
-          radius: 6,
-          fillColor: index === 0 ? '#4caf50' : '#2196f3',
-          color: '#fff',
-          weight: 2,
-          opacity: 1,
-          fillOpacity: 0.8
-        }).addTo(map);
-        
-        binMarker.bindPopup(`
-          <div style="text-align: center;">
-            <strong>${index === 0 ? '🎯 Start' : `📍 Stop ${index}`}</strong><br>
-            <span style="font-size: 0.85rem; color: #666;">Location ${index + 1}</span>
-          </div>
-        `);
-      });
-      
+
+      // Clear any existing route visualization
+      clearRouteVisualization();
+
+      // Draw the GREEN assigned route line with waypoint markers
+      drawAssignedRouteLine(firstRoute.path.coordinates);
+
       // Position truck at first bin (this will create the truck marker)
       updateTruckMarker(mockPosition);
-      
+
       // Set last position for road snapping
       lastPosition = firstBinLatLng;
-      
-      // Center map on first bin
+
+      // Center map on first bin with good zoom
       map.setView(firstBinLatLng, 16);
-      
+
       console.log(`Truck positioned at first bin of route: ${firstRoute.name}`);
     }
   } catch (error) {
@@ -2759,20 +6227,24 @@ async function positionTruckAtFirstBin() {
 // Update truck marker on map with road snapping
 function updateTruckMarker(position) {
   if (user.role !== 'driver') return;
-  
+
   const lat = position.coords.latitude;
   const lng = position.coords.longitude;
   const latlng = [lat, lng];
-  
+
+  // Update current speed from GPS
+  currentSpeed = position.coords.speed || 0;
+  const heading = position.coords.heading || 0;
+
   if (!truckMarker) {
     // Create new truck marker
-    truckMarker = L.marker(latlng, { 
+    truckMarker = L.marker(latlng, {
       icon: truckIcon,
       zIndexOffset: 1000, // Keep truck on top
       rotationAngle: 0,
       rotationOrigin: 'center'
     }).addTo(map);
-    
+
     // Add popup with driver info
     truckMarker.bindPopup(`
       <div id="driver-popup" style="text-align: center; padding: 0.5rem;">
@@ -2785,10 +6257,10 @@ function updateTruckMarker(position) {
         <button onclick="centerOnTruck()" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">📍 Center Map</button>
       </div>
     `).openPopup(); // Open popup automatically
-    
+
     // Update location name immediately
     updateDriverLocationName(lat, lng);
-    
+
     // Initialize path with empty array
     truckPath = L.polyline([], {
       color: '#4caf50',
@@ -2796,41 +6268,55 @@ function updateTruckMarker(position) {
       opacity: 0.8,
       smoothFactor: 1
     }).addTo(map);
-    
+
     // Store first position
     lastPosition = latlng;
     truckPathCoords.push(latlng);
-    
+
     // Center map on truck
     map.setView(latlng, 15);
-    
+
+    // Initialize navigation to next destination
+    initializeNavigation(latlng);
+
     console.log('Truck marker created at:', lat, lng);
   } else {
+    // Update truck rotation based on GPS heading
+    if (heading > 0) {
+      updateTruckRotation(heading);
+    }
+
     // Truck marker already exists, update position
     if (lastPosition) {
       const distance = map.distance(lastPosition, latlng);
-      
+
       console.log('Distance moved:', distance.toFixed(2), 'meters');
-      
+
       // Only update if moved more than 10 meters (to avoid jitter)
       if (distance > 10) {
         console.log('Moving truck from', lastPosition, 'to', latlng);
-        
+
+        // Calculate bearing if no GPS heading
+        if (!heading || heading === 0) {
+          const bearing = calculateBearing(lastPosition, latlng);
+          updateTruckRotation(bearing);
+        }
+
         // Use OSRM routing to snap to roads
         snapToRoad(lastPosition, latlng, (roadPath) => {
           if (roadPath && roadPath.length > 0) {
             console.log('Road path received with', roadPath.length, 'points');
-            
+
             // Add road path coordinates
             roadPath.forEach(coord => {
               truckPathCoords.push(coord);
             });
-            
+
             // Update path polyline
             if (truckPath) {
               truckPath.setLatLngs(truckPathCoords);
             }
-            
+
             // Animate truck along the road path
             animateTruckAlongPath(roadPath);
           } else {
@@ -2842,18 +6328,21 @@ function updateTruckMarker(position) {
               truckPath.setLatLngs(truckPathCoords);
             }
           }
-          
+
           // Update last position
           lastPosition = latlng;
         });
-        
+
         // Optionally recenter map (with smooth pan)
         if (map.getZoom() > 13) {
           map.panTo(latlng, { animate: true, duration: 1 });
         }
-        
+
         // Update location name
         updateDriverLocationName(lat, lng);
+
+        // Update navigation line to next destination
+        updateNavigationToDestination(latlng);
       } else {
         console.log('Movement too small, ignoring update');
       }
@@ -2899,43 +6388,599 @@ function snapToRoad(from, to, callback) {
 // Animate truck smoothly along path (realistic truck speed)
 function animateTruckAlongPath(path) {
   if (!path || path.length < 2) return;
-  
+
   let index = 0;
   const duration = 5000; // 5 seconds animation (slower, more realistic)
   const steps = 50; // More steps for smoother movement
   const stepDuration = duration / steps;
-  
+
   const animate = () => {
     if (index < path.length - 1) {
       const progress = (index % 1);
       const currentPoint = path[Math.floor(index)];
       const nextPoint = path[Math.min(Math.floor(index) + 1, path.length - 1)];
-      
+
       // Interpolate between points
       const lat = currentPoint[0] + (nextPoint[0] - currentPoint[0]) * progress;
       const lng = currentPoint[1] + (nextPoint[1] - currentPoint[1]) * progress;
-      
+
       truckMarker.setLatLng([lat, lng]);
-      
-      // Calculate rotation angle
-      const angle = Math.atan2(nextPoint[1] - currentPoint[1], nextPoint[0] - currentPoint[0]) * 180 / Math.PI;
-      const truckElement = truckMarker.getElement();
-      if (truckElement) {
-        const iconWrapper = truckElement.querySelector('.truck-icon-wrapper');
-        if (iconWrapper) {
-          iconWrapper.style.transform = `rotate(${angle + 90}deg)`;
-        }
-      }
-      
+
+      // Calculate bearing for truck orientation
+      const bearing = calculateBearing(currentPoint, nextPoint);
+      updateTruckRotation(bearing);
+
       index += (path.length - 1) / steps;
-      
+
       if (index < path.length - 1) {
         setTimeout(animate, stepDuration);
       }
     }
   };
-  
+
   animate();
+}
+
+// Calculate bearing between two points
+function calculateBearing(from, to) {
+  const lat1 = from[0] * Math.PI / 180;
+  const lat2 = to[0] * Math.PI / 180;
+  const deltaLng = (to[1] - from[1]) * Math.PI / 180;
+
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+
+  let bearing = Math.atan2(y, x) * 180 / Math.PI;
+  return (bearing + 360) % 360; // Normalize to 0-360
+}
+
+// Update truck rotation based on heading
+function updateTruckRotation(heading) {
+  if (!truckMarker) return;
+
+  const truckElement = truckMarker.getElement();
+  if (truckElement) {
+    const iconWrapper = truckElement.querySelector('.truck-icon-wrapper');
+    if (iconWrapper) {
+      // Truck emoji 🚛 faces left by default
+      // Heading: 0 = North, 90 = East, 180 = South, 270 = West
+      // If heading is between 0-180 (moving right/east), flip the emoji
+      // If heading is between 180-360 (moving left/west), keep normal
+      const isMovingRight = heading >= 270 || heading <= 90;
+      iconWrapper.style.transform = isMovingRight ? 'scaleX(-1)' : 'scaleX(1)';
+    }
+  }
+}
+
+// Draw navigation line from current position to next destination
+async function drawNavigationLine(fromLatLng, toLatLng) {
+  // Remove existing navigation line
+  if (navigationLine) {
+    map.removeLayer(navigationLine);
+    navigationLine = null;
+  }
+
+  if (!fromLatLng || !toLatLng) return;
+
+  try {
+    // Use OSRM for road-based routing
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLatLng[1]},${fromLatLng[0]};${toLatLng[1]},${toLatLng[0]}?overview=full&geometries=geojson`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+      // Draw animated dashed line
+      navigationLine = L.polyline(coordinates, {
+        color: '#3b82f6',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '10, 10',
+        className: 'navigation-line'
+      }).addTo(map);
+
+      // Store distance and duration for ETA
+      distanceToDestination = route.distance; // meters
+      const duration = route.duration; // seconds
+
+      // Update ETA panel
+      updateETAPanel(distanceToDestination, duration, currentSpeed);
+
+      return { distance: route.distance, duration: route.duration };
+    }
+  } catch (error) {
+    console.error('Error drawing navigation line:', error);
+    // Fallback to straight line
+    navigationLine = L.polyline([fromLatLng, toLatLng], {
+      color: '#3b82f6',
+      weight: 3,
+      opacity: 0.6,
+      dashArray: '10, 10'
+    }).addTo(map);
+  }
+}
+
+// Draw red pathfinding line from current location to first route point
+async function drawCurrentPathLine(fromLatLng, toLatLng) {
+  // Remove existing current path line
+  if (currentPathLine) {
+    map.removeLayer(currentPathLine);
+    currentPathLine = null;
+  }
+
+  if (!fromLatLng || !toLatLng) return;
+
+  try {
+    // Use OSRM for road-based routing
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLatLng[1]},${fromLatLng[0]};${toLatLng[1]},${toLatLng[0]}?overview=full&geometries=geojson`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+      // Draw red animated dashed line for current path to first point
+      currentPathLine = L.polyline(coordinates, {
+        color: '#ef4444',  // Red color
+        weight: 5,
+        opacity: 0.9,
+        dashArray: '12, 8',
+        className: 'current-path-line'
+      }).addTo(map);
+
+      // Store distance and duration for ETA
+      distanceToDestination = route.distance;
+      const duration = route.duration;
+
+      // Update ETA panel
+      updateETAPanel(distanceToDestination, duration, currentSpeed);
+
+      return { distance: route.distance, duration: route.duration };
+    }
+  } catch (error) {
+    console.error('Error drawing current path line:', error);
+    // Fallback to straight line
+    currentPathLine = L.polyline([fromLatLng, toLatLng], {
+      color: '#ef4444',
+      weight: 4,
+      opacity: 0.8,
+      dashArray: '12, 8'
+    }).addTo(map);
+  }
+}
+
+// Draw green line for the assigned route path
+function drawAssignedRouteLine(routeCoordinates) {
+  // Remove existing assigned route line
+  if (assignedRouteLine) {
+    map.removeLayer(assignedRouteLine);
+    assignedRouteLine = null;
+  }
+
+  // Clear existing waypoint markers
+  routeWaypointMarkers.forEach(marker => {
+    if (map.hasLayer(marker)) {
+      map.removeLayer(marker);
+    }
+  });
+  routeWaypointMarkers = [];
+
+  if (!routeCoordinates || routeCoordinates.length < 2) return;
+
+  // Convert [lng, lat] to [lat, lng] if needed
+  const coords = routeCoordinates.map(c => {
+    // Check if already in [lat, lng] format (lat should be between -90 and 90)
+    if (Array.isArray(c) && Math.abs(c[0]) <= 90) {
+      return c;
+    }
+    // Convert from [lng, lat] to [lat, lng]
+    return [c[1], c[0]];
+  });
+
+  // Draw green solid line for assigned route
+  assignedRouteLine = L.polyline(coords, {
+    color: '#22c55e',  // Green color
+    weight: 4,
+    opacity: 0.8,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(map);
+
+  // Add waypoint markers for each stop
+  coords.forEach((coord, index) => {
+    const isFirst = index === 0;
+    const isLast = index === coords.length - 1;
+
+    // Create custom marker for waypoints
+    const waypointIcon = L.divIcon({
+      className: 'waypoint-marker',
+      html: `
+        <div style="
+          width: ${isFirst || isLast ? '28px' : '22px'};
+          height: ${isFirst || isLast ? '28px' : '22px'};
+          background: ${isFirst ? '#22c55e' : isLast ? '#ef4444' : '#3b82f6'};
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: ${isFirst || isLast ? '12px' : '10px'};
+          font-weight: bold;
+        ">
+          ${isFirst ? '▶' : isLast ? '◼' : (index)}
+        </div>
+      `,
+      iconSize: [isFirst || isLast ? 28 : 22, isFirst || isLast ? 28 : 22],
+      iconAnchor: [(isFirst || isLast ? 28 : 22) / 2, (isFirst || isLast ? 28 : 22) / 2]
+    });
+
+    const marker = L.marker(coord, { icon: waypointIcon }).addTo(map);
+    marker.bindPopup(`
+      <div style="text-align: center; min-width: 120px;">
+        <strong style="color: ${isFirst ? '#22c55e' : isLast ? '#ef4444' : '#3b82f6'};">
+          ${isFirst ? '🚀 Start Point' : isLast ? '🏁 End Point' : `📍 Stop ${index}`}
+        </strong><br>
+        <span style="font-size: 0.85rem; color: #666;">Waypoint ${index + 1} of ${coords.length}</span>
+      </div>
+    `);
+
+    routeWaypointMarkers.push(marker);
+  });
+
+  // Show route legend
+  showRouteLegend();
+
+  return coords;
+}
+
+// Draw complete route visualization with red current path and green assigned route
+async function drawRouteVisualization(currentLatLng, routeCoordinates) {
+  if (!routeCoordinates || routeCoordinates.length === 0) return;
+
+  // Convert coordinates to [lat, lng] format
+  const coords = routeCoordinates.map(c => {
+    if (Array.isArray(c) && Math.abs(c[0]) <= 90) {
+      return c;
+    }
+    return [c[1], c[0]];
+  });
+
+  // Draw the green assigned route line
+  drawAssignedRouteLine(routeCoordinates);
+
+  // Draw red pathfinding line from current location to first waypoint
+  if (currentLatLng && coords.length > 0) {
+    await drawCurrentPathLine(currentLatLng, coords[0]);
+  }
+
+  // Fit map to show both current location and route
+  if (currentLatLng) {
+    const allPoints = [currentLatLng, ...coords];
+    const bounds = L.latLngBounds(allPoints);
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }
+}
+
+// Clear all route visualization
+function clearRouteVisualization() {
+  if (currentPathLine) {
+    map.removeLayer(currentPathLine);
+    currentPathLine = null;
+  }
+
+  if (assignedRouteLine) {
+    map.removeLayer(assignedRouteLine);
+    assignedRouteLine = null;
+  }
+
+  routeWaypointMarkers.forEach(marker => {
+    if (map.hasLayer(marker)) {
+      map.removeLayer(marker);
+    }
+  });
+  routeWaypointMarkers = [];
+
+  if (navigationLine) {
+    map.removeLayer(navigationLine);
+    navigationLine = null;
+  }
+
+  // Hide route legend
+  hideRouteLegend();
+}
+
+// Show route legend on the map
+function showRouteLegend() {
+  let legend = document.getElementById('routeLegend');
+
+  if (!legend) {
+    legend = document.createElement('div');
+    legend.id = 'routeLegend';
+    legend.className = 'fixed bottom-24 left-4 lg:bottom-4 bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 z-40 border border-gray-200';
+    legend.innerHTML = `
+      <div class="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Route Legend</div>
+      <div class="space-y-1.5">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-1 bg-red-500 rounded" style="background: linear-gradient(90deg, #ef4444 0%, #ef4444 50%, transparent 50%, transparent 100%); background-size: 8px 100%;"></div>
+          <span class="text-xs text-gray-600">Current Path (to next stop)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-1 bg-green-500 rounded"></div>
+          <span class="text-xs text-gray-600">Assigned Route</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow"></div>
+          <span class="text-xs text-gray-600">Start Point</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow"></div>
+          <span class="text-xs text-gray-600">End Point</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow"></div>
+          <span class="text-xs text-gray-600">Waypoint</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(legend);
+  }
+
+  legend.classList.remove('hidden');
+}
+
+// Hide route legend
+function hideRouteLegend() {
+  const legend = document.getElementById('routeLegend');
+  if (legend) {
+    legend.classList.add('hidden');
+  }
+}
+
+// Update the current path line when driver moves
+async function updateCurrentPathToNextWaypoint(currentLatLng, activeRoute) {
+  if (!activeRoute || !activeRoute.path || !activeRoute.path.coordinates) return;
+
+  const coords = activeRoute.path.coordinates;
+  const completedStops = activeRoute.completedStops || 0;
+
+  // Find the next waypoint (current target)
+  const nextWaypointIndex = Math.min(completedStops, coords.length - 1);
+  const nextWaypoint = coords[nextWaypointIndex];
+
+  if (nextWaypoint) {
+    const nextLatLng = [nextWaypoint[1], nextWaypoint[0]];
+    await drawCurrentPathLine(currentLatLng, nextLatLng);
+  }
+}
+
+// Update ETA panel with live metrics
+function updateETAPanel(distance, duration, speed) {
+  let etaContainer = document.getElementById('etaPanel');
+
+  if (!etaContainer) {
+    // Create ETA panel
+    etaContainer = document.createElement('div');
+    etaContainer.id = 'etaPanel';
+    etaContainer.className = 'fixed bottom-24 left-4 right-4 lg:bottom-4 lg:left-auto lg:right-4 lg:w-80 bg-white rounded-xl shadow-lg p-4 z-50 border border-gray-200';
+    etaContainer.innerHTML = `
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+          <i data-lucide="navigation" class="w-5 h-5 text-blue-500"></i>
+          Navigation
+        </h3>
+        <button onclick="closeETAPanel()" class="text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="text-center p-2 bg-blue-50 rounded-lg">
+          <div id="etaDistance" class="text-lg font-bold text-blue-600">--</div>
+          <div class="text-xs text-gray-500">Distance</div>
+        </div>
+        <div class="text-center p-2 bg-green-50 rounded-lg">
+          <div id="etaTime" class="text-lg font-bold text-green-600">--</div>
+          <div class="text-xs text-gray-500">ETA</div>
+        </div>
+        <div class="text-center p-2 bg-orange-50 rounded-lg">
+          <div id="etaSpeed" class="text-lg font-bold text-orange-600">--</div>
+          <div class="text-xs text-gray-500">Speed</div>
+        </div>
+      </div>
+      <div id="etaDestination" class="mt-3 text-sm text-gray-600 text-center">
+        <i data-lucide="map-pin" class="w-4 h-4 inline"></i>
+        <span>Calculating route...</span>
+      </div>
+    `;
+    document.body.appendChild(etaContainer);
+
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
+
+  // Update values
+  const distanceEl = document.getElementById('etaDistance');
+  const timeEl = document.getElementById('etaTime');
+  const speedEl = document.getElementById('etaSpeed');
+
+  if (distanceEl) {
+    if (distance < 1000) {
+      distanceEl.textContent = `${Math.round(distance)}m`;
+    } else {
+      distanceEl.textContent = `${(distance / 1000).toFixed(1)}km`;
+    }
+  }
+
+  if (timeEl) {
+    // Calculate ETA based on current speed or estimated duration
+    let etaSeconds = duration;
+    if (speed > 0) {
+      // Use actual speed for more accurate ETA
+      etaSeconds = distance / speed; // distance in meters, speed in m/s
+    }
+
+    if (etaSeconds < 60) {
+      timeEl.textContent = `${Math.round(etaSeconds)}s`;
+    } else if (etaSeconds < 3600) {
+      timeEl.textContent = `${Math.round(etaSeconds / 60)}min`;
+    } else {
+      const hours = Math.floor(etaSeconds / 3600);
+      const mins = Math.round((etaSeconds % 3600) / 60);
+      timeEl.textContent = `${hours}h ${mins}m`;
+    }
+  }
+
+  if (speedEl) {
+    // Convert m/s to km/h
+    const speedKmh = (speed || 0) * 3.6;
+    speedEl.textContent = `${Math.round(speedKmh)}km/h`;
+  }
+
+  etaContainer.classList.remove('hidden');
+}
+
+// Close ETA panel
+window.closeETAPanel = function() {
+  const panel = document.getElementById('etaPanel');
+  if (panel) {
+    panel.classList.add('hidden');
+  }
+}
+
+// Get next destination from assigned route
+async function getNextDestination() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) return null;
+
+    const routes = await response.json();
+    const myActiveRoutes = routes.filter(r =>
+      r.assignedDriver === user.username &&
+      (r.status === 'active' || r.status === 'pending')
+    );
+
+    if (myActiveRoutes.length === 0) return null;
+
+    const activeRoute = myActiveRoutes[0];
+
+    if (activeRoute.path && activeRoute.path.coordinates && activeRoute.path.coordinates.length > 0) {
+      // Find next uncollected bin (for now, use first bin as destination)
+      // In a real implementation, track which bins have been collected
+      const nextBinIndex = parseInt(localStorage.getItem('currentBinIndex') || '0');
+      const coordinates = activeRoute.path.coordinates;
+
+      if (nextBinIndex < coordinates.length) {
+        const nextBin = coordinates[nextBinIndex];
+        return {
+          latlng: [nextBin[1], nextBin[0]],
+          name: `Stop ${nextBinIndex + 1} of ${coordinates.length}`,
+          routeName: activeRoute.name,
+          routeCoordinates: coordinates,  // Include full route coordinates for green line
+          totalStops: coordinates.length,
+          currentStopIndex: nextBinIndex
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting next destination:', error);
+    return null;
+  }
+}
+
+// Initialize navigation to next destination
+async function initializeNavigation(currentLatLng) {
+  const destination = await getNextDestination();
+
+  if (destination) {
+    nextDestination = destination;
+
+    // Draw GREEN assigned route line if not already displayed
+    if (!assignedRouteLine && destination.routeCoordinates) {
+      drawAssignedRouteLine(destination.routeCoordinates);
+    }
+
+    // Draw RED pathfinding line from current location to next waypoint
+    await drawCurrentPathLine(currentLatLng, destination.latlng);
+
+    // Update ETA destination name
+    const destEl = document.getElementById('etaDestination');
+    if (destEl) {
+      destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${destination.name} - ${destination.routeName}`;
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    }
+
+    console.log('Navigation initialized to:', destination.name);
+  } else {
+    console.log('No destination found for navigation');
+  }
+}
+
+// Update navigation line to destination (RED pathfinding line)
+async function updateNavigationToDestination(currentLatLng) {
+  if (!nextDestination) {
+    // Try to get destination if not set
+    await initializeNavigation(currentLatLng);
+    return;
+  }
+
+  // Check if we've reached the destination (within 50 meters)
+  const distanceToNext = L.latLng(currentLatLng).distanceTo(L.latLng(nextDestination.latlng));
+
+  if (distanceToNext < 50) {
+    // Reached destination! Move to next stop
+    console.log('Reached destination:', nextDestination.name);
+
+    // Increment bin index
+    const currentIndex = parseInt(localStorage.getItem('currentBinIndex') || '0');
+    localStorage.setItem('currentBinIndex', (currentIndex + 1).toString());
+
+    // Show arrival notification
+    showAlertModal('Arrived!', `You have arrived at ${nextDestination.name}. Proceeding to next stop...`, 'success');
+
+    // Get next destination
+    nextDestination = null;
+    await initializeNavigation(currentLatLng);
+    return;
+  }
+
+  // Update RED pathfinding line from current location to next waypoint
+  await drawCurrentPathLine(currentLatLng, nextDestination.latlng);
+
+  // Update destination name
+  const destEl = document.getElementById('etaDestination');
+  if (destEl && nextDestination) {
+    destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${nextDestination.name}`;
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
+}
+
+// Mark current stop as collected and move to next
+window.markStopCollected = function() {
+  const currentIndex = parseInt(localStorage.getItem('currentBinIndex') || '0');
+  localStorage.setItem('currentBinIndex', (currentIndex + 1).toString());
+
+  // Reinitialize navigation to next stop
+  if (truckMarker) {
+    const currentPos = truckMarker.getLatLng();
+    initializeNavigation([currentPos.lat, currentPos.lng]);
+  }
 }
 
 // Center map on truck location
@@ -2945,6 +6990,73 @@ window.centerOnTruck = function() {
   }
 };
 
+// Toggle GPS Tracking (for button click)
+window.toggleGPSTracking = function() {
+  try {
+    console.log('🔄 toggleGPSTracking called, trackingEnabled:', trackingEnabled);
+    console.log('👤 User role:', user?.role);
+
+    if (trackingEnabled) {
+      console.log('⏹️ Stopping GPS tracking...');
+      stopGPSTracking();
+      updateGPSButtonState(false);
+      showToast('GPS tracking stopped', 'info');
+    } else {
+      console.log('▶️ Starting GPS tracking...');
+      // Update button state immediately for visual feedback
+      updateGPSButtonState(true);
+      startGPSTracking();
+    }
+    // Sync overlay GPS state immediately (desktop)
+    if (typeof syncOverlayGPSState === 'function') {
+      syncOverlayGPSState();
+    }
+    // Sync mobile overlay GPS state
+    if (typeof updateMobileGpsStatus === 'function') {
+      updateMobileGpsStatus();
+    }
+  } catch (error) {
+    console.error('❌ Error in toggleGPSTracking:', error);
+    showToast('Error toggling GPS: ' + error.message, 'error');
+  }
+};
+
+// Update GPS button state
+function updateGPSButtonState(isActive) {
+  const desktopBtn = document.getElementById('startGpsBtn');
+  const mobileBtn = document.getElementById('mobileGpsBtn');
+  const mobileBtnText = document.getElementById('mobileGpsBtnText');
+
+  if (isActive) {
+    if (desktopBtn) {
+      desktopBtn.innerHTML = '<i data-lucide="navigation-off" class="w-5 h-5"></i><span>Stop GPS Tracking</span>';
+      desktopBtn.classList.remove('bg-primary-500', 'hover:bg-primary-600');
+      desktopBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+    }
+    if (mobileBtn) {
+      mobileBtn.innerHTML = '<i data-lucide="navigation-off" class="w-5 h-5"></i><span id="mobileGpsBtnText">Stop GPS</span>';
+      mobileBtn.classList.remove('bg-primary-500', 'hover:bg-primary-600');
+      mobileBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+    }
+  } else {
+    if (desktopBtn) {
+      desktopBtn.innerHTML = '<i data-lucide="navigation" class="w-5 h-5"></i><span>Start GPS Tracking</span>';
+      desktopBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+      desktopBtn.classList.add('bg-primary-500', 'hover:bg-primary-600');
+    }
+    if (mobileBtn) {
+      mobileBtn.innerHTML = '<i data-lucide="navigation" class="w-5 h-5"></i><span id="mobileGpsBtnText">Start GPS</span>';
+      mobileBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+      mobileBtn.classList.add('bg-primary-500', 'hover:bg-primary-600');
+    }
+  }
+
+  // Re-initialize lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
 // Stop GPS tracking
 function stopGPSTracking() {
   trackingEnabled = false;
@@ -2952,22 +7064,51 @@ function stopGPSTracking() {
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
-  
+
+  // Stop fuel estimation polling
+  stopTripDataPolling();
+
   // Remove truck marker from map
   if (truckMarker) {
     map.removeLayer(truckMarker);
     truckMarker = null;
   }
-  
+
   // Remove truck path from map
   if (truckPath) {
     map.removeLayer(truckPath);
     truckPath = null;
   }
-  
+
+  // Remove navigation line
+  if (navigationLine) {
+    map.removeLayer(navigationLine);
+    navigationLine = null;
+  }
+
+  // Clear all route visualization (red path + green route + markers)
+  clearRouteVisualization();
+
+  // Remove destination marker
+  if (window.destinationMarker) {
+    map.removeLayer(window.destinationMarker);
+    window.destinationMarker = null;
+  }
+
+  // Hide ETA panel
+  const etaPanel = document.getElementById('etaPanel');
+  if (etaPanel) {
+    etaPanel.remove();
+  }
+
   // Clear path coordinates
   truckPathCoords = [];
-  
+
+  // Reset navigation state
+  nextDestination = null;
+  currentSpeed = 0;
+  distanceToDestination = 0;
+
   // Clear location on server
   const token = localStorage.getItem('token');
   fetch(`${API_URL}/tracking/clear`, {
@@ -2976,7 +7117,7 @@ function stopGPSTracking() {
       'Authorization': `Bearer ${token}`
     }
   }).catch(error => console.error('Error clearing location:', error));
-  
+
   showTrackingStatus(false);
 }
 
@@ -2987,9 +7128,10 @@ async function updateLocationOnServer(position) {
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     const accuracy = position.coords.accuracy;
-    
-    console.log(`📤 Sending GPS to server: ${lat}, ${lng} (accuracy: ${accuracy}m)`);
-    
+    const speed = (position.coords.speed || 0) * 3.6; // Convert m/s to km/h
+
+    console.log(`📤 Sending GPS to server: ${lat}, ${lng} (accuracy: ${accuracy}m, speed: ${speed.toFixed(1)}km/h)`);
+
     const response = await fetch(`${API_URL}/tracking/update`, {
       method: 'POST',
       headers: {
@@ -2999,17 +7141,22 @@ async function updateLocationOnServer(position) {
       body: JSON.stringify({
         lat: lat,
         lng: lng,
-        speed: position.coords.speed || 0,
+        speed: speed,
         heading: position.coords.heading || 0,
         routeId: getCurrentActiveRoute()
       })
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log('✅ Location saved to server:', data.savedAt);
       // Update last successful update time
       window.lastGPSUpdate = new Date();
+
+      // Update live fuel estimation display
+      if (data.trip) {
+        updateLiveFuelDisplay(data.trip);
+      }
     } else {
       const error = await response.text();
       console.error('❌ Server rejected location update:', response.status, error);
@@ -3025,6 +7172,98 @@ async function updateLocationOnServer(position) {
       console.warn('📵 Device appears to be offline');
     }
   }
+}
+
+// Update live fuel estimation display
+function updateLiveFuelDisplay(tripData) {
+  const fuelPanel = document.getElementById('overlayFuelEstimate');
+  if (!fuelPanel) return;
+
+  // Show the panel
+  fuelPanel.classList.remove('hidden');
+
+  // Update values
+  const fuelLiters = document.getElementById('liveFuelLiters');
+  const distanceKm = document.getElementById('liveDistanceKm');
+  const stopCount = document.getElementById('liveStopCount');
+
+  if (fuelLiters) fuelLiters.textContent = (tripData.fuelEstimate || 0).toFixed(2);
+  if (distanceKm) distanceKm.textContent = (tripData.distance || 0).toFixed(2);
+  if (stopCount) stopCount.textContent = tripData.stops || 0;
+}
+
+// Fetch and update full trip data periodically
+async function fetchTripData() {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const response = await fetch(`${API_URL}/tracking/my-trip`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.hasActiveTrip && data.trip) {
+        updateFullFuelDisplay(data.trip);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching trip data:', error);
+  }
+}
+
+// Update full fuel display with detailed trip data
+function updateFullFuelDisplay(trip) {
+  const fuelPanel = document.getElementById('overlayFuelEstimate');
+  if (!fuelPanel) return;
+
+  // Show the panel
+  fuelPanel.classList.remove('hidden');
+
+  // Update all values
+  const elements = {
+    liveFuelLiters: trip.fuel?.liters || 0,
+    liveDistanceKm: trip.distance?.km || 0,
+    liveStopCount: trip.stops || 0,
+    liveAvgSpeed: trip.averageSpeed || 0,
+    liveEfficiency: trip.fuel?.efficiency || 0,
+    liveTripDuration: `Duration: ${trip.duration?.formatted || '0m'}`,
+    liveIdleTime: `Idle: ${trip.idleTime?.formatted || '0m'}`
+  };
+
+  for (const [id, value] of Object.entries(elements)) {
+    const el = document.getElementById(id);
+    if (el) {
+      if (typeof value === 'number') {
+        el.textContent = value.toFixed(id === 'liveStopCount' ? 0 : 2);
+      } else {
+        el.textContent = value;
+      }
+    }
+  }
+}
+
+// Start trip data polling when GPS tracking starts
+let tripDataInterval = null;
+function startTripDataPolling() {
+  // Initial fetch
+  fetchTripData();
+
+  // Poll every 15 seconds for full data
+  if (tripDataInterval) clearInterval(tripDataInterval);
+  tripDataInterval = setInterval(fetchTripData, 15000);
+}
+
+function stopTripDataPolling() {
+  if (tripDataInterval) {
+    clearInterval(tripDataInterval);
+    tripDataInterval = null;
+  }
+
+  // Hide fuel panel
+  const fuelPanel = document.getElementById('overlayFuelEstimate');
+  if (fuelPanel) fuelPanel.classList.add('hidden');
 }
 
 // Get current active route
@@ -3117,7 +7356,7 @@ window.testGPSConnection = async function() {
       text.style.color = '#2e7d32';
       detail.textContent = `Location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
       
-      alert(`✅ GPS Test Successful!\n\nYour location:\nLat: ${position.coords.latitude.toFixed(6)}\nLng: ${position.coords.longitude.toFixed(6)}\nAccuracy: ${position.coords.accuracy.toFixed(0)}m\n\nServer status: ${verifyData.status}`);
+      showAlertModal('GPS Test Successful', `Your location:\nLat: ${position.coords.latitude.toFixed(6)}\nLng: ${position.coords.longitude.toFixed(6)}\nAccuracy: ${position.coords.accuracy.toFixed(0)}m\n\nServer status: ${verifyData.status}`, 'success');
     } else {
       throw new Error('Server rejected location update');
     }
@@ -3144,7 +7383,7 @@ window.testGPSConnection = async function() {
       detail.textContent = errorMsg;
     }
     
-    alert(`❌ GPS Test Failed\n\n${errorMsg}\n\nTips:\n1. Allow location permission in browser\n2. Enable GPS on your device\n3. Try in an open area for better signal`);
+    showAlertModal('GPS Test Failed', `${errorMsg}\n\nTips:\n1. Allow location permission in browser\n2. Enable GPS on your device\n3. Try in an open area for better signal`, 'error');
   }
 };
 
@@ -3275,24 +7514,11 @@ async function createTruckPopup(truck) {
   const statusColor = isLive ? '#4caf50' : '#9e9e9e';
   const statusText = isLive ? '🟢 Live Tracking' : '⚪ Offline';
   
-  // Get location name if coordinates available
-  let locationName = 'Loading...';
+  // Get location name from cache or use coordinates (avoid API spam)
+  let locationName = 'Unknown';
   if (lat && lng) {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-      const data = await response.json();
-      if (data.display_name) {
-        // Extract relevant parts
-        const address = data.address;
-        const parts = [];
-        if (address.road) parts.push(address.road);
-        if (address.suburb || address.neighbourhood) parts.push(address.suburb || address.neighbourhood);
-        if (address.city || address.town || address.municipality) parts.push(address.city || address.town || address.municipality);
-        locationName = parts.length > 0 ? parts.join(', ') : data.display_name;
-      }
-    } catch (error) {
-      locationName = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    }
+    const cached = getCachedLocationName(lat, lng);
+    locationName = cached || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
   
   return `
@@ -3366,6 +7592,91 @@ window.focusOnTruck = function(lat, lng, truckId) {
 let locationNameCache = {};
 let currentLocationName = 'Getting location...';
 
+// Rate-limited geocoding queue
+let geocodeQueue = [];
+let isProcessingGeocode = false;
+const GEOCODE_DELAY = 1100; // Nominatim requires 1 request per second
+
+// Get cached location name or return coordinates
+function getCachedLocationName(lat, lng) {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  return locationNameCache[cacheKey] || null;
+}
+
+// Rate-limited geocoding function
+async function geocodeLocation(lat, lng) {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+  // Return cached value if available
+  if (locationNameCache[cacheKey]) {
+    return locationNameCache[cacheKey];
+  }
+
+  // Return coordinates as fallback (don't make API call for popup content)
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+// Queue a geocode request (for non-critical updates)
+function queueGeocodeRequest(lat, lng, callback) {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+
+  // If cached, call callback immediately
+  if (locationNameCache[cacheKey]) {
+    callback(locationNameCache[cacheKey]);
+    return;
+  }
+
+  // Add to queue
+  geocodeQueue.push({ lat, lng, cacheKey, callback });
+  processGeocodeQueue();
+}
+
+// Process geocode queue with rate limiting
+async function processGeocodeQueue() {
+  if (isProcessingGeocode || geocodeQueue.length === 0) return;
+
+  isProcessingGeocode = true;
+
+  while (geocodeQueue.length > 0) {
+    const { lat, lng, cacheKey, callback } = geocodeQueue.shift();
+
+    // Skip if already cached (might have been cached while waiting)
+    if (locationNameCache[cacheKey]) {
+      callback(locationNameCache[cacheKey]);
+      continue;
+    }
+
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const data = await response.json();
+
+      let locationName = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (data.display_name) {
+        const address = data.address;
+        const parts = [];
+        if (address.road) parts.push(address.road);
+        if (address.suburb || address.neighbourhood) parts.push(address.suburb || address.neighbourhood);
+        if (address.city || address.town || address.municipality) parts.push(address.city || address.town || address.municipality);
+        locationName = parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(', ');
+      }
+
+      // Cache the result
+      locationNameCache[cacheKey] = locationName;
+      callback(locationName);
+    } catch (error) {
+      console.log('Geocode error:', error.message);
+      callback(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    }
+
+    // Wait before next request (rate limiting)
+    if (geocodeQueue.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, GEOCODE_DELAY));
+    }
+  }
+
+  isProcessingGeocode = false;
+}
+
 // Update driver's location name in popup
 async function updateDriverLocationName(lat, lng) {
   // Create cache key (rounded to 4 decimals to group nearby locations)
@@ -3395,30 +7706,9 @@ async function updateDriverLocationName(lat, lng) {
     updatePopupContent(locationNameCache[cacheKey]);
     return;
   }
-  
-  // Otherwise, fetch from API
-  try {
-    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-    const data = await response.json();
-    
-    let locationName = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    if (data.display_name) {
-      const address = data.address;
-      const parts = [];
-      if (address.road) parts.push(address.road);
-      if (address.suburb || address.neighbourhood) parts.push(address.suburb || address.neighbourhood);
-      if (address.city || address.town || address.municipality) parts.push(address.city || address.town || address.municipality);
-      locationName = parts.length > 0 ? parts.join(', ') : data.display_name;
-    }
-    
-    // Cache the result
-    locationNameCache[cacheKey] = locationName;
-    
-    // Update popup
-    updatePopupContent(locationName);
-  } catch (error) {
-    console.log('Error getting location name:', error);
-  }
+
+  // Otherwise, use rate-limited queue
+  queueGeocodeRequest(lat, lng, updatePopupContent);
 }
 
 function getTimeAgo(timestamp) {
@@ -3431,101 +7721,553 @@ function getTimeAgo(timestamp) {
   return `${Math.floor(seconds / 3600)} hours ago`;
 }
 
-// Show live truck tracking panel
+// Show live truck tracking panel - MAP FOCUSED VIEW
 window.showLiveTruckPanel = async function() {
+  setActiveSidebarButton('liveTruckTrackingBtn');
+  showPageLoading('Loading live trucks...');
+
+  // Show map view instead of page content
+  showMapView();
+
+  // Clear existing markers
+  clearTempMarkers();
+
   try {
     const token = localStorage.getItem('token');
-    console.log('📡 Fetching all trucks...');
     const response = await fetch(`${API_URL}/tracking/all-trucks`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    
-    if (response.ok) {
-      const trucks = await response.json();
-      console.log('📡 Trucks received:', trucks.length, trucks);
-      
-      const trucksList = await Promise.all(trucks.map(async truck => {
-        const { username, fullName, truckId, plateNumber, model, isLive, speed, timestamp, routeName, lat, lng } = truck;
-        const statusColor = isLive ? '#4caf50' : '#9e9e9e';
-        const statusText = isLive ? '🟢 Live' : '⚪ Offline';
-        const timeAgo = timestamp ? getTimeAgo(timestamp) : 'No data';
-        
-        // Get location name
-        let locationName = 'Unknown location';
-        if (lat && lng) {
-          try {
-            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-            const data = await geoResponse.json();
-            if (data.display_name) {
-              const address = data.address;
-              const parts = [];
-              if (address.road) parts.push(address.road);
-              if (address.suburb || address.neighbourhood) parts.push(address.suburb || address.neighbourhood);
-              if (address.city || address.town || address.municipality) parts.push(address.city || address.town || address.municipality);
-              locationName = parts.length > 0 ? parts.join(', ') : data.display_name.substring(0, 50) + '...';
-            }
-          } catch (error) {
-            locationName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-          }
-        }
-        
-        return `
-          <div style="background: linear-gradient(135deg, ${isLive ? '#e8f5e9' : '#f5f5f5'} 0%, #ffffff 100%); padding: 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 5px solid ${statusColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-              <div style="flex: 1;">
-                <h4 style="margin: 0 0 0.25rem 0; color: #333; font-size: 1rem;">🚛 ${truckId}</h4>
-                <p style="margin: 0; color: #666; font-size: 0.85rem;">${plateNumber} - ${model}</p>
-              </div>
-              <span style="background: ${statusColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-                ${statusText}
-              </span>
+
+    if (!response.ok) throw new Error('Failed to fetch truck data');
+
+    const trucks = await response.json();
+    const liveCount = trucks.filter(t => t.isLive).length;
+    const offlineCount = trucks.filter(t => !t.isLive).length;
+
+    // Add markers for each live truck on the map
+    const liveTrucks = trucks.filter(t => t.isLive && t.lat && t.lng);
+
+    // Store truck data for marker popup access
+    window._liveTruckCache = {};
+
+    liveTrucks.forEach((truck, idx) => {
+      const { truckId, fullName, username, lat, lng, speed, routeName, routeId } = truck;
+
+      // Cache truck data for popup button
+      window._liveTruckCache[truckId] = truck;
+
+      // Create custom truck marker
+      const markerHtml = `
+        <div class="relative">
+          <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+            <i data-lucide="truck" class="w-5 h-5 text-white"></i>
+          </div>
+          <span class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></span>
+          <span class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></span>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'custom-truck-marker',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+      marker.bindPopup(`
+        <div class="p-3 min-w-[220px]">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <i data-lucide="truck" class="w-5 h-5 text-green-600"></i>
             </div>
-            <div style="background: white; padding: 0.6rem; border-radius: 6px; font-size: 0.85rem; border: 1px solid #e0e0e0;">
-              <p style="margin: 0.25rem 0;"><strong>👤 Driver:</strong> ${fullName || username}</p>
-              <p style="margin: 0.25rem 0;"><strong>🛣️ Route:</strong> ${routeName || 'Not assigned'}</p>
-              <p style="margin: 0.25rem 0;"><strong>📍 Location:</strong><br>
-                <span style="color: #333; font-size: 0.8rem;">${locationName}</span>
+            <div>
+              <p class="font-bold text-gray-800">${truckId}</p>
+              <p class="text-xs text-green-600 flex items-center gap-1">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Live
               </p>
-              ${isLive ? `
-                <p style="margin: 0.25rem 0;"><strong>⚡ Speed:</strong> ${Math.round(speed * 3.6)} km/h</p>
-                <p style="margin: 0.25rem 0; color: #666; font-size: 0.8rem;">🕐 Updated: ${timeAgo}</p>
-              ` : `
-                <p style="margin: 0.25rem 0; color: #999; font-size: 0.8rem;">⚠️ GPS not active</p>
-              `}
             </div>
-            <button onclick="viewTruckOnMap(${lat}, ${lng}, '${truckId}')" style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #2196f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 0.85rem;">
-              🗺️ View on Map
-            </button>
           </div>
-        `;
-      }));
-      
-      showModal('📡 Live Truck Tracking', `
-        <div>
-          <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #2196f3;">
-            <p style="color: #1976d2; font-weight: 700; margin: 0; font-size: 1.1rem;">
-              📡 All Trucks Status
-            </p>
-            <p style="color: #666; margin: 0.25rem 0 0 0; font-size: 0.85rem;">
-              Showing ${trucks.length} truck${trucks.length > 1 ? 's' : ''} • Auto-updates every 15 seconds
-            </p>
-            <p style="color: #888; margin: 0.25rem 0 0 0; font-size: 0.8rem;">
-              💡 Click "View on Map" to see truck location
-            </p>
+          <div class="space-y-2 text-sm mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" class="w-4 h-4 text-gray-400"></i>
+              <span class="font-medium text-gray-700">${fullName || username}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="route" class="w-4 h-4 text-gray-400"></i>
+              <span class="font-medium ${routeId ? 'text-primary-600' : 'text-gray-400'}">${routeName || 'Not assigned'}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="gauge" class="w-4 h-4 text-gray-400"></i>
+              <span class="font-bold text-green-600">${Math.round((speed || 0) * 3.6)} km/h</span>
+            </div>
           </div>
-          <div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
-            ${trucksList.length > 0 ? trucksList.join('') : '<p style="text-align: center; color: #999; padding: 2rem;">No trucks assigned yet</p>'}
-          </div>
-          <button onclick="closeModal()" class="btn" style="width: 100%; margin-top: 1rem; background: #2196f3; color: white; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem;">Close</button>
+          <button onclick="map.closePopup(); showTruckWithRoute(window._liveTruckCache['${truckId}'])"
+                  class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors">
+            <i data-lucide="map" class="w-4 h-4"></i>
+            ${routeId ? 'View Route on Map' : 'View Details'}
+          </button>
         </div>
       `);
+      tempMarkers.push(marker);
+    });
+
+    // Fit map to show all live trucks
+    if (liveTrucks.length > 0) {
+      const bounds = L.latLngBounds(liveTrucks.map(t => [t.lat, t.lng]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
+
+    // Re-initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+
+    // Create floating panel for truck list
+    createLiveTrackingPanel(trucks, liveCount, offlineCount);
+
+    hidePageLoading();
   } catch (error) {
     console.error('Error loading truck tracking:', error);
-    showModal('📡 Live Truck Tracking', '<p style="color: red; text-align: center; padding: 2rem;">Error loading truck data</p>');
+    showToast('Error loading truck data: ' + error.message, 'error');
+    hidePageLoading();
   }
+};
+
+// Create floating panel for live tracking
+function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
+  // Remove existing panel
+  const existingPanel = document.getElementById('liveTrackingPanel');
+  if (existingPanel) existingPanel.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'liveTrackingPanel';
+  panel.className = 'fixed top-20 right-4 w-80 max-h-[calc(100vh-6rem)] bg-white rounded-2xl shadow-2xl z-[1000] flex flex-col overflow-hidden animate-slide-in';
+
+  panel.innerHTML = `
+    <!-- Panel Header -->
+    <div class="px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="radio" class="w-5 h-5"></i>
+          <h3 class="font-semibold">Live Tracking</h3>
+        </div>
+        <button onclick="closeLiveTrackingPanel()" class="p-1 hover:bg-white/20 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-4 mt-2 text-sm">
+        <span class="flex items-center gap-1">
+          <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          ${liveCount} Live
+        </span>
+        <span class="flex items-center gap-1">
+          <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+          ${offlineCount} Offline
+        </span>
+      </div>
+      <p class="text-xs opacity-75 mt-1">Click a truck to view its route</p>
+    </div>
+
+    <!-- Refresh Button -->
+    <div class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+      <button onclick="showLiveTruckPanel()" class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        Refresh Data
+      </button>
+    </div>
+
+    <!-- Truck List -->
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+      ${trucks.length > 0 ? trucks.map((truck, index) => {
+        const { truckId, fullName, username, isLive, speed, lat, lng, routeName, routeId } = truck;
+        // Store truck data in a global array for onclick access
+        window._truckDataCache = window._truckDataCache || [];
+        window._truckDataCache[index] = truck;
+        return `
+          <div class="p-3 rounded-xl border ${isLive ? 'border-green-200 bg-green-50 hover:border-green-300' : 'border-gray-200 bg-gray-50 hover:border-gray-300'} hover:shadow-md transition-all cursor-pointer group"
+               onclick="showTruckWithRoute(window._truckDataCache[${index}])">
+            <div class="flex items-center gap-3">
+              <div class="relative flex-shrink-0">
+                <div class="w-10 h-10 ${isLive ? 'bg-green-500 group-hover:bg-green-600' : 'bg-gray-400 group-hover:bg-gray-500'} rounded-full flex items-center justify-center transition-colors">
+                  <i data-lucide="truck" class="w-5 h-5 text-white"></i>
+                </div>
+                ${isLive ? '<span class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full animate-pulse border-2 border-white"></span>' : ''}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-800 truncate group-hover:text-primary-700">${truckId}</p>
+                <p class="text-xs text-gray-500 truncate">${fullName || username}</p>
+              </div>
+              <div class="text-right flex-shrink-0">
+                ${isLive ? `
+                  <p class="text-sm font-bold text-green-600">${Math.round((speed || 0) * 3.6)} km/h</p>
+                  <p class="text-xs text-green-500">Live</p>
+                ` : `
+                  <p class="text-xs text-gray-400">Offline</p>
+                `}
+              </div>
+              <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+              </div>
+            </div>
+            ${routeName && routeName !== 'No route assigned' ? `
+              <div class="mt-2 flex items-center gap-1 text-xs ${routeId ? 'text-primary-600' : 'text-gray-500'}">
+                <i data-lucide="route" class="w-3 h-3"></i>
+                <span class="truncate">${routeName}</span>
+                ${routeId ? '<i data-lucide="map" class="w-3 h-3 ml-auto text-primary-400"></i>' : ''}
+              </div>
+            ` : `
+              <p class="mt-2 text-xs text-gray-400 italic">No route assigned</p>
+            `}
+          </div>
+        `;
+      }).join('') : `
+        <div class="text-center py-8 text-gray-400">
+          <i data-lucide="truck" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+          <p class="text-sm">No trucks available</p>
+        </div>
+      `}
+    </div>
+
+    <!-- Back Button -->
+    <div class="px-4 py-3 bg-gray-50 border-t border-gray-100 flex-shrink-0">
+      <button onclick="closeLiveTrackingPanel(); showDashboard();" class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Back to Dashboard
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+// Close live tracking panel
+window.closeLiveTrackingPanel = function() {
+  const panel = document.getElementById('liveTrackingPanel');
+  if (panel) panel.remove();
+  clearTempMarkers();
+};
+
+// Focus on a specific truck on the map (simple version)
+window.focusTruckOnMap = function(lat, lng, truckId) {
+  if (lat && lng) {
+    map.setView([lat, lng], 17, { animate: true });
+    showToast(`Focused on ${truckId}`, 'info');
+  }
+};
+
+// Enhanced: Show truck with its assigned route on the map
+window.showTruckWithRoute = async function(truckData) {
+  showPageLoading('Loading truck details...');
+  const { truckId, routeId, lat, lng, fullName, username, speed, plateNumber, model, routeName, isLive } = truckData;
+
+  // Clear existing route markers but keep truck markers
+  clearRouteOnlyMarkers();
+
+  // Focus on truck location
+  if (lat && lng) {
+    map.setView([lat, lng], 14, { animate: true });
+  }
+
+  // If truck has an assigned route, fetch and display it
+  if (routeId) {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/routes/${routeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const route = await response.json();
+
+        if (route.path && route.path.coordinates && route.path.coordinates.length >= 2) {
+          const coords = route.path.coordinates;
+          const waypoints = coords.map(c => L.latLng(c[1], c[0]));
+
+          // Add route stop markers
+          coords.forEach((coord, index) => {
+            const isStart = index === 0;
+            const isEnd = index === coords.length - 1;
+
+            const markerHtml = `
+              <div class="flex items-center justify-center w-7 h-7 rounded-full shadow-lg ${isStart ? 'bg-green-500' : isEnd ? 'bg-red-500' : 'bg-primary-500'} text-white font-bold text-xs border-2 border-white">
+                ${isStart ? '<i data-lucide="play" class="w-3 h-3"></i>' : isEnd ? '<i data-lucide="flag" class="w-3 h-3"></i>' : index}
+              </div>
+            `;
+
+            const customIcon = L.divIcon({
+              html: markerHtml,
+              className: 'custom-route-marker route-only-marker',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
+
+            const marker = L.marker([coord[1], coord[0]], { icon: customIcon }).addTo(map);
+            marker.bindPopup(`<div class="p-2 text-sm"><strong>${isStart ? 'Start' : isEnd ? 'End' : 'Stop ' + index}</strong></div>`);
+            marker._isRouteMarker = true;
+            tempMarkers.push(marker);
+          });
+
+          // Draw route with Leaflet Routing Machine
+          const routingControl = L.Routing.control({
+            waypoints: waypoints,
+            router: L.Routing.osrmv1({
+              serviceUrl: 'https://router.project-osrm.org/route/v1',
+              timeout: 15000
+            }),
+            lineOptions: {
+              styles: [
+                { color: '#1e1b4b', weight: 8, opacity: 0.3 },
+                { color: '#4f46e5', weight: 5, opacity: 0.9 }
+              ],
+              extendToWaypoints: false,
+              missingRouteTolerance: 0
+            },
+            show: false,
+            addWaypoints: false,
+            routeWhileDragging: false,
+            fitSelectedRoutes: false,
+            showAlternatives: false,
+            createMarker: () => null
+          }).addTo(map);
+
+          routingControl._isRouteMarker = true;
+          tempMarkers.push(routingControl);
+
+          // Handle route found
+          routingControl.on('routesfound', (e) => {
+            const routes = e.routes;
+            if (routes && routes.length > 0) {
+              const summary = routes[0].summary;
+              const distanceKm = (summary.totalDistance / 1000).toFixed(2);
+              const durationMin = Math.round(summary.totalTime / 60);
+
+              // Hide routing container
+              const container = routingControl.getContainer();
+              if (container) container.style.display = 'none';
+
+              // Show truck info panel with route details
+              showTruckInfoPanel(truckData, route, distanceKm, durationMin);
+            }
+
+            if (typeof lucide !== 'undefined') {
+              setTimeout(() => lucide.createIcons(), 100);
+            }
+          });
+
+          // Handle routing error
+          routingControl.on('routingerror', () => {
+            // Fallback to straight lines
+            const latLngCoords = coords.map(c => [c[1], c[0]]);
+            const line = L.polyline(latLngCoords, {
+              color: '#4f46e5',
+              weight: 4,
+              dashArray: '10, 10',
+              opacity: 0.8
+            }).addTo(map);
+            line._isRouteMarker = true;
+            tempMarkers.push(line);
+
+            showTruckInfoPanel(truckData, route, route.distance ? (route.distance / 1000).toFixed(2) : '-', '-');
+
+            if (typeof lucide !== 'undefined') {
+              setTimeout(() => lucide.createIcons(), 100);
+            }
+          });
+
+        } else {
+          // Route has no coordinates
+          showTruckInfoPanel(truckData, null, null, null);
+        }
+      } else {
+        showTruckInfoPanel(truckData, null, null, null);
+      }
+    } catch (error) {
+      console.error('Error fetching route:', error);
+      showTruckInfoPanel(truckData, null, null, null);
+    }
+  } else {
+    // No route assigned
+    showTruckInfoPanel(truckData, null, null, null);
+  }
+};
+
+// Clear only route markers (keep truck markers)
+function clearRouteOnlyMarkers() {
+  tempMarkers = tempMarkers.filter(marker => {
+    if (marker._isRouteMarker) {
+      if (marker.remove) marker.remove();
+      else if (map.removeControl) map.removeControl(marker);
+      else if (map.removeLayer) map.removeLayer(marker);
+      return false;
+    }
+    return true;
+  });
+}
+
+// Show truck information panel
+function showTruckInfoPanel(truckData, route, distanceKm, durationMin) {
+  hidePageLoading(); // Hide loading when panel shows
+  const { truckId, fullName, username, speed, plateNumber, model, routeName, isLive, lat, lng } = truckData;
+
+  // Remove existing panel
+  const existingPanel = document.getElementById('truckInfoPanel');
+  if (existingPanel) existingPanel.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'truckInfoPanel';
+  panel.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 lg:left-auto lg:right-4 lg:translate-x-0 bg-white rounded-2xl shadow-2xl z-[1000] w-[90%] max-w-md animate-fade-in overflow-hidden';
+
+  const stopCount = route?.path?.coordinates?.length || 0;
+  const progressPercent = route?.completedStops ? Math.round((route.completedStops / stopCount) * 100) : 0;
+
+  panel.innerHTML = `
+    <!-- Header with gradient -->
+    <div class="px-4 py-3 bg-gradient-to-r ${isLive ? 'from-green-600 to-green-500' : 'from-gray-600 to-gray-500'} text-white">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <i data-lucide="truck" class="w-6 h-6"></i>
+            </div>
+            ${isLive ? '<span class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-ping"></span>' : ''}
+            ${isLive ? '<span class="absolute -top-1 -right-1 w-4 h-4 bg-green-300 rounded-full border-2 border-white"></span>' : ''}
+          </div>
+          <div>
+            <h3 class="font-bold text-lg">${truckId}</h3>
+            <p class="text-sm opacity-90">${plateNumber || 'No plate'} • ${model || 'Unknown model'}</p>
+          </div>
+        </div>
+        <button onclick="closeTruckInfoPanel()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="p-4 space-y-4">
+      <!-- Driver Info -->
+      <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+        <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+          <i data-lucide="user" class="w-5 h-5 text-primary-600"></i>
+        </div>
+        <div class="flex-1">
+          <p class="text-sm text-gray-500">Driver</p>
+          <p class="font-semibold text-gray-800">${fullName || username}</p>
+        </div>
+        ${isLive ? `
+          <div class="text-right">
+            <p class="text-2xl font-bold text-green-600">${Math.round((speed || 0) * 3.6)}</p>
+            <p class="text-xs text-gray-500">km/h</p>
+          </div>
+        ` : `
+          <span class="px-3 py-1 bg-gray-200 text-gray-600 text-sm font-medium rounded-full">Offline</span>
+        `}
+      </div>
+
+      <!-- Route Info -->
+      ${route ? `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="route" class="w-4 h-4 text-primary-600"></i>
+              <span class="font-semibold text-gray-800">${route.name || routeName || 'Unnamed Route'}</span>
+            </div>
+            <span class="px-2 py-1 text-xs font-medium rounded-full ${route.status === 'active' ? 'bg-yellow-100 text-yellow-700' : route.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">
+              ${route.status || 'planned'}
+            </span>
+          </div>
+
+          <!-- Route Stats -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-primary-50 rounded-xl p-3 text-center">
+              <p class="text-xl font-bold text-primary-600">${distanceKm || '-'}</p>
+              <p class="text-xs text-gray-500">km</p>
+            </div>
+            <div class="bg-primary-50 rounded-xl p-3 text-center">
+              <p class="text-xl font-bold text-primary-600">${durationMin || '-'}</p>
+              <p class="text-xs text-gray-500">mins</p>
+            </div>
+            <div class="bg-primary-50 rounded-xl p-3 text-center">
+              <p class="text-xl font-bold text-primary-600">${stopCount}</p>
+              <p class="text-xs text-gray-500">stops</p>
+            </div>
+          </div>
+
+          <!-- Route Legend -->
+          <div class="flex items-center justify-center gap-4 text-xs text-gray-500">
+            <span class="flex items-center gap-1">
+              <span class="w-3 h-3 bg-green-500 rounded-full"></span> Start
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="w-3 h-3 bg-primary-500 rounded-full"></span> Stops
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="w-3 h-3 bg-red-500 rounded-full"></span> End
+            </span>
+          </div>
+        </div>
+      ` : `
+        <div class="text-center py-4 text-gray-400">
+          <i data-lucide="route" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+          <p class="text-sm font-medium">No route assigned</p>
+          <p class="text-xs">This truck doesn't have an active route</p>
+        </div>
+      `}
+
+      <!-- Location Info -->
+      ${lat && lng ? `
+        <div class="flex items-center gap-2 text-xs text-gray-400 pt-2 border-t border-gray-100">
+          <i data-lucide="map-pin" class="w-3 h-3"></i>
+          <span>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</span>
+        </div>
+      ` : ''}
+    </div>
+
+    <!-- Footer -->
+    <div class="px-4 py-3 bg-gray-50 border-t border-gray-100">
+      <button onclick="closeTruckInfoPanel()" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-xl transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Back to Truck List
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+// Close truck info panel
+window.closeTruckInfoPanel = function() {
+  const panel = document.getElementById('truckInfoPanel');
+  if (panel) panel.remove();
+  clearRouteOnlyMarkers();
+};
+
+// View truck on map from page view
+window.viewTruckOnMapFromPage = function(lat, lng, truckId) {
+  if (!lat || !lng) {
+    showToast('Location not available for this truck', 'warning');
+    return;
+  }
+  closePage();
+  setTimeout(() => {
+    map.setView([lat, lng], 17, { animate: true });
+    Object.values(driverMarkers).forEach(marker => {
+      const markerLatLng = marker.getLatLng();
+      if (Math.abs(markerLatLng.lat - lat) < 0.0001 && Math.abs(markerLatLng.lng - lng) < 0.0001) {
+        marker.openPopup();
+      }
+    });
+  }, 100);
 };
 
 // View truck on map and close modal
@@ -3606,12 +8348,15 @@ window.showDriverHistory = async function() {
     myCompletedRoutes.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
     
     if (myCompletedRoutes.length === 0) {
-      showModal('📜 My History', `
-        <div style="text-align: center; padding: 2rem;">
-          <p style="color: #999; font-size: 1.1rem;">No completed routes yet</p>
-          <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">Complete your first route to see it here!</p>
+      showModal('My History', `
+        <div class="text-center py-8">
+          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="clipboard-list" class="w-8 h-8 text-gray-400"></i>
+          </div>
+          <p class="text-gray-500 text-lg">No completed routes yet</p>
+          <p class="text-gray-400 text-sm mt-2">Complete your first route to see it here!</p>
         </div>
-        <button onclick="closeModal()" class="btn" style="width: 100%; margin-top: 1rem;">Close</button>
+        <button onclick="closeModal()" class="w-full px-4 py-2.5 mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Close</button>
       `);
       return;
     }
@@ -3666,7 +8411,7 @@ window.showDriverHistory = async function() {
         <div style="max-height: 500px; overflow-y: auto; padding-right: 0.5rem;">
           ${historyList}
         </div>
-        <button onclick="closeModal()" class="btn" style="width: 100%; margin-top: 1rem; background: #4caf50; color: white; padding: 0.75rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 1rem;">Close</button>
+        <button onclick="closeModal()" class="w-full px-4 py-2.5 mt-4 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">Close</button>
       </div>
     `);
   } catch (error) {
@@ -3684,61 +8429,57 @@ window.showProfile = async function() {
     
     const profile = await response.json();
     
-    const profilePicHtml = profile.profilePicture 
-      ? `<img src="${profile.profilePicture}" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #4caf50;">`
-      : `<div style="width: 150px; height: 150px; border-radius: 50%; background: #4caf50; color: white; display: flex; align-items: center; justify-content: center; font-size: 4rem; font-weight: bold; border: 4px solid #2e7d32;">
+    const profilePicHtml = profile.profilePicture
+      ? `<img src="${profile.profilePicture}" class="w-32 h-32 rounded-full object-cover border-4 border-primary-500 shadow-lg">`
+      : `<div class="w-32 h-32 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white flex items-center justify-content-center text-5xl font-bold border-4 border-primary-400 shadow-lg">
            ${(profile.fullName || profile.username).charAt(0).toUpperCase()}
          </div>`;
-    
+
     showModal('My Profile', `
-      <div style="text-align: center; padding: 1rem;">
-        <div style="margin-bottom: 1.5rem;">
+      <div class="text-center space-y-6">
+        <div class="flex justify-center">
           ${profilePicHtml}
         </div>
-        
-        <div style="margin-bottom: 1rem;">
-          <button onclick="showChangeProfilePicture()" class="btn" style="background: #4caf50;">
-            📷 Change Profile Picture
+
+        <div class="flex justify-center gap-2">
+          <button onclick="showChangeProfilePicture()" class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-xl transition-colors">
+            Change Picture
           </button>
           ${profile.profilePicture ? `
-            <button onclick="removeProfilePicture()" class="btn" style="background: #f44336; margin-left: 0.5rem;">
-              🗑️ Remove Picture
+            <button onclick="removeProfilePicture()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl transition-colors">
+              Remove
             </button>
           ` : ''}
         </div>
-        
-        <div style="text-align: left; max-width: 500px; margin: 0 auto; background: #f5f5f5; padding: 1.5rem; border-radius: 10px;">
-          <div style="margin-bottom: 1rem;">
-            <strong style="color: #4caf50;">Username:</strong>
-            <p style="margin: 0.25rem 0;">${profile.username}</p>
+
+        <div class="bg-gray-50 rounded-xl p-4 text-left space-y-3">
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-500 font-medium">Username</span>
+            <span class="text-sm text-gray-800 font-medium">${profile.username}</span>
           </div>
-          
-          <div style="margin-bottom: 1rem;">
-            <strong style="color: #4caf50;">Full Name:</strong>
-            <p style="margin: 0.25rem 0;">${profile.fullName || '-'}</p>
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-500 font-medium">Full Name</span>
+            <span class="text-sm text-gray-800">${profile.fullName || '-'}</span>
           </div>
-          
-          <div style="margin-bottom: 1rem;">
-            <strong style="color: #4caf50;">Email:</strong>
-            <p style="margin: 0.25rem 0;">${profile.email}</p>
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-500 font-medium">Email</span>
+            <span class="text-sm text-gray-800">${profile.email}</span>
           </div>
-          
-          <div style="margin-bottom: 1rem;">
-            <strong style="color: #4caf50;">Phone Number:</strong>
-            <p style="margin: 0.25rem 0;">${profile.phoneNumber || '-'}</p>
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-500 font-medium">Phone Number</span>
+            <span class="text-sm text-gray-800">${profile.phoneNumber || '-'}</span>
           </div>
-          
-          <div style="margin-bottom: 1rem;">
-            <strong style="color: #4caf50;">Role:</strong>
-            <p style="margin: 0.25rem 0;"><span class="role-badge ${profile.role}">${profile.role}</span></p>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-sm text-gray-500 font-medium">Role</span>
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${profile.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${profile.role}</span>
           </div>
         </div>
-        
-        <div style="margin-top: 1.5rem;">
-          <button onclick="showEditProfile()" class="btn" style="background: #4caf50;">
-            ✏️ Edit Profile
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="showEditProfile()" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Edit Profile
           </button>
-          <button onclick="closeModal()" class="btn" style="background: #999; margin-left: 0.5rem;">
+          <button onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
             Close
           </button>
         </div>
@@ -3746,7 +8487,7 @@ window.showProfile = async function() {
     `);
   } catch (error) {
     console.error('Error loading profile:', error);
-    alert('Error loading profile: ' + error.message);
+    showToast('Error loading profile: ' + error.message, 'error');
   }
 };
 
@@ -3756,40 +8497,52 @@ window.showEditProfile = async function() {
     const profile = await response.json();
     
     showModal('Edit Profile', `
-      <form id="editProfileForm">
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" value="${profile.username}" disabled style="background: #f5f5f5;">
+      <form id="editProfileForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+          <input type="text" value="${profile.username}" disabled
+            class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
-        
-        <div class="form-group">
-          <label>Full Name *</label>
-          <input type="text" id="profileFullName" value="${profile.fullName || ''}" required>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+          <input type="text" id="profileFullName" value="${profile.fullName || ''}" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
-        
-        <div class="form-group">
-          <label>Email *</label>
-          <input type="email" id="profileEmail" value="${profile.email}" required>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+          <input type="email" id="profileEmail" value="${profile.email}" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
-        
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="tel" id="profilePhone" value="${profile.phoneNumber || ''}" pattern="[0-9]{11}" placeholder="09XXXXXXXXX">
-          <small style="color: #666;">Format: 09XXXXXXXXX (11 digits)</small>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+          <input type="tel" id="profilePhone" value="${profile.phoneNumber || ''}" pattern="[0-9]{11}" placeholder="09XXXXXXXXX"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
+          <p class="mt-1 text-xs text-gray-500">Format: 09XXXXXXXXX (11 digits)</p>
         </div>
-        
-        <div class="form-group">
-          <label>New Password (leave blank to keep current)</label>
-          <input type="password" id="profilePassword" minlength="6" placeholder="Enter new password">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">New Password (leave blank to keep current)</label>
+          <input type="password" id="profilePassword" minlength="6" placeholder="Enter new password"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
-        
-        <div class="form-group">
-          <label>Confirm New Password</label>
-          <input type="password" id="profilePasswordConfirm" minlength="6" placeholder="Confirm new password">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+          <input type="password" id="profilePasswordConfirm" minlength="6" placeholder="Confirm new password"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
-        
-        <button type="submit" class="btn" style="background: #4caf50;">💾 Save Changes</button>
-        <button type="button" onclick="showProfile()" class="btn" style="background: #999;">Cancel</button>
+
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Save Changes
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
       </form>
     `);
     
@@ -3800,7 +8553,7 @@ window.showEditProfile = async function() {
       const passwordConfirm = document.getElementById('profilePasswordConfirm').value;
       
       if (password && password !== passwordConfirm) {
-        alert('Passwords do not match!');
+        showToast('Passwords do not match!', 'warning');
         return;
       }
       
@@ -3826,40 +8579,49 @@ window.showEditProfile = async function() {
           // Update local storage
           const updatedUser = { ...user, ...result.user };
           localStorage.setItem('user', JSON.stringify(updatedUser));
-          
-          alert('Profile updated successfully!');
-          
+
+          closeModal();
+          showToast('Profile updated successfully!', 'success');
+
           // Refresh the page to update header
           location.reload();
         } else {
           const error = await response.json();
-          alert('Error: ' + (error.error || 'Failed to update profile'));
+          showToast(error.error || 'Failed to update profile', 'error');
         }
       } catch (error) {
-        alert('Error updating profile: ' + error.message);
+        showToast('Error updating profile: ' + error.message, 'error');
       }
     });
   } catch (error) {
-    alert('Error loading profile: ' + error.message);
+    showToast('Error loading profile: ' + error.message, 'error');
   }
 };
 
 window.showChangeProfilePicture = function() {
   showModal('Change Profile Picture', `
-    <form id="uploadProfilePicForm" enctype="multipart/form-data">
-      <div class="form-group">
-        <label>Select Profile Picture *</label>
-        <input type="file" id="profilePictureFile" accept="image/jpeg,image/jpg,image/png,image/gif" required>
-        <small style="color: #666;">
-          Accepted formats: JPG, PNG, GIF<br>
-          Maximum size: 2MB
-        </small>
+    <form id="uploadProfilePicForm" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Select Profile Picture *</label>
+        <div class="relative">
+          <input type="file" id="profilePictureFile" accept="image/jpeg,image/jpg,image/png,image/gif" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100">
+        </div>
+        <p class="mt-2 text-xs text-gray-500">
+          Accepted formats: JPG, PNG, GIF | Maximum size: 2MB
+        </p>
       </div>
-      
-      <div id="imagePreview" style="margin: 1rem 0; text-align: center;"></div>
-      
-      <button type="submit" class="btn" style="background: #4caf50;">📤 Upload Picture</button>
-      <button type="button" onclick="showProfile()" class="btn" style="background: #999;">Cancel</button>
+
+      <div id="imagePreview" class="flex justify-center py-4"></div>
+
+      <div class="flex gap-3 pt-4">
+        <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+          Upload Picture
+        </button>
+        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
     </form>
   `);
   
@@ -3869,7 +8631,7 @@ window.showChangeProfilePicture = function() {
     if (file) {
       // Check file size (2MB)
       if (file.size > 2 * 1024 * 1024) {
-        alert('File size must be less than 2MB');
+        showToast('File size must be less than 2MB', 'warning');
         this.value = '';
         return;
       }
@@ -3877,7 +8639,7 @@ window.showChangeProfilePicture = function() {
       const reader = new FileReader();
       reader.onload = function(e) {
         document.getElementById('imagePreview').innerHTML = `
-          <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border-radius: 10px; border: 2px solid #4caf50;">
+          <img src="${e.target.result}" class="max-w-[200px] max-h-[200px] rounded-xl border-2 border-primary-500 shadow-lg">
         `;
       };
       reader.readAsDataURL(file);
@@ -3891,7 +8653,7 @@ window.showChangeProfilePicture = function() {
     const file = fileInput.files[0];
     
     if (!file) {
-      alert('Please select a file');
+      showToast('Please select a file', 'warning');
       return;
     }
     
@@ -3910,25 +8672,26 @@ window.showChangeProfilePicture = function() {
       
       if (response.ok) {
         const result = await response.json();
-        alert('Profile picture updated successfully!');
-        
+        closeModal();
+        showToast('Profile picture updated successfully!', 'success');
+
         // Update header profile picture
         loadHeaderProfilePicture();
-        
+
         // Show profile again
         showProfile();
       } else {
         const error = await response.json();
-        alert('Error: ' + (error.error || 'Failed to upload picture'));
+        showToast(error.error || 'Failed to upload picture', 'error');
       }
     } catch (error) {
-      alert('Error uploading picture: ' + error.message);
+      showToast('Error uploading picture: ' + error.message, 'error');
     }
   });
 };
 
 window.removeProfilePicture = async function() {
-  if (!confirm('Are you sure you want to remove your profile picture?')) {
+  if (!await showConfirm('Remove Profile Picture', 'Are you sure you want to remove your profile picture?')) {
     return;
   }
   
@@ -3942,21 +8705,927 @@ window.removeProfilePicture = async function() {
     });
     
     if (response.ok) {
-      alert('Profile picture removed successfully!');
-      
+      closeModal();
+      showToast('Profile picture removed successfully!', 'success');
+
       // Update header
       const headerPic = document.getElementById('headerProfilePic');
       if (headerPic) {
         headerPic.innerHTML = (user.fullName || user.username).charAt(0).toUpperCase();
       }
-      
+
       // Refresh profile view
       showProfile();
     } else {
       const error = await response.json();
-      alert('Error: ' + (error.error || 'Failed to remove picture'));
+      showToast(error.error || 'Failed to remove picture', 'error');
     }
   } catch (error) {
-    alert('Error removing picture: ' + error.message);
+    showToast('Error removing picture: ' + error.message, 'error');
   }
+};
+
+// ============================================
+// FUEL MANAGEMENT SYSTEM
+// ============================================
+
+async function showFuelManagement() {
+  try {
+    const response = await fetch(`${API_URL}/fuel/all-stats`);
+    const data = await response.json();
+
+    const { trucks, fleet } = data;
+
+    const truckCards = trucks.map(t => {
+      const fuelColor = t.fuelLevel > 50 ? 'text-green-600' : t.fuelLevel > 25 ? 'text-yellow-600' : 'text-red-600';
+      const fuelBg = t.fuelLevel > 50 ? 'bg-green-500' : t.fuelLevel > 25 ? 'bg-yellow-500' : 'bg-red-500';
+      const borderColor = t.fuelLevel < 25 ? 'border-red-200' : 'border-gray-100';
+
+      return `
+        <div class="bg-white rounded-xl shadow-sm border ${borderColor} overflow-hidden">
+          <!-- Card Header -->
+          <div class="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800">${t.truckId}</h3>
+                <p class="text-sm text-gray-500">${t.plateNumber}</p>
+              </div>
+            </div>
+            ${t.fuelLevel < 25 ? `
+              <span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Low Fuel</span>
+            ` : ''}
+          </div>
+
+          <!-- Fuel Gauge -->
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm text-gray-500">Fuel Level</span>
+              <span class="font-bold ${fuelColor}">${t.fuelLevel}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+              <div class="${fuelBg} h-3 rounded-full transition-all" style="width: ${t.fuelLevel}%"></div>
+            </div>
+            <p class="text-xs text-gray-500 text-center">${t.currentLiters}L / ${t.tankCapacity}L</p>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-2 gap-px bg-gray-100">
+            <div class="bg-white p-4">
+              <p class="text-xs text-gray-500 mb-1">Consumption</p>
+              <p class="font-semibold text-gray-800">${t.averageFuelConsumption} L/100km</p>
+            </div>
+            <div class="bg-white p-4">
+              <p class="text-xs text-gray-500 mb-1">Total Used</p>
+              <p class="font-semibold text-gray-800">${t.totalFuelConsumed.toFixed(1)} L</p>
+            </div>
+            <div class="bg-white p-4">
+              <p class="text-xs text-gray-500 mb-1">Total Cost</p>
+              <p class="font-semibold text-gray-800">₱${t.totalFuelCost.toFixed(0)}</p>
+            </div>
+            <div class="bg-white p-4">
+              <p class="text-xs text-gray-500 mb-1">Mileage</p>
+              <p class="font-semibold text-gray-800">${t.mileage.toFixed(0)} km</p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2 p-4 bg-gray-50 border-t border-gray-100">
+            <button onclick="showRefuelForm('${t.truckId}')" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors">
+              <i data-lucide="fuel" class="w-4 h-4"></i>
+              Refuel
+            </button>
+            <button onclick="showFuelEstimator('${t.truckId}')" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors">
+              <i data-lucide="calculator" class="w-4 h-4"></i>
+              Estimate
+            </button>
+            <button onclick="showFuelHistory('${t.truckId}')" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="History">
+              <i data-lucide="history" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    showPage('Fuel Management', `
+      <!-- Fleet Summary Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="truck" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Trucks</p>
+              <p class="text-2xl font-bold text-gray-800">${fleet.totalTrucks}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 ${fleet.avgFuelLevel > 50 ? 'bg-green-100' : fleet.avgFuelLevel > 25 ? 'bg-yellow-100' : 'bg-red-100'} rounded-xl flex items-center justify-center">
+              <i data-lucide="fuel" class="w-6 h-6 ${fleet.avgFuelLevel > 50 ? 'text-green-600' : fleet.avgFuelLevel > 25 ? 'text-yellow-600' : 'text-red-600'}"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Avg Fuel Level</p>
+              <p class="text-2xl font-bold ${fleet.avgFuelLevel > 50 ? 'text-green-600' : fleet.avgFuelLevel > 25 ? 'text-yellow-600' : 'text-red-600'}">${fleet.avgFuelLevel}%</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="droplet" class="w-6 h-6 text-orange-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Consumed</p>
+              <p class="text-2xl font-bold text-gray-800">${fleet.totalFuelConsumed.toFixed(0)}L</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="banknote" class="w-6 h-6 text-purple-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total Cost</p>
+              <p class="text-2xl font-bold text-gray-800">₱${fleet.totalFuelCost.toFixed(0)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${fleet.trucksNeedingRefuel > 0 ? `
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-red-700">${fleet.trucksNeedingRefuel} truck${fleet.trucksNeedingRefuel > 1 ? 's' : ''} need refueling</p>
+            <p class="text-sm text-red-600">Fuel level below 25%</p>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Trucks Grid -->
+      ${trucks.length > 0 ? `
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${truckCards}
+        </div>
+      ` : `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="truck" class="w-8 h-8 text-gray-400"></i>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-700 mb-2">No Trucks Found</h3>
+          <p class="text-gray-500">Add trucks to manage their fuel</p>
+        </div>
+      `}
+    `);
+  } catch (error) {
+    console.error('Error loading fuel data:', error);
+    showPage('Fuel Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading fuel data: ${error.message}</p>
+        <button onclick="showFuelManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
+
+function showRefuelForm(truckId) {
+  showModal('Log Refuel', `
+    <form id="refuelForm" class="space-y-4">
+      <input type="hidden" id="refuelTruckId" value="${truckId}">
+
+      <div class="bg-blue-50 rounded-lg p-3 flex items-center gap-2 mb-4">
+        <i data-lucide="truck" class="w-5 h-5 text-blue-500"></i>
+        <span class="text-blue-700 font-medium">Truck: ${truckId}</span>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Liters Added *</label>
+        <input type="number" id="refuelLiters" step="0.1" min="0" required
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="e.g., 45.5">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Price per Liter (₱)</label>
+        <input type="number" id="refuelPrice" step="0.01" min="0"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="e.g., 65.50">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Gas Station</label>
+        <input type="text" id="refuelStation"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="e.g., Shell, Petron, Caltex">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Odometer Reading (km)</label>
+        <input type="number" id="refuelOdometer" step="0.1" min="0"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="Current odometer reading">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+        <textarea id="refuelNotes" rows="2"
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="Any additional notes..."></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-4">
+        <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+          Log Refuel
+        </button>
+        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('refuelForm').addEventListener('submit', submitRefuel);
+
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 50);
+  }
+}
+
+async function submitRefuel(e) {
+  e.preventDefault();
+
+  const data = {
+    truckId: document.getElementById('refuelTruckId').value,
+    litersAdded: parseFloat(document.getElementById('refuelLiters').value),
+    pricePerLiter: parseFloat(document.getElementById('refuelPrice').value) || 0,
+    gasStation: document.getElementById('refuelStation').value,
+    odometerReading: parseFloat(document.getElementById('refuelOdometer').value) || null,
+    notes: document.getElementById('refuelNotes').value
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/fuel/refuel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      closeModal();
+      showToast(`Refuel logged! New fuel level: ${result.truck.fuelLevel}%`, 'success');
+      showFuelManagement();
+    } else {
+      showToast(result.error, 'error');
+    }
+  } catch (error) {
+    showToast('Error logging refuel: ' + error.message, 'error');
+  }
+}
+
+function showFuelEstimator(truckId) {
+  showModal('Fuel Consumption Estimator', `
+    <form id="estimatorForm" class="space-y-4">
+      <input type="hidden" id="estimatorTruckId" value="${truckId}">
+
+      <div class="bg-blue-50 rounded-lg p-3 flex items-center gap-2 mb-4">
+        <i data-lucide="calculator" class="w-5 h-5 text-blue-500"></i>
+        <span class="text-blue-700 font-medium">Estimate fuel for Truck: ${truckId}</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Distance (km) *</label>
+          <input type="number" id="estDistance" step="0.1" min="0" required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            placeholder="e.g., 25">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Avg Speed (km/h)</label>
+          <input type="number" id="estSpeed" step="1" min="0" value="30"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Number of Stops</label>
+          <input type="number" id="estStops" min="0" value="10"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Idle Time (minutes)</label>
+          <input type="number" id="estIdle" min="0" value="15"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+
+        <div class="col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Load Percentage (%)</label>
+          <input type="range" id="estLoad" min="0" max="100" value="50"
+            class="w-full" oninput="document.getElementById('loadValue').textContent = this.value + '%'">
+          <div class="text-center text-sm text-gray-500 mt-1">
+            Cargo load: <span id="loadValue">50%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="estimationResult" class="hidden bg-gray-50 rounded-xl p-4 space-y-3">
+        <!-- Results will be shown here -->
+      </div>
+
+      <div class="flex gap-3 pt-4">
+        <button type="submit" class="flex-1 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl transition-colors">
+          Calculate Estimate
+        </button>
+        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+          Cancel
+        </button>
+      </div>
+
+      <button type="button" id="logConsumptionBtn" onclick="logEstimatedConsumption()" class="hidden w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors mt-3">
+        Log This Consumption
+      </button>
+    </form>
+  `);
+
+  document.getElementById('estimatorForm').addEventListener('submit', calculateFuelEstimate);
+
+  if (typeof lucide !== 'undefined') {
+    setTimeout(() => lucide.createIcons(), 50);
+  }
+}
+
+let lastEstimation = null;
+
+async function calculateFuelEstimate(e) {
+  e.preventDefault();
+
+  const data = {
+    truckId: document.getElementById('estimatorTruckId').value,
+    distance: parseFloat(document.getElementById('estDistance').value),
+    averageSpeed: parseFloat(document.getElementById('estSpeed').value) || 30,
+    stopCount: parseInt(document.getElementById('estStops').value) || 0,
+    idleTimeMinutes: parseInt(document.getElementById('estIdle').value) || 0,
+    loadPercentage: parseInt(document.getElementById('estLoad').value) || 50
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/fuel/estimate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      lastEstimation = { ...data, estimation: result.estimation };
+
+      const est = result.estimation;
+      document.getElementById('estimationResult').innerHTML = `
+        <h4 class="font-semibold text-gray-800 flex items-center gap-2">
+          <i data-lucide="fuel" class="w-4 h-4 text-green-500"></i>
+          Estimation Results
+        </h4>
+
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <div class="text-gray-500 text-xs">Total Fuel Needed</div>
+            <div class="text-xl font-bold text-green-600">${est.totalLiters} L</div>
+          </div>
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <div class="text-gray-500 text-xs">Fuel Efficiency</div>
+            <div class="text-xl font-bold text-blue-600">${est.efficiency} km/L</div>
+          </div>
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <div class="text-gray-500 text-xs">Consumption Rate</div>
+            <div class="text-xl font-bold text-orange-600">${est.consumptionRate} L/100km</div>
+          </div>
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <div class="text-gray-500 text-xs">Distance Consumption</div>
+            <div class="text-lg font-bold text-gray-700">${est.distanceConsumption} L</div>
+          </div>
+        </div>
+
+        <div class="text-xs text-gray-500 space-y-1 border-t border-gray-200 pt-3 mt-3">
+          <div>Stop consumption: ${est.stopConsumption} L (${data.stopCount} stops)</div>
+          <div>Idle consumption: ${est.idleConsumption} L (${data.idleTimeMinutes} min)</div>
+          <div>Speed factor: ${est.factors.speedFactor}x | Load factor: ${est.factors.loadFactor}x</div>
+        </div>
+      `;
+
+      document.getElementById('estimationResult').classList.remove('hidden');
+      document.getElementById('logConsumptionBtn').classList.remove('hidden');
+
+      if (typeof lucide !== 'undefined') {
+        setTimeout(() => lucide.createIcons(), 50);
+      }
+    } else {
+      showToast(result.error, 'error');
+    }
+  } catch (error) {
+    showToast('Error calculating estimate: ' + error.message, 'error');
+  }
+}
+
+async function logEstimatedConsumption() {
+  if (!lastEstimation) {
+    showToast('Please calculate an estimate first', 'warning');
+    return;
+  }
+
+  const data = {
+    truckId: lastEstimation.truckId,
+    distance: lastEstimation.distance,
+    averageSpeed: lastEstimation.averageSpeed,
+    stopCount: lastEstimation.stopCount,
+    idleTimeMinutes: lastEstimation.idleTimeMinutes,
+    loadPercentage: lastEstimation.loadPercentage,
+    notes: `Estimated consumption: ${lastEstimation.estimation.totalLiters}L for ${lastEstimation.distance}km`
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/fuel/consumption`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      closeModal();
+      showToast(`Consumption logged! Fuel level: ${result.truck.fuelLevel}%`, 'success');
+      showFuelManagement();
+    } else {
+      showToast(result.error, 'error');
+    }
+  } catch (error) {
+    showToast('Error logging consumption: ' + error.message, 'error');
+  }
+}
+
+async function showFuelHistory(truckId) {
+  try {
+    const response = await fetch(`${API_URL}/fuel/stats/${truckId}?days=30`);
+    const stats = await response.json();
+
+    const logsHtml = stats.recentLogs.map(log => {
+      const date = new Date(log.createdAt).toLocaleDateString();
+      const time = new Date(log.createdAt).toLocaleTimeString();
+
+      if (log.type === 'refuel') {
+        return `
+          <div class="bg-green-50 rounded-lg p-3 border-l-4 border-green-500">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xs font-medium text-green-600 uppercase">Refuel</span>
+                <div class="font-semibold text-gray-800">+${log.litersAdded} L</div>
+                <div class="text-xs text-gray-500">${log.gasStation || 'Unknown station'}</div>
+              </div>
+              <div class="text-right text-xs text-gray-500">
+                <div>${date}</div>
+                <div>${time}</div>
+                ${log.totalCost > 0 ? `<div class="text-green-600 font-medium">₱${log.totalCost.toFixed(2)}</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="bg-orange-50 rounded-lg p-3 border-l-4 border-orange-500">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xs font-medium text-orange-600 uppercase">Consumption</span>
+                <div class="font-semibold text-gray-800">-${log.litersConsumed?.toFixed(2) || 0} L</div>
+                <div class="text-xs text-gray-500">${log.distanceTraveled?.toFixed(1) || 0} km traveled</div>
+              </div>
+              <div class="text-right text-xs text-gray-500">
+                <div>${date}</div>
+                <div>${time}</div>
+                ${log.routeName ? `<div class="text-orange-600">${log.routeName}</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }).join('');
+
+    showModal(`Fuel History - ${truckId}`, `
+      <div class="space-y-4">
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">Current Level</div>
+            <div class="text-2xl font-bold text-green-600">${stats.truck.fuelLevel}%</div>
+            <div class="text-xs text-gray-500">${stats.truck.currentLiters}L / ${stats.truck.tankCapacity}L</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-xs text-gray-500">Avg Consumption</div>
+            <div class="text-2xl font-bold text-orange-600">${stats.truck.averageFuelConsumption}</div>
+            <div class="text-xs text-gray-500">L/100km</div>
+          </div>
+        </div>
+
+        <!-- 30-day Summary -->
+        <div class="bg-blue-50 rounded-lg p-4">
+          <h4 class="font-semibold text-blue-800 mb-2">Last 30 Days</h4>
+          <div class="grid grid-cols-3 gap-2 text-center text-sm">
+            <div>
+              <div class="text-lg font-bold text-blue-600">${stats.refueling.totalLiters}L</div>
+              <div class="text-xs text-gray-500">Refueled</div>
+            </div>
+            <div>
+              <div class="text-lg font-bold text-orange-600">${stats.consumption.totalLiters}L</div>
+              <div class="text-xs text-gray-500">Consumed</div>
+            </div>
+            <div>
+              <div class="text-lg font-bold text-green-600">₱${stats.refueling.totalCost}</div>
+              <div class="text-xs text-gray-500">Spent</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Logs -->
+        <div>
+          <h4 class="font-semibold text-gray-700 mb-3">Recent Activity</h4>
+          <div class="space-y-2 max-h-60 overflow-y-auto">
+            ${logsHtml || '<p class="text-gray-500 text-center py-4">No fuel logs yet</p>'}
+          </div>
+        </div>
+
+        <button onclick="showFuelManagement()" class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+          Back to Fuel Management
+        </button>
+      </div>
+    `);
+
+  } catch (error) {
+    showModal('Fuel History', `<p class="text-red-500">Error loading fuel history: ${error.message}</p>`);
+  }
+}
+
+// ============================================
+// DRIVER WEB OVERLAY FUNCTIONS
+// ============================================
+
+// Load driver assignments into overlay panel
+async function loadDriverAssignmentsOverlay() {
+  const container = document.getElementById('overlayAssignments');
+  if (!container) return;
+
+  try {
+    container.innerHTML = `
+      <div class="text-center py-3 text-gray-400">
+        <i data-lucide="loader" class="w-5 h-5 mx-auto animate-spin"></i>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const token = localStorage.getItem('token');
+    const headers = { 'Authorization': `Bearer ${token}` };
+
+    const [routesRes, trucksRes] = await Promise.all([
+      fetch(`${API_URL}/routes`, { headers }),
+      fetch(`${API_URL}/trucks`, { headers })
+    ]);
+
+    if (!routesRes.ok || !trucksRes.ok) {
+      throw new Error('Failed to load data');
+    }
+
+    const routes = await routesRes.json();
+    const trucks = await trucksRes.json();
+
+    // Filter routes assigned to this driver (not completed)
+    const myRoutes = routes.filter(r => r.assignedDriver === user.username && r.status !== 'completed');
+    const myTrucks = trucks.filter(t => t.assignedDriver === user.username);
+
+    if (myRoutes.length === 0 && myTrucks.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-4 text-gray-400">
+          <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+          <p class="text-xs">No assignments</p>
+        </div>
+      `;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    let html = '';
+
+    // Show assigned trucks
+    if (myTrucks.length > 0) {
+      myTrucks.forEach(truck => {
+        const fuelColor = truck.fuelLevel > 50 ? 'text-green-600' : truck.fuelLevel > 20 ? 'text-yellow-600' : 'text-red-600';
+        html += `
+          <div class="bg-white/80 rounded-lg p-2 border border-gray-200">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="truck" class="w-4 h-4 text-green-600"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-800 text-sm truncate">${truck.truckId}</p>
+                <p class="text-xs text-gray-500">${truck.plateNumber}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-bold ${fuelColor}">${truck.fuelLevel || 0}%</p>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Show assigned routes
+    if (myRoutes.length > 0) {
+      myRoutes.forEach(route => {
+        const activeRouteId = localStorage.getItem('activeRouteId');
+        const isCurrentlyActive = activeRouteId === (route._id || route.routeId);
+        const stopsCount = route.path?.coordinates?.length || 0;
+
+        html += `
+          <div class="${isCurrentlyActive ? 'bg-orange-100 border-orange-300 ring-1 ring-orange-400' : 'bg-white/80 border-gray-200'} rounded-lg p-2 border transition-all">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-800 text-sm truncate">${route.name || 'Unnamed Route'}</p>
+                <p class="text-xs text-gray-500">${stopsCount} stops • ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}</p>
+              </div>
+              ${isCurrentlyActive ? `
+                <span class="flex items-center gap-1 px-1.5 py-0.5 bg-orange-500 text-white text-xs font-medium rounded-full">
+                  <span class="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                  Active
+                </span>
+              ` : ''}
+            </div>
+            <div class="flex gap-1 mt-2">
+              ${isCurrentlyActive ? `
+                <button onclick="showActiveRouteNavigation()" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="navigation" class="w-3 h-3"></i>
+                  Navigate
+                </button>
+                <button onclick="markRouteComplete('${route._id || route.routeId}')" class="flex items-center justify-center px-2 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="check" class="w-3 h-3"></i>
+                </button>
+              ` : `
+                <button onclick="viewDriverRoute('${route._id || route.routeId}')" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="eye" class="w-3 h-3"></i>
+                  View
+                </button>
+                <button onclick="startCollection('${route._id || route.routeId}')" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i data-lucide="play" class="w-3 h-3"></i>
+                  Start
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    container.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // Also update the active route overlay panel
+    updateOverlayActiveRoute(routes);
+
+  } catch (error) {
+    console.error('Error loading overlay assignments:', error);
+    container.innerHTML = `
+      <div class="text-center py-3 text-red-400">
+        <p class="text-xs">Error loading</p>
+      </div>
+    `;
+  }
+}
+
+// Update overlay active route panel
+function updateOverlayActiveRoute(routes) {
+  const panel = document.getElementById('overlayActiveRoute');
+  if (!panel) return;
+
+  const activeRouteId = localStorage.getItem('activeRouteId');
+
+  if (activeRouteId && routes) {
+    const activeRoute = routes.find(r => (r._id === activeRouteId || r.routeId === activeRouteId));
+
+    if (activeRoute) {
+      panel.classList.remove('hidden');
+
+      const stopsTotal = activeRoute.path?.coordinates?.length || 0;
+      const stopsCompleted = activeRoute.completedStops || 0;
+      const progressPercent = stopsTotal > 0 ? Math.round((stopsCompleted / stopsTotal) * 100) : 0;
+
+      const routeNameEl = panel.querySelector('#overlayRouteName');
+      const progressEl = panel.querySelector('#overlayRouteProgress');
+      const progressBarEl = panel.querySelector('#overlayProgressBar');
+
+      if (routeNameEl) routeNameEl.textContent = activeRoute.name || 'Unnamed Route';
+      if (progressEl) progressEl.textContent = `${stopsCompleted}/${stopsTotal} stops`;
+      if (progressBarEl) progressBarEl.style.width = `${progressPercent}%`;
+
+      return;
+    }
+  }
+
+  panel.classList.add('hidden');
+}
+
+// Update driver overlay stats
+async function updateDriverOverlayStats() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const routes = await response.json();
+
+    const today = new Date().toDateString();
+    const todayCompleted = routes.filter(r =>
+      r.status === 'completed' &&
+      r.completedBy === user.username &&
+      r.completedAt && new Date(r.completedAt).toDateString() === today
+    );
+
+    const todayDistance = todayCompleted.reduce((sum, r) => sum + (r.distance || 0), 0);
+
+    // Update overlay stats
+    const routesEl = document.getElementById('overlayTodayRoutes');
+    const distanceEl = document.getElementById('overlayTodayDistance');
+
+    if (routesEl) routesEl.textContent = todayCompleted.length;
+    if (distanceEl) distanceEl.textContent = (todayDistance / 1000).toFixed(1) + ' km';
+
+  } catch (error) {
+    console.error('Error updating overlay stats:', error);
+  }
+}
+
+// Toggle assignments overlay visibility
+window.toggleAssignmentsOverlay = function() {
+  const overlay = document.getElementById('driverAssignmentsOverlay');
+  if (overlay) {
+    overlay.classList.toggle('hidden');
+    overlay.classList.toggle('lg:block');
+  }
+};
+
+// Sync overlay GPS button with tracking state
+function syncOverlayGPSState() {
+  const iconWrapper = document.getElementById('overlayGpsIconWrapper');
+  const statusText = document.getElementById('overlayGpsText');
+  const statusDetail = document.getElementById('overlayGpsDetail');
+  const gpsButton = document.getElementById('overlayGpsBtn');
+
+  if (trackingEnabled) {
+    if (iconWrapper) {
+      iconWrapper.className = 'w-10 h-10 bg-green-100 rounded-full flex items-center justify-center';
+      iconWrapper.innerHTML = '<i data-lucide="navigation" class="w-5 h-5 text-green-600"></i>';
+    }
+    if (statusText) {
+      statusText.textContent = 'GPS Active';
+      statusText.className = 'font-semibold text-green-600 text-sm';
+    }
+    if (statusDetail) {
+      statusDetail.textContent = 'Tracking your location';
+      statusDetail.className = 'text-xs text-green-500';
+    }
+    if (gpsButton) {
+      gpsButton.innerHTML = '<i data-lucide="pause" class="w-4 h-4"></i><span>Stop</span>';
+      gpsButton.className = 'px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2';
+    }
+  } else {
+    if (iconWrapper) {
+      iconWrapper.className = 'w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center';
+      iconWrapper.innerHTML = '<i data-lucide="map-pin" class="w-5 h-5 text-gray-500"></i>';
+    }
+    if (statusText) {
+      statusText.textContent = 'GPS Inactive';
+      statusText.className = 'font-semibold text-gray-800 text-sm';
+    }
+    if (statusDetail) {
+      statusDetail.textContent = 'Click Start to begin tracking';
+      statusDetail.className = 'text-xs text-gray-500';
+    }
+    if (gpsButton) {
+      gpsButton.innerHTML = '<i data-lucide="navigation" class="w-4 h-4"></i><span>Start</span>';
+      gpsButton.className = 'px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2';
+    }
+  }
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Toggle overlay GPS tracking
+window.toggleOverlayGPS = function() {
+  console.log('🔄 toggleOverlayGPS called');
+  toggleGPSTracking();
+  syncOverlayGPSState();
+};
+
+// Update mobile GPS status pill
+function updateMobileGpsStatus() {
+  const dot = document.getElementById('mobileGpsDot');
+  const label = document.getElementById('mobileGpsLabel');
+  const pill = document.getElementById('mobileGpsStatusPill');
+
+  if (!dot || !label) return;
+
+  if (trackingEnabled) {
+    dot.className = 'w-2 h-2 bg-green-500 rounded-full animate-pulse';
+    label.textContent = 'GPS On';
+    label.className = 'text-xs font-medium text-green-600';
+    if (pill) {
+      pill.classList.remove('border-gray-200');
+      pill.classList.add('border-green-300', 'bg-green-50/95');
+    }
+  } else {
+    dot.className = 'w-2 h-2 bg-gray-400 rounded-full';
+    label.textContent = 'GPS Off';
+    label.className = 'text-xs font-medium text-gray-600';
+    if (pill) {
+      pill.classList.remove('border-green-300', 'bg-green-50/95');
+      pill.classList.add('border-gray-200');
+    }
+  }
+}
+
+// Update mobile active route pill
+function updateMobileRoutePill() {
+  const pill = document.getElementById('mobileRoutePill');
+  const label = document.getElementById('mobileRouteLabel');
+
+  if (!pill) return;
+
+  const activeRouteId = localStorage.getItem('activeRouteId');
+
+  if (activeRouteId) {
+    pill.classList.remove('hidden');
+    if (label && nextDestination) {
+      label.textContent = nextDestination.routeName || 'Route Active';
+    }
+  } else {
+    pill.classList.add('hidden');
+  }
+}
+
+// Update mobile stats pill
+async function updateMobileStats() {
+  const statsEl = document.getElementById('mobileStatsRoutes');
+  if (!statsEl) return;
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const routes = await response.json();
+
+    const today = new Date().toDateString();
+    const todayCompleted = routes.filter(r =>
+      r.status === 'completed' &&
+      r.completedBy === user.username &&
+      r.completedAt && new Date(r.completedAt).toDateString() === today
+    );
+
+    statsEl.textContent = todayCompleted.length;
+  } catch (error) {
+    console.error('Error updating mobile stats:', error);
+  }
+}
+
+// Sync all mobile overlay elements
+function syncMobileOverlay() {
+  updateMobileGpsStatus();
+  updateMobileRoutePill();
+  updateMobileStats();
+}
+
+// Overlay quick action handlers
+window.overlayShowInspection = function() {
+  showVehicleInspection();
+};
+
+window.overlayShowStats = function() {
+  showDriverStats();
+};
+
+window.overlayShowReport = function() {
+  showReportIssue();
+};
+
+window.overlayShowHistory = function() {
+  showCollectionHistory();
 };

@@ -454,6 +454,44 @@ input[type="file"]:hover {
   }
 }
 
+/* Navigation line animation */
+.navigation-line {
+  animation: dash-animation 1s linear infinite;
+}
+
+@keyframes dash-animation {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Destination marker styling */
+.destination-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+@keyframes destination-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.5);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(239,68,68,0.7);
+  }
+}
+
+/* ETA Panel styling */
+#etaPanel {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+#etaPanel.hidden {
+  display: none !important;
+}
+
 /* ========================================
    MOBILE RESPONSIVE STYLES
    ======================================== */
@@ -763,4 +801,82 @@ input[type="file"]:hover {
   .sidebar {
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Custom Scrollbar for overlay panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+/* Route Path Animations */
+.current-path-line {
+  animation: red-path-animation 1s linear infinite;
+}
+
+@keyframes red-path-animation {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* Waypoint marker styles */
+.waypoint-marker {
+  z-index: 500 !important;
+}
+
+/* Route legend styles */
+.route-legend {
+  position: fixed;
+  bottom: 4rem;
+  left: 1rem;
+  background: white;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 0.75rem;
+}
+
+.route-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.route-legend-item:last-child {
+  margin-bottom: 0;
+}
+
+.route-legend-line {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.route-legend-line.red {
+  background: #ef4444;
+}
+
+.route-legend-line.green {
+  background: #22c55e;
 }

@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
+// Add indexes for faster queries
+userSchema.index({ role: 1 });
+userSchema.index({ username: 1, role: 1 });
+
 // Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

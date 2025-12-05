@@ -105,28 +105,125 @@ router.post('/register-face', async (req, res) => {
   }
 });
 
-// Forgot password - Send reset token
+// Forgot password - Send reset token (email-based - legacy)
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email, role } = req.body;
-    
+
     const user = await User.findOne({ email, role });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetToken = resetToken;
     user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
     await user.save();
-    
+
     // In production, send email with reset link
     // For now, return token (remove in production)
-    res.json({ 
+    res.json({
       message: 'Reset token generated',
       resetToken, // Remove this in production
       resetLink: `http://localhost:3001/reset-password.html?token=${resetToken}`
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Forgot password Step 1: Get security question by username
+router.post('/forgot-password/question', async (req, res) => {
+  try {
+    const { username, role } = req.body;
+
+    // Ensure MongoDB connection is ready
+    const connectDB = require('../lib/mongodb');
+    await connectDB();
+
+    const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(30000);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Please check your username.' });
+    }
+
+    if (!user.securityQuestion) {
+      return res.status(400).json({ error: 'No security question set for this account. Please contact administrator.' });
+    }
+
+    res.json({
+      securityQuestion: user.securityQuestion
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Forgot password Step 2: Verify security answer
+router.post('/forgot-password/verify', async (req, res) => {
+  try {
+    const { username, role, answer } = req.body;
+
+    // Ensure MongoDB connection is ready
+    const connectDB = require('../lib/mongodb');
+    await connectDB();
+
+    const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(30000);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.securityAnswer) {
+      return res.status(400).json({ error: 'No security answer set for this account' });
+    }
+
+    // Compare answers (case-insensitive)
+    if (user.securityAnswer.toLowerCase().trim() !== answer.toLowerCase().trim()) {
+      return res.status(401).json({ error: 'Incorrect security answer. Please try again.' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    res.json({
+      message: 'Security answer verified',
+      resetToken
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Forgot password Step 3: Reset password with token
+router.post('/forgot-password/reset', async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+
+    // Ensure MongoDB connection is ready
+    const connectDB = require('../lib/mongodb');
+    await connectDB();
+
+    const user = await User.findOne({
+      resetToken: resetToken,
+      resetTokenExpiry: { $gt: Date.now() }
+    }).maxTimeMS(30000);
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token. Please try again.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    user.password = newPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successfully! You can now login with your new password.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

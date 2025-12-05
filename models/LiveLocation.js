@@ -33,8 +33,7 @@ const liveLocationSchema = new mongoose.Schema({
   },
   lastUpdate: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   }
 }, {
   timestamps: true

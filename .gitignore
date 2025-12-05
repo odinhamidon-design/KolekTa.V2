@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.production
+.env.vercel
 *.log
 .DS_Store
 .vercel
@@ -7,3 +9,5 @@ data/*.json
 public/uploads/*
 !public/uploads/.gitkeep
 .env*.local
+test-results/
+nul

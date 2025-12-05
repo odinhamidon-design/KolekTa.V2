@@ -20,7 +20,18 @@ const routeSchema = new mongoose.Schema({
   completedBy: String,
   completionNotes: String,
   completionPhotos: [String],
-  notificationSent: { type: Boolean, default: false }
+  notificationSent: { type: Boolean, default: false },
+  // Auto-calculated trip stats from GPS tracking
+  tripStats: {
+    distanceTraveled: { type: Number, default: 0 },
+    fuelConsumed: { type: Number, default: 0 },
+    stopsCompleted: { type: Number, default: 0 },
+    averageSpeed: { type: Number, default: 0 }
+  }
 }, { timestamps: true });
+
+// Add indexes for faster queries
+routeSchema.index({ assignedDriver: 1 });
+routeSchema.index({ status: 1 });
 
 module.exports = mongoose.models.Route || mongoose.model('Route', routeSchema);
