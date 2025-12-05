@@ -5707,10 +5707,19 @@ function saveNotificationToHistory(routeId) {
 
 // Show notification history
 window.showNotificationHistory = async function() {
+  // Show loading state immediately
+  showPage('Completion History', `
+    <div class="flex flex-col items-center justify-center py-16">
+      <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500">Loading completion history...</p>
+    </div>
+  `);
+
   try {
     const token = localStorage.getItem('token');
 
-    const response = await fetch(`${API_URL}/routes?includePhotos=true`, {
+    // Don't load photos initially - load them lazily
+    const response = await fetch(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -5779,18 +5788,11 @@ window.showNotificationHistory = async function() {
 
             ${photoCount > 0 ? `
               <div>
-                <p class="text-xs text-gray-500 mb-2">Photos (${photoCount})</p>
-                <div class="flex flex-wrap gap-2">
-                  ${route.completionPhotos.slice(0, 4).map((photo, i) => `
-                    <img src="${photo}" class="w-16 h-16 rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
-                      onclick="window.open('${photo}', '_blank')" title="View full size">
-                  `).join('')}
-                  ${photoCount > 4 ? `
-                    <div class="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
-                      +${photoCount - 4}
-                    </div>
-                  ` : ''}
-                </div>
+                <button onclick="viewCompletionPhotos('${route._id || route.routeId}')"
+                  class="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm">
+                  <i data-lucide="image" class="w-4 h-4"></i>
+                  <span>View ${photoCount} Photo${photoCount > 1 ? 's' : ''}</span>
+                </button>
               </div>
             ` : ''}
           </div>
@@ -5881,6 +5883,59 @@ window.showNotificationHistory = async function() {
         </button>
       </div>
     `);
+  }
+};
+
+// View completion photos (lazy load)
+window.viewCompletionPhotos = async function(routeId) {
+  showModal('Loading Photos...', `
+    <div class="flex flex-col items-center justify-center py-8">
+      <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3"></div>
+      <p class="text-gray-500">Loading photos...</p>
+    </div>
+  `);
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/routes/${routeId}?includePhotos=true`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const route = await response.json();
+    const photos = route.completionPhotos || [];
+
+    if (photos.length === 0) {
+      showModal('No Photos', `
+        <div class="text-center py-8">
+          <i data-lucide="image-off" class="w-12 h-12 text-gray-400 mx-auto mb-3"></i>
+          <p class="text-gray-500">No photos available for this route</p>
+        </div>
+      `);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    showModal(`Completion Photos - ${route.name || route.routeId}`, `
+      <div class="space-y-4">
+        <p class="text-sm text-gray-500">Completed by <strong>${route.completedBy || 'Unknown'}</strong> on ${new Date(route.completedAt).toLocaleDateString()}</p>
+        <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+          ${photos.map((photo, i) => `
+            <img src="${photo}" class="w-full h-40 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-200"
+              onclick="window.open('${photo}', '_blank')" title="Click to view full size">
+          `).join('')}
+        </div>
+        <p class="text-xs text-gray-400 text-center">${photos.length} photo${photos.length > 1 ? 's' : ''} - Click to view full size</p>
+      </div>
+    `);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (error) {
+    showModal('Error', `
+      <div class="text-center py-8">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-3"></i>
+        <p class="text-red-600">Failed to load photos: ${error.message}</p>
+      </div>
+    `);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 };
 

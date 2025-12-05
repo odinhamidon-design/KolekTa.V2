@@ -3,8 +3,135 @@ const router = express.Router();
 const { authenticateToken: auth } = require('../middleware/auth');
 const { trucksStorage } = require('../data/storage');
 
-// In-memory fuel logs storage
-let fuelLogs = [];
+// In-memory fuel logs storage with mock data
+let fuelLogs = [
+  // Mock refuel logs
+  {
+    _id: 'log-mock-1',
+    truckId: 'TRK-001',
+    type: 'refuel',
+    litersAdded: 45,
+    pricePerLiter: 65.50,
+    totalCost: 2947.50,
+    gasStation: 'Petron Mati City',
+    odometerReading: 45230,
+    fuelLevelBefore: 15,
+    fuelLevelAfter: 90,
+    recordedBy: 'admin',
+    notes: 'Full tank refuel before morning route',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+  },
+  {
+    _id: 'log-mock-2',
+    truckId: 'TRK-002',
+    type: 'refuel',
+    litersAdded: 38,
+    pricePerLiter: 65.50,
+    totalCost: 2489.00,
+    gasStation: 'Shell Dahican',
+    odometerReading: 32150,
+    fuelLevelBefore: 22,
+    fuelLevelAfter: 85,
+    recordedBy: 'admin',
+    notes: 'Regular weekly refuel',
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) // 3 days ago
+  },
+  {
+    _id: 'log-mock-3',
+    truckId: 'TRK-001',
+    type: 'refuel',
+    litersAdded: 50,
+    pricePerLiter: 64.75,
+    totalCost: 3237.50,
+    gasStation: 'Caltex Mati',
+    odometerReading: 45050,
+    fuelLevelBefore: 8,
+    fuelLevelAfter: 92,
+    recordedBy: 'admin',
+    notes: 'Emergency refuel - low fuel warning',
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+  },
+  // Mock consumption logs
+  {
+    _id: 'log-mock-4',
+    truckId: 'TRK-001',
+    type: 'consumption',
+    litersConsumed: 12.5,
+    distanceTraveled: 45.2,
+    averageSpeed: 28,
+    routeId: 'RT-001',
+    routeName: 'Barangay Central Collection',
+    fuelLevelBefore: 90,
+    fuelLevelAfter: 69,
+    estimationFactors: { speedFactor: 1.3, loadFactor: 1.15, baseRate: 25 },
+    recordedBy: 'driver1',
+    notes: 'Morning route completed',
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
+  },
+  {
+    _id: 'log-mock-5',
+    truckId: 'TRK-002',
+    type: 'consumption',
+    litersConsumed: 18.3,
+    distanceTraveled: 62.8,
+    averageSpeed: 35,
+    routeId: 'RT-002',
+    routeName: 'Dahican Coastal Route',
+    fuelLevelBefore: 85,
+    fuelLevelAfter: 54,
+    estimationFactors: { speedFactor: 1.1, loadFactor: 1.2, baseRate: 25 },
+    recordedBy: 'vience',
+    notes: 'Full route with extra stops',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+  },
+  {
+    _id: 'log-mock-6',
+    truckId: 'TRK-001',
+    type: 'consumption',
+    litersConsumed: 8.7,
+    distanceTraveled: 32.1,
+    averageSpeed: 42,
+    routeId: 'RT-003',
+    routeName: 'Market Area Collection',
+    fuelLevelBefore: 69,
+    fuelLevelAfter: 54,
+    estimationFactors: { speedFactor: 1.1, loadFactor: 1.1, baseRate: 25 },
+    recordedBy: 'driver1',
+    notes: 'Afternoon collection',
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) // 1 day ago
+  },
+  {
+    _id: 'log-mock-7',
+    truckId: 'TRK-003',
+    type: 'refuel',
+    litersAdded: 42,
+    pricePerLiter: 66.00,
+    totalCost: 2772.00,
+    gasStation: 'Phoenix Mati',
+    odometerReading: 28450,
+    fuelLevelBefore: 18,
+    fuelLevelAfter: 88,
+    recordedBy: 'admin',
+    notes: 'Weekly scheduled refuel',
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
+  },
+  {
+    _id: 'log-mock-8',
+    truckId: 'TRK-003',
+    type: 'consumption',
+    litersConsumed: 15.2,
+    distanceTraveled: 52.4,
+    averageSpeed: 32,
+    routeId: 'RT-004',
+    routeName: 'Residential Zone A',
+    fuelLevelBefore: 88,
+    fuelLevelAfter: 62,
+    estimationFactors: { speedFactor: 1.2, loadFactor: 1.15, baseRate: 25 },
+    recordedBy: 'Odin',
+    notes: 'Heavy load day',
+    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) // 4 days ago
+  }
+];
 
 /**
  * FUEL ESTIMATION ALGORITHM
@@ -299,6 +426,34 @@ router.get('/stats/:truckId', auth, async (req, res) => {
     };
 
     res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/fuel/all-logs - Get all fuel logs
+router.get('/all-logs', auth, async (req, res) => {
+  try {
+    const { type, limit = 50 } = req.query;
+    let logs = [...fuelLogs];
+
+    if (type) {
+      logs = logs.filter(l => l.type === type);
+    }
+
+    logs = logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, parseInt(limit));
+
+    res.json({
+      logs,
+      summary: {
+        totalRefuels: fuelLogs.filter(l => l.type === 'refuel').length,
+        totalConsumptions: fuelLogs.filter(l => l.type === 'consumption').length,
+        totalLitersRefueled: Math.round(fuelLogs.filter(l => l.type === 'refuel').reduce((sum, l) => sum + (l.litersAdded || 0), 0) * 100) / 100,
+        totalLitersConsumed: Math.round(fuelLogs.filter(l => l.type === 'consumption').reduce((sum, l) => sum + (l.litersConsumed || 0), 0) * 100) / 100,
+        totalCost: Math.round(fuelLogs.filter(l => l.type === 'refuel').reduce((sum, l) => sum + (l.totalCost || 0), 0) * 100) / 100,
+        totalDistance: Math.round(fuelLogs.filter(l => l.type === 'consumption').reduce((sum, l) => sum + (l.distanceTraveled || 0), 0) * 100) / 100
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
