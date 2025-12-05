@@ -10,27 +10,34 @@ const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
 router.post('/login', async (req, res) => {
   try {
     const { username, password, role } = req.body;
-    
+    console.log('[LOGIN] Attempt:', username, role);
+
     // Ensure MongoDB connection is ready
     const connectDB = require('../lib/mongodb');
     await connectDB();
-    
-    const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(30000);
+    console.log('[LOGIN] DB connected');
+
+    const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(60000);
+    console.log('[LOGIN] User found:', !!user);
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const isMatch = await user.comparePassword(password);
+    console.log('[LOGIN] Password match:', isMatch);
+
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
+
     const token = jwt.sign(
       { userId: user._id, role: user.role, username: user.username },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
+
+    console.log('[LOGIN] Success for:', username);
     res.json({
       token,
       user: {
@@ -43,6 +50,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('[LOGIN] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
