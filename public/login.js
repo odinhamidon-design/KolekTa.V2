@@ -122,14 +122,22 @@ function clearError() {
 // Toggle password visibility
 function togglePassword(inputId, button) {
   const input = document.getElementById(inputId);
-  const icon = button.querySelector('i');
+  if (!input) return;
+
+  // Lucide replaces <i> with <svg>, so check for both
+  let icon = button.querySelector('i') || button.querySelector('svg');
 
   if (input.type === 'password') {
     input.type = 'text';
-    icon.setAttribute('data-lucide', 'eye-off');
+    if (icon) {
+      // Replace SVG with new icon
+      button.innerHTML = '<i data-lucide="eye-off" class="w-5 h-5"></i>';
+    }
   } else {
     input.type = 'password';
-    icon.setAttribute('data-lucide', 'eye');
+    if (icon) {
+      button.innerHTML = '<i data-lucide="eye" class="w-5 h-5"></i>';
+    }
   }
 
   if (typeof lucide !== 'undefined') {
