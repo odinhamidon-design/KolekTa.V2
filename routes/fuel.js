@@ -3,6 +3,17 @@ const router = express.Router();
 const { authenticateToken: auth } = require('../middleware/auth');
 const { trucksStorage } = require('../data/storage');
 
+// Check if using MongoDB
+const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
+let Truck;
+if (!useMockAuth) {
+  try {
+    Truck = require('../models/Truck');
+  } catch (e) {
+    console.log('Truck model not available');
+  }
+}
+
 // In-memory fuel logs storage with mock data
 let fuelLogs = [
   // Mock refuel logs
@@ -462,7 +473,68 @@ router.get('/all-logs', auth, async (req, res) => {
 // GET /api/fuel/all-stats
 router.get('/all-stats', auth, async (req, res) => {
   try {
-    const trucks = trucksStorage.getAll();
+    let trucks = [];
+
+    // Try MongoDB first, then fall back to JSON storage
+    if (!useMockAuth && Truck) {
+      trucks = await Truck.find({}).lean();
+    }
+
+    // Fall back to JSON storage or use mock data if no trucks
+    if (trucks.length === 0) {
+      trucks = trucksStorage.getAll();
+    }
+
+    // If still no trucks, return mock truck data for demo
+    if (trucks.length === 0) {
+      trucks = [
+        {
+          truckId: 'TRK-001',
+          plateNumber: 'ABC-1234',
+          model: 'Isuzu Elf',
+          fuelLevel: 65,
+          fuelTankCapacity: 60,
+          fuelType: 'diesel',
+          averageFuelConsumption: 25,
+          totalFuelConsumed: 245.5,
+          totalFuelCost: 15890,
+          mileage: 12450,
+          lastRefuelDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          assignedDriver: 'driver1',
+          status: 'in-use'
+        },
+        {
+          truckId: 'TRK-002',
+          plateNumber: 'XYZ-5678',
+          model: 'Mitsubishi Canter',
+          fuelLevel: 42,
+          fuelTankCapacity: 65,
+          fuelType: 'diesel',
+          averageFuelConsumption: 28,
+          totalFuelConsumed: 312.8,
+          totalFuelCost: 20450,
+          mileage: 18320,
+          lastRefuelDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          assignedDriver: 'vience',
+          status: 'in-use'
+        },
+        {
+          truckId: 'TRK-003',
+          plateNumber: 'DEF-9012',
+          model: 'Hino 300',
+          fuelLevel: 18,
+          fuelTankCapacity: 70,
+          fuelType: 'diesel',
+          averageFuelConsumption: 30,
+          totalFuelConsumed: 189.2,
+          totalFuelCost: 12350,
+          mileage: 8750,
+          lastRefuelDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          assignedDriver: 'Odin',
+          status: 'available'
+        }
+      ];
+    }
 
     const stats = trucks.map(truck => ({
       truckId: truck.truckId,
@@ -492,6 +564,7 @@ router.get('/all-stats', auth, async (req, res) => {
 
     res.json({ trucks: stats, fleet: fleetStats });
   } catch (error) {
+    console.error('Fuel stats error:', error);
     res.status(500).json({ error: error.message });
   }
 });
