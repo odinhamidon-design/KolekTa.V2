@@ -5,6 +5,8 @@ const DATA_DIR = path.join(__dirname);
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const TRUCKS_FILE = path.join(DATA_DIR, 'trucks.json');
 const ROUTES_FILE = path.join(DATA_DIR, 'routes.json');
+const COMPLAINTS_FILE = path.join(DATA_DIR, 'complaints.json');
+const SCHEDULES_FILE = path.join(DATA_DIR, 'schedules.json');
 
 // Check if running on Vercel (read-only filesystem)
 const IS_VERCEL = process.env.VERCEL || process.env.NOW_REGION;
@@ -14,6 +16,8 @@ let memoryStorage = {
   users: null,
   trucks: null,
   routes: null,
+  complaints: null,
+  schedules: null,
   liveLocations: {},  // Store live GPS locations
   tripData: {}        // Store trip data for fuel estimation (distance, stops, idle time)
 };
@@ -151,6 +155,141 @@ const routesStorage = {
     const routes = readData(ROUTES_FILE, 'routes');
     const filtered = routes.filter(r => r._id !== id && r.routeId !== id);
     return writeData(ROUTES_FILE, filtered, 'routes');
+  }
+};
+
+// Complaints storage
+const complaintsStorage = {
+  getAll: () => readData(COMPLAINTS_FILE, 'complaints'),
+  save: (complaints) => writeData(COMPLAINTS_FILE, complaints, 'complaints'),
+  findById: (id) => {
+    const complaints = readData(COMPLAINTS_FILE, 'complaints');
+    return complaints.find(c => c._id === id || c.referenceNumber === id);
+  },
+  findByReference: (refNum) => {
+    const complaints = readData(COMPLAINTS_FILE, 'complaints');
+    return complaints.find(c => c.referenceNumber === refNum);
+  },
+  add: (complaint) => {
+    const complaints = readData(COMPLAINTS_FILE, 'complaints');
+    complaints.push(complaint);
+    return writeData(COMPLAINTS_FILE, complaints, 'complaints');
+  },
+  update: (id, updates) => {
+    const complaints = readData(COMPLAINTS_FILE, 'complaints');
+    const index = complaints.findIndex(c => c._id === id || c.referenceNumber === id);
+    if (index !== -1) {
+      complaints[index] = { ...complaints[index], ...updates };
+      return writeData(COMPLAINTS_FILE, complaints, 'complaints');
+    }
+    return false;
+  },
+  delete: (id) => {
+    const complaints = readData(COMPLAINTS_FILE, 'complaints');
+    const filtered = complaints.filter(c => c._id !== id && c.referenceNumber !== id);
+    return writeData(COMPLAINTS_FILE, filtered, 'complaints');
+  },
+  generateReferenceNumber: () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(10000 + Math.random() * 90000);
+    return `CMPL-${year}-${random}`;
+  }
+};
+
+// Schedules storage
+const schedulesStorage = {
+  getAll: () => readData(SCHEDULES_FILE, 'schedules'),
+  save: (schedules) => writeData(SCHEDULES_FILE, schedules, 'schedules'),
+  findById: (id) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules');
+    return schedules.find(s => s._id === id || s.scheduleId === id);
+  },
+  findByRouteId: (routeId) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules');
+    return schedules.filter(s => s.routeId === routeId);
+  },
+  add: (schedule) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules');
+    schedules.push(schedule);
+    return writeData(SCHEDULES_FILE, schedules, 'schedules');
+  },
+  update: (id, updates) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules');
+    const index = schedules.findIndex(s => s._id === id || s.scheduleId === id);
+    if (index !== -1) {
+      schedules[index] = { ...schedules[index], ...updates };
+      return writeData(SCHEDULES_FILE, schedules, 'schedules');
+    }
+    return false;
+  },
+  delete: (id) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules');
+    const filtered = schedules.filter(s => s._id !== id && s.scheduleId !== id);
+    return writeData(SCHEDULES_FILE, filtered, 'schedules');
+  },
+  generateScheduleId: () => {
+    const timestamp = Date.now();
+    return `SCHED-${timestamp}`;
+  },
+  // Check if schedule is active on a given date
+  isActiveOnDate: (schedule, date) => {
+    if (!schedule.isActive) return false;
+
+    const checkDate = new Date(date);
+    const startDate = new Date(schedule.startDate);
+
+    if (checkDate < startDate) return false;
+    if (schedule.endDate && checkDate > new Date(schedule.endDate)) return false;
+
+    const dayOfWeek = checkDate.getDay();
+    const dayOfMonth = checkDate.getDate();
+
+    switch (schedule.recurrenceType) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        return schedule.weeklyDays && schedule.weeklyDays.includes(dayOfWeek);
+      case 'monthly':
+        return schedule.monthlyDates && schedule.monthlyDates.includes(dayOfMonth);
+      default:
+        return false;
+    }
+  },
+  // Get upcoming collections for the next N days
+  getUpcomingCollections: (days = 7) => {
+    const schedules = readData(SCHEDULES_FILE, 'schedules').filter(s => s.isActive);
+    const upcoming = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < days; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(checkDate.getDate() + i);
+
+      for (const schedule of schedules) {
+        if (schedulesStorage.isActiveOnDate(schedule, checkDate)) {
+          upcoming.push({
+            date: checkDate.toISOString().split('T')[0],
+            scheduleId: schedule.scheduleId,
+            scheduleName: schedule.name,
+            routeId: schedule.routeId,
+            scheduledTime: schedule.scheduledTime,
+            assignedDriver: schedule.assignedDriver,
+            assignedVehicle: schedule.assignedVehicle,
+            recurrenceType: schedule.recurrenceType
+          });
+        }
+      }
+    }
+
+    // Sort by date and time
+    upcoming.sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.scheduledTime}`);
+      const dateB = new Date(`${b.date}T${b.scheduledTime}`);
+      return dateA - dateB;
+    });
+
+    return upcoming;
   }
 };
 
@@ -504,6 +643,8 @@ module.exports = {
   usersStorage,
   trucksStorage,
   routesStorage,
+  complaintsStorage,
+  schedulesStorage,
   liveLocationsStorage,
   tripDataStorage,
   haversineDistance

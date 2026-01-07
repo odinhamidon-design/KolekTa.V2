@@ -73,6 +73,16 @@ if (useMockAuth) {
 }
 
 app.use('/api/fuel', require('./routes/fuel'));
+app.use('/api/complaints', require('./routes/complaints'));
+
+// Schedules and Reports routes
+if (useMockAuth) {
+  app.use('/api/schedules', require('./routes/schedules'));
+  app.use('/api/reports', require('./routes/reports'));
+} else {
+  app.use('/api/schedules', require('./routes/schedules-mongo'));
+  app.use('/api/reports', require('./routes/reports-mongo'));
+}
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -85,6 +95,15 @@ app.get('/dashboard', (req, res) => {
 // Redirect /mobile to dashboard (now responsive)
 app.get('/mobile', (req, res) => {
   res.redirect('/dashboard');
+});
+
+// Public complaint pages (no auth required)
+app.get('/complaint', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'complaint.html'));
+});
+
+app.get('/track', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'track.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -477,6 +477,19 @@
                 <i data-lucide="fuel" class="w-5 h-5"></i>
                 <span class="font-medium">Fuel Management</span>
               </button>
+              <button id="complaintsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
+                <i data-lucide="message-square-warning" class="w-5 h-5"></i>
+                <span class="font-medium">Public Complaints</span>
+                <span id="complaintsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+              </button>
+              <button id="schedulesBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+                <span class="font-medium">Collection Schedules</span>
+              </button>
+              <button id="reportsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <i data-lucide="file-bar-chart" class="w-5 h-5"></i>
+                <span class="font-medium">Reports</span>
+              </button>
             </div>
           </div>
 
@@ -836,6 +849,9 @@
   <!-- Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
   <script src="app.js"></script>
   <script>
     // Initialize Lucide icons

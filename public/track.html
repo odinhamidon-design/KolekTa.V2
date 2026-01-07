@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Complaint - Kolek-Ta</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-green-600 text-white py-4 shadow-lg">
+    <div class="container mx-auto px-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="bg-white p-2 rounded-lg">
+          <i data-lucide="truck" class="w-6 h-6 text-green-600"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold">Kolek-Ta</h1>
+          <p class="text-green-100 text-sm">Mati City Waste Collection</p>
+        </div>
+      </div>
+      <a href="/complaint.html" class="flex items-center gap-2 bg-green-500 hover:bg-green-400 px-4 py-2 rounded-lg transition">
+        <i data-lucide="file-plus" class="w-4 h-4"></i>
+        <span>New Complaint</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 max-w-2xl">
+    <!-- Search Form -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Track Your Complaint</h2>
+      <p class="text-gray-600 mb-4">Enter your reference number to check the status of your complaint.</p>
+
+      <form id="trackForm" class="flex gap-3">
+        <div class="flex-1 relative">
+          <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="referenceInput" required
+            class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            placeholder="CMPL-2024-00000"
+            pattern="CMPL-\d{4}-\d{5}">
+        </div>
+        <button type="submit"
+          class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg transition flex items-center gap-2">
+          <span>Track</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="hidden">
+      <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+        <i data-lucide="loader-2" class="w-12 h-12 text-green-600 animate-spin mx-auto mb-4"></i>
+        <p class="text-gray-600">Looking up your complaint...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="hidden">
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="x-circle" class="w-6 h-6 text-red-600"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-red-800 mb-2">Complaint Not Found</h3>
+        <p id="errorMessage" class="text-red-600 mb-4">Please check your reference number and try again.</p>
+        <a href="/complaint.html" class="text-green-600 hover:text-green-700 font-medium">
+          Submit a new complaint
+        </a>
+      </div>
+    </div>
+
+    <!-- Result State -->
+    <div id="resultState" class="hidden">
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <!-- Status Header -->
+        <div id="statusHeader" class="p-6 text-white">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm opacity-80 mb-1">Reference Number</p>
+              <p id="resultReference" class="text-2xl font-bold">CMPL-2024-00000</p>
+            </div>
+            <div id="statusBadge" class="px-4 py-2 bg-white bg-opacity-20 rounded-full font-semibold">
+              Pending
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Timeline -->
+        <div class="p-6 border-b">
+          <h3 class="font-semibold text-gray-800 mb-4">Status Progress</h3>
+          <div class="flex items-center justify-between relative">
+            <div class="absolute top-4 left-0 right-0 h-1 bg-gray-200 -z-10">
+              <div id="progressBar" class="h-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
+            </div>
+
+            <div class="flex flex-col items-center">
+              <div id="step1" class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-sm font-bold">1</div>
+              <p class="text-xs mt-2 text-gray-600">Submitted</p>
+            </div>
+            <div class="flex flex-col items-center">
+              <div id="step2" class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-sm font-bold">2</div>
+              <p class="text-xs mt-2 text-gray-600">In Progress</p>
+            </div>
+            <div class="flex flex-col items-center">
+              <div id="step3" class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-sm font-bold">3</div>
+              <p class="text-xs mt-2 text-gray-600">Resolved</p>
+            </div>
+            <div class="flex flex-col items-center">
+              <div id="step4" class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-sm font-bold">4</div>
+              <p class="text-xs mt-2 text-gray-600">Closed</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Complaint Details -->
+        <div class="p-6">
+          <h3 class="font-semibold text-gray-800 mb-4">Complaint Details</h3>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-500">Barangay</p>
+                <p id="resultBarangay" class="font-medium text-gray-800">-</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Date of Missed Collection</p>
+                <p id="resultMissedDate" class="font-medium text-gray-800">-</p>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-sm text-gray-500">Description</p>
+              <p id="resultDescription" class="font-medium text-gray-800 mt-1">-</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-500">Submitted On</p>
+                <p id="resultCreatedAt" class="font-medium text-gray-800">-</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Last Updated</p>
+                <p id="resultUpdatedAt" class="font-medium text-gray-800">-</p>
+              </div>
+            </div>
+
+            <!-- Assigned Driver (if any) -->
+            <div id="assignedSection" class="hidden bg-blue-50 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-blue-600"></i>
+                <p class="font-semibold text-blue-800">Assigned Personnel</p>
+              </div>
+              <p id="resultAssigned" class="text-blue-700">-</p>
+            </div>
+
+            <!-- Admin Response (if any) -->
+            <div id="responseSection" class="hidden bg-green-50 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="message-circle" class="w-5 h-5 text-green-600"></i>
+                <p class="font-semibold text-green-800">Response from Admin</p>
+              </div>
+              <p id="resultResponse" class="text-green-700">-</p>
+            </div>
+
+            <!-- Resolved Date (if resolved) -->
+            <div id="resolvedSection" class="hidden bg-gray-100 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="check-circle-2" class="w-5 h-5 text-gray-600"></i>
+                <p class="font-semibold text-gray-800">Resolution Date</p>
+              </div>
+              <p id="resultResolvedAt" class="text-gray-700">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-gray-500 text-sm">
+      <p>Kolek-Ta Waste Collection Management System</p>
+      <p>Mati City, Davao Oriental</p>
+    </div>
+  </main>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Check if reference number is in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const refFromUrl = urlParams.get('ref');
+    if (refFromUrl) {
+      document.getElementById('referenceInput').value = refFromUrl;
+      trackComplaint(refFromUrl);
+    }
+
+    // Form submission
+    document.getElementById('trackForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const ref = document.getElementById('referenceInput').value.trim().toUpperCase();
+      trackComplaint(ref);
+    });
+
+    async function trackComplaint(referenceNumber) {
+      // Hide all states
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('errorState').classList.add('hidden');
+      document.getElementById('resultState').classList.add('hidden');
+
+      try {
+        const response = await fetch(`/api/complaints/track/${referenceNumber}`);
+        const data = await response.json();
+
+        document.getElementById('loadingState').classList.add('hidden');
+
+        if (!response.ok) {
+          document.getElementById('errorState').classList.remove('hidden');
+          document.getElementById('errorMessage').textContent = data.error || 'Complaint not found';
+          return;
+        }
+
+        // Show result
+        displayResult(data);
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('errorState').classList.remove('hidden');
+        document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+      }
+    }
+
+    function displayResult(data) {
+      document.getElementById('resultState').classList.remove('hidden');
+
+      // Reference number
+      document.getElementById('resultReference').textContent = data.referenceNumber;
+
+      // Status styling
+      const statusHeader = document.getElementById('statusHeader');
+      const statusBadge = document.getElementById('statusBadge');
+      const statusColors = {
+        'pending': { bg: 'bg-yellow-500', text: 'Pending Review' },
+        'in-progress': { bg: 'bg-blue-500', text: 'In Progress' },
+        'resolved': { bg: 'bg-green-500', text: 'Resolved' },
+        'closed': { bg: 'bg-gray-500', text: 'Closed' }
+      };
+      const statusInfo = statusColors[data.status] || statusColors.pending;
+      statusHeader.className = `p-6 text-white ${statusInfo.bg}`;
+      statusBadge.textContent = statusInfo.text;
+
+      // Progress timeline
+      updateTimeline(data.status);
+
+      // Details
+      document.getElementById('resultBarangay').textContent = data.barangay;
+      document.getElementById('resultMissedDate').textContent = formatDate(data.missedCollectionDate);
+      document.getElementById('resultDescription').textContent = data.description;
+      document.getElementById('resultCreatedAt').textContent = formatDateTime(data.createdAt);
+      document.getElementById('resultUpdatedAt').textContent = formatDateTime(data.updatedAt);
+
+      // Assigned driver
+      if (data.assignedDriver) {
+        document.getElementById('assignedSection').classList.remove('hidden');
+        document.getElementById('resultAssigned').textContent = data.assignedDriver;
+      } else {
+        document.getElementById('assignedSection').classList.add('hidden');
+      }
+
+      // Admin response
+      if (data.adminResponse) {
+        document.getElementById('responseSection').classList.remove('hidden');
+        document.getElementById('resultResponse').textContent = data.adminResponse;
+      } else {
+        document.getElementById('responseSection').classList.add('hidden');
+      }
+
+      // Resolved date
+      if (data.resolvedAt) {
+        document.getElementById('resolvedSection').classList.remove('hidden');
+        document.getElementById('resultResolvedAt').textContent = formatDateTime(data.resolvedAt);
+      } else {
+        document.getElementById('resolvedSection').classList.add('hidden');
+      }
+
+      // Refresh icons
+      lucide.createIcons();
+    }
+
+    function updateTimeline(status) {
+      const steps = ['step1', 'step2', 'step3', 'step4'];
+      const progressBar = document.getElementById('progressBar');
+      let activeSteps = 1;
+
+      switch (status) {
+        case 'pending':
+          activeSteps = 1;
+          progressBar.style.width = '0%';
+          break;
+        case 'in-progress':
+          activeSteps = 2;
+          progressBar.style.width = '33%';
+          break;
+        case 'resolved':
+          activeSteps = 3;
+          progressBar.style.width = '66%';
+          break;
+        case 'closed':
+          activeSteps = 4;
+          progressBar.style.width = '100%';
+          break;
+      }
+
+      steps.forEach((stepId, index) => {
+        const step = document.getElementById(stepId);
+        if (index < activeSteps) {
+          step.classList.remove('bg-gray-300');
+          step.classList.add('bg-green-500');
+        } else {
+          step.classList.remove('bg-green-500');
+          step.classList.add('bg-gray-300');
+        }
+      });
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  </script>
+</body>
+</html>

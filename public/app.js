@@ -393,6 +393,10 @@ function initializeApp() {
       checkCompletionNotifications();
       setInterval(checkCompletionNotifications, 30000); // Check every 30 seconds
 
+      // Start checking for new complaints
+      checkNewComplaints();
+      setInterval(checkNewComplaints, 30000); // Check every 30 seconds
+
       // Start live truck tracking on map
       showLiveTruckLocations();
 
@@ -820,6 +824,30 @@ if (fuelManagementBtn) {
   });
 }
 
+// Public Complaints (Admin only)
+const complaintsBtn = document.getElementById('complaintsBtn');
+if (complaintsBtn) {
+  complaintsBtn.addEventListener('click', () => {
+    showComplaints();
+  });
+}
+
+// Collection Schedules (Admin only)
+const schedulesBtn = document.getElementById('schedulesBtn');
+if (schedulesBtn) {
+  schedulesBtn.addEventListener('click', () => {
+    showScheduleManagement();
+  });
+}
+
+// Reports Module (Admin only)
+const reportsBtn = document.getElementById('reportsBtn');
+if (reportsBtn) {
+  reportsBtn.addEventListener('click', () => {
+    showReportsModule();
+  });
+}
+
 // Driver History (Driver only)
 const viewDriverHistoryBtn = document.getElementById('viewDriverHistoryBtn');
 if (viewDriverHistoryBtn) {
@@ -1228,7 +1256,7 @@ async function showDashboard() {
 
 // Helper function to set active sidebar button
 function setActiveSidebarButton(activeId) {
-  const buttons = ['dashboardBtn', 'userManagementBtn', 'truckManagementBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'completionHistoryBtn', 'fuelManagementBtn'];
+  const buttons = ['dashboardBtn', 'userManagementBtn', 'truckManagementBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'completionHistoryBtn', 'fuelManagementBtn', 'complaintsBtn'];
   buttons.forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
@@ -9711,3 +9739,1749 @@ window.overlayShowReport = function() {
 window.overlayShowHistory = function() {
   showCollectionHistory();
 };
+
+// ===== COMPLAINTS MANAGEMENT =====
+// Mati City Barangays
+const BARANGAYS = [
+  'Badas', 'Bobon', 'Buso', 'Cabuaya', 'Central', 'Dahican', 'Dawan',
+  'Don Enrique Lopez', 'Don Martin Marundan', 'Don Salvador Lopez Sr.',
+  'Langka', 'Libudon', 'Luban', 'Macambol', 'Mamali', 'Matiao', 'Mayo',
+  'Sainz', 'San Agustin', 'San Antonio', 'Sanghay', 'Tagabakid',
+  'Tagbinonga', 'Taguibo', 'Tamisan', 'Tarragona'
+];
+
+// Check for new complaints and update badge
+async function checkNewComplaints() {
+  if (user.role !== 'admin') return;
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/complaints/new-count`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      const { count } = await response.json();
+      updateComplaintsBadge(count);
+    }
+  } catch (error) {
+    console.error('Error checking new complaints:', error);
+  }
+}
+
+function updateComplaintsBadge(count) {
+  const badge = document.getElementById('complaintsBadge');
+  if (badge) {
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+}
+
+// Main complaints management view
+async function showComplaints() {
+  if (user.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+
+  showPageLoading('Loading complaints...');
+
+  try {
+    const token = localStorage.getItem('token');
+    const [complaintsRes, statsRes, usersRes] = await Promise.all([
+      fetch(`${API_URL}/complaints`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/complaints/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
+    const complaints = await complaintsRes.json();
+    const stats = await statsRes.json();
+    const users = await usersRes.json();
+    const drivers = users.filter(u => u.role === 'driver');
+
+    const statusColors = {
+      'pending': 'bg-yellow-100 text-yellow-700',
+      'in-progress': 'bg-blue-100 text-blue-700',
+      'resolved': 'bg-green-100 text-green-700',
+      'closed': 'bg-gray-100 text-gray-700'
+    };
+
+    const complaintRows = complaints.map(c => {
+      const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      });
+      const missedDate = new Date(c.missedCollectionDate).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric'
+      });
+
+      return `
+        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${c.isNew ? 'bg-yellow-50' : ''}">
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-2">
+              ${c.isNew ? '<span class="w-2 h-2 bg-yellow-500 rounded-full"></span>' : ''}
+              <span class="font-mono text-sm text-gray-800">${c.referenceNumber}</span>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div>
+              <div class="font-medium text-gray-800">${c.name}</div>
+              <div class="text-sm text-gray-500">${c.barangay}</div>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-600 max-w-xs truncate" title="${c.description}">${c.description}</div>
+          </td>
+          <td class="px-4 py-4 text-sm text-gray-600">${missedDate}</td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-700'}">
+              ${c.status}
+            </span>
+          </td>
+          <td class="px-4 py-4 text-sm text-gray-500">${createdDate}</td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-1">
+              <button onclick="viewComplaint('${c._id || c.referenceNumber}')" class="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="View Details">
+                <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
+              </button>
+              <button onclick="showUpdateComplaintForm('${c._id || c.referenceNumber}')" class="p-2 hover:bg-green-100 rounded-lg transition-colors" title="Update">
+                <i data-lucide="pencil" class="w-4 h-4 text-green-600"></i>
+              </button>
+              <button onclick="deleteComplaint('${c._id || c.referenceNumber}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Barangay dropdown options
+    const barangayOptions = BARANGAYS.map(b =>
+      `<option value="${b}">${b}</option>`
+    ).join('');
+
+    hidePageLoading();
+    showPage('Public Complaints', `
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="message-square" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Total</p>
+              <p class="text-2xl font-bold text-gray-800">${stats.total}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="clock" class="w-6 h-6 text-yellow-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Pending</p>
+              <p class="text-2xl font-bold text-yellow-600">${stats.pending}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="loader" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">In Progress</p>
+              <p class="text-2xl font-bold text-blue-600">${stats.inProgress}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Resolved</p>
+              <p class="text-2xl font-bold text-green-600">${stats.resolved}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 ${stats.newCount > 0 ? 'bg-red-100' : 'bg-gray-100'} rounded-xl flex items-center justify-center">
+              <i data-lucide="bell" class="w-6 h-6 ${stats.newCount > 0 ? 'text-red-600' : 'text-gray-600'}"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">New</p>
+              <p class="text-2xl font-bold ${stats.newCount > 0 ? 'text-red-600' : 'text-gray-800'}">${stats.newCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div class="flex flex-wrap items-center gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Status</label>
+            <select id="filterStatus" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Barangay</label>
+            <select id="filterBarangay" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+              <option value="">All Barangays</option>
+              ${barangayOptions}
+            </select>
+          </div>
+          <div class="ml-auto flex gap-2">
+            ${stats.newCount > 0 ? `
+              <button onclick="markAllComplaintsRead()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="check-check" class="w-4 h-4"></i>
+                Mark All Read
+              </button>
+            ` : ''}
+            <a href="/complaint" target="_blank" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              Public Form
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Complaints Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Complainant</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Missed Date</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${complaintRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No complaints found</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `);
+
+    // Store data for filtering
+    window.complaintsData = complaints;
+    window.driversData = drivers;
+
+  } catch (error) {
+    console.error('Error loading complaints:', error);
+    hidePageLoading();
+    showPage('Public Complaints', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading complaints: ${error.message}</p>
+        <button onclick="showComplaints()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
+
+// Filter complaints table
+window.filterComplaints = async function() {
+  const status = document.getElementById('filterStatus').value;
+  const barangay = document.getElementById('filterBarangay').value;
+
+  try {
+    const token = localStorage.getItem('token');
+    let url = `${API_URL}/complaints?`;
+    if (status) url += `status=${status}&`;
+    if (barangay) url += `barangay=${encodeURIComponent(barangay)}`;
+
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      window.complaintsData = await response.json();
+      showComplaints();
+    }
+  } catch (error) {
+    console.error('Error filtering complaints:', error);
+  }
+};
+
+// View single complaint details
+window.viewComplaint = async function(id) {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/complaints/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to load complaint');
+
+    const complaint = await response.json();
+
+    // Mark as read if new
+    if (complaint.isNew) {
+      fetch(`${API_URL}/complaints/${id}/mark-read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(() => checkNewComplaints());
+    }
+
+    const createdDate = new Date(complaint.createdAt).toLocaleString();
+    const missedDate = new Date(complaint.missedCollectionDate).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    const statusColors = {
+      'pending': 'bg-yellow-100 text-yellow-700',
+      'in-progress': 'bg-blue-100 text-blue-700',
+      'resolved': 'bg-green-100 text-green-700',
+      'closed': 'bg-gray-100 text-gray-700'
+    };
+
+    const photosHtml = complaint.photos && complaint.photos.length > 0
+      ? complaint.photos.map((photo, index) =>
+          `<img src="${photo}" class="w-24 h-24 object-cover rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-500 transition-colors" onclick="openComplaintPhoto('${index}', '${complaint.referenceNumber}')" title="Click to view">`
+        ).join('')
+      : '<p class="text-gray-500 text-sm">No photos attached</p>';
+
+    showModal(`Complaint: ${complaint.referenceNumber}`, `
+      <div class="space-y-4">
+        <!-- Status Badge -->
+        <div class="flex items-center justify-between">
+          <span class="px-4 py-2 rounded-full text-sm font-medium ${statusColors[complaint.status]}">
+            ${complaint.status.toUpperCase()}
+          </span>
+          <span class="text-sm text-gray-500">Submitted: ${createdDate}</span>
+        </div>
+
+        <!-- Complainant Info -->
+        <div class="bg-gray-50 rounded-lg p-4">
+          <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <i data-lucide="user" class="w-4 h-4"></i> Complainant
+          </h4>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-gray-500">Name:</span> <span class="font-medium">${complaint.name}</span></div>
+            <div><span class="text-gray-500">Phone:</span> <span class="font-medium">${complaint.phone}</span></div>
+            <div><span class="text-gray-500">Email:</span> <span class="font-medium">${complaint.email}</span></div>
+            <div><span class="text-gray-500">Barangay:</span> <span class="font-medium">${complaint.barangay}</span></div>
+          </div>
+          <div class="mt-2 text-sm">
+            <span class="text-gray-500">Address:</span> <span class="font-medium">${complaint.address}</span>
+          </div>
+        </div>
+
+        <!-- Complaint Details -->
+        <div class="bg-yellow-50 rounded-lg p-4">
+          <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-600"></i> Complaint Details
+          </h4>
+          <div class="text-sm mb-2">
+            <span class="text-gray-500">Missed Collection Date:</span>
+            <span class="font-medium text-yellow-700">${missedDate}</span>
+          </div>
+          <p class="text-gray-700">${complaint.description}</p>
+        </div>
+
+        <!-- Photos -->
+        <div>
+          <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <i data-lucide="camera" class="w-4 h-4"></i> Photos (${complaint.photos?.length || 0})
+          </h4>
+          <div class="flex flex-wrap gap-2">
+            ${photosHtml}
+          </div>
+        </div>
+
+        ${complaint.assignedDriver ? `
+          <div class="bg-blue-50 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i> Assigned Personnel
+            </h4>
+            <p class="text-blue-700 font-medium">${complaint.assignedDriver}</p>
+            ${complaint.assignedVehicle ? `<p class="text-sm text-blue-600">Vehicle: ${complaint.assignedVehicle}</p>` : ''}
+          </div>
+        ` : ''}
+
+        ${complaint.adminResponse ? `
+          <div class="bg-green-50 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <i data-lucide="message-circle" class="w-4 h-4 text-green-600"></i> Admin Response
+            </h4>
+            <p class="text-green-700">${complaint.adminResponse}</p>
+          </div>
+        ` : ''}
+
+        ${complaint.adminNotes ? `
+          <div class="bg-gray-100 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4"></i> Internal Notes
+            </h4>
+            <p class="text-gray-600 text-sm">${complaint.adminNotes}</p>
+          </div>
+        ` : ''}
+
+        ${complaint.resolvedAt ? `
+          <div class="text-center text-sm text-gray-500">
+            Resolved on ${new Date(complaint.resolvedAt).toLocaleString()} by ${complaint.resolvedBy || 'Admin'}
+          </div>
+        ` : ''}
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-4 border-t">
+          <button onclick="closeModal(); showUpdateComplaintForm('${complaint._id || complaint.referenceNumber}')" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+            Update
+          </button>
+          <button onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    `);
+
+    // Store photos for viewer
+    window.complaintPhotos = complaint.photos || [];
+
+  } catch (error) {
+    console.error('Error viewing complaint:', error);
+    showToast('Error loading complaint details', 'error');
+  }
+};
+
+// Open photo in new window
+window.openComplaintPhoto = function(index, refNum) {
+  const photos = window.complaintPhotos || [];
+  if (photos[index]) {
+    const photoWindow = window.open('', '_blank');
+    photoWindow.document.write(`
+      <html>
+        <head><title>Complaint Photo - ${refNum}</title></head>
+        <body style="margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000;">
+          <img src="${photos[index]}" style="max-width: 100%; max-height: 100vh; object-fit: contain;">
+        </body>
+      </html>
+    `);
+  }
+};
+
+// Show update complaint form
+window.showUpdateComplaintForm = async function(id) {
+  try {
+    const token = localStorage.getItem('token');
+    const [complaintRes, usersRes, trucksRes] = await Promise.all([
+      fetch(`${API_URL}/complaints/${id}`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/trucks`, { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
+    const complaint = await complaintRes.json();
+    const users = await usersRes.json();
+    const trucks = await trucksRes.json();
+    const drivers = users.filter(u => u.role === 'driver');
+
+    const driverOptions = drivers.map(d =>
+      `<option value="${d.username}" ${complaint.assignedDriver === d.username ? 'selected' : ''}>${d.fullName || d.username}</option>`
+    ).join('');
+
+    const truckOptions = trucks.map(t =>
+      `<option value="${t.truckId}" ${complaint.assignedVehicle === t.truckId ? 'selected' : ''}>${t.truckId} - ${t.plateNumber}</option>`
+    ).join('');
+
+    showModal(`Update: ${complaint.referenceNumber}`, `
+      <form id="updateComplaintForm" class="space-y-4">
+        <input type="hidden" id="updateComplaintId" value="${complaint._id || complaint.referenceNumber}">
+
+        <div class="bg-gray-50 rounded-lg p-3 text-sm">
+          <strong>${complaint.name}</strong> - ${complaint.barangay}
+          <p class="text-gray-600 mt-1">${complaint.description.substring(0, 100)}${complaint.description.length > 100 ? '...' : ''}</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+          <select id="updateStatus" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+            <option value="pending" ${complaint.status === 'pending' ? 'selected' : ''}>Pending</option>
+            <option value="in-progress" ${complaint.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+            <option value="resolved" ${complaint.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+            <option value="closed" ${complaint.status === 'closed' ? 'selected' : ''}>Closed</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Assign Driver</label>
+            <select id="updateDriver" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+              <option value="">Not Assigned</option>
+              ${driverOptions}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Assign Vehicle</label>
+            <select id="updateVehicle" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+              <option value="">Not Assigned</option>
+              ${truckOptions}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Response to Citizen</label>
+          <textarea id="updateResponse" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="This response will be visible to the citizen when they track their complaint...">${complaint.adminResponse || ''}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
+          <textarea id="updateNotes" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            placeholder="Internal notes (not visible to citizen)...">${complaint.adminNotes || ''}</textarea>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
+            Update Complaint
+          </button>
+          <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+            Cancel
+          </button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('updateComplaintForm').addEventListener('submit', submitComplaintUpdate);
+
+  } catch (error) {
+    console.error('Error loading complaint for update:', error);
+    showToast('Error loading complaint', 'error');
+  }
+};
+
+async function submitComplaintUpdate(e) {
+  e.preventDefault();
+
+  const id = document.getElementById('updateComplaintId').value;
+  const data = {
+    status: document.getElementById('updateStatus').value,
+    assignedDriver: document.getElementById('updateDriver').value || null,
+    assignedVehicle: document.getElementById('updateVehicle').value || null,
+    adminResponse: document.getElementById('updateResponse').value || null,
+    adminNotes: document.getElementById('updateNotes').value || null
+  };
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/complaints/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+      closeModal();
+      showToast('Complaint updated successfully', 'success');
+      showComplaints();
+    } else {
+      const result = await response.json();
+      showToast(result.error || 'Failed to update complaint', 'error');
+    }
+  } catch (error) {
+    console.error('Error updating complaint:', error);
+    showToast('Error updating complaint', 'error');
+  }
+}
+
+// Delete complaint
+window.deleteComplaint = async function(id) {
+  if (!await showConfirm('Delete Complaint', 'Are you sure you want to delete this complaint? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/complaints/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      showToast('Complaint deleted', 'success');
+      showComplaints();
+    } else {
+      showToast('Failed to delete complaint', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting complaint:', error);
+    showToast('Error deleting complaint', 'error');
+  }
+};
+
+// Mark all complaints as read
+window.markAllComplaintsRead = async function() {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/complaints/mark-all-read`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      showToast('All complaints marked as read', 'success');
+      checkNewComplaints();
+      showComplaints();
+    }
+  } catch (error) {
+    console.error('Error marking complaints as read:', error);
+  }
+};
+
+// Make showComplaints globally accessible
+window.showComplaints = showComplaints;
+
+// ============================================
+// COLLECTION SCHEDULES MODULE
+// ============================================
+
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+async function showScheduleManagement() {
+  if (user.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+
+  setActiveSidebarButton('schedulesBtn');
+  showPageContent();
+  showPageLoading('Loading schedules...');
+
+  try {
+    const token = localStorage.getItem('token');
+    const [schedulesRes, statsRes, routesRes, usersRes, trucksRes] = await Promise.all([
+      fetch(`${API_URL}/schedules`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/schedules/stats`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/routes`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/trucks`, { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
+    const schedules = await schedulesRes.json();
+    const stats = await statsRes.json();
+    const routes = await routesRes.json();
+    const users = await usersRes.json();
+    const trucks = await trucksRes.json();
+
+    const drivers = users.filter(u => u.role === 'driver');
+
+    // Generate schedule rows
+    const scheduleRows = schedules.map(s => {
+      // Format recurrence pattern
+      let patternText = '';
+      if (s.recurrenceType === 'daily') {
+        patternText = 'Daily';
+      } else if (s.recurrenceType === 'weekly') {
+        const days = (s.weeklyDays || []).map(d => DAYS_OF_WEEK[d].slice(0, 3)).join(', ');
+        patternText = `Weekly: ${days}`;
+      } else if (s.recurrenceType === 'monthly') {
+        const dates = (s.monthlyDates || []).join(', ');
+        patternText = `Monthly: ${dates}`;
+      }
+
+      const statusColor = s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
+      const statusText = s.isActive ? 'Active' : 'Inactive';
+
+      return `
+        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+          <td class="px-4 py-4">
+            <div class="font-medium text-gray-800">${s.name}</div>
+            <div class="text-sm text-gray-500">${s.scheduleId}</div>
+          </td>
+          <td class="px-4 py-4 text-gray-600">${s.routeName || 'Unknown Route'}</td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-600">${patternText}</div>
+            <div class="text-xs text-gray-400">at ${s.scheduledTime || '07:00'}</div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-600">${s.assignedDriver || '-'}</div>
+            <div class="text-xs text-gray-400">${s.assignedVehicle || '-'}</div>
+          </td>
+          <td class="px-4 py-4">
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">${statusText}</span>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-1">
+              <button onclick="editSchedule('${s.scheduleId || s._id}')" class="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="Edit">
+                <i data-lucide="pencil" class="w-4 h-4 text-blue-600"></i>
+              </button>
+              <button onclick="toggleScheduleStatus('${s.scheduleId || s._id}')" class="p-2 hover:bg-yellow-100 rounded-lg transition-colors" title="${s.isActive ? 'Deactivate' : 'Activate'}">
+                <i data-lucide="${s.isActive ? 'pause' : 'play'}" class="w-4 h-4 text-yellow-600"></i>
+              </button>
+              <button onclick="deleteSchedule('${s.scheduleId || s._id}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Route options for form
+    const routeOptions = routes.map(r => `<option value="${r.routeId}">${r.name}</option>`).join('');
+    const driverOptions = drivers.map(d => `<option value="${d.username}">${d.fullName || d.username}</option>`).join('');
+    const truckOptions = trucks.map(t => `<option value="${t.plateNumber}">${t.plateNumber} - ${t.model || 'Unknown'}</option>`).join('');
+
+    const pageContent = document.getElementById('pageContent');
+    pageContent.innerHTML = `
+      <div class="space-y-6">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Collection Schedules</h1>
+            <p class="text-gray-500 mt-1">Manage recurring garbage collection schedules</p>
+          </div>
+          <button onclick="showAddScheduleForm()" class="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl transition-colors">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span>Add Schedule</span>
+          </button>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="calendar" class="w-5 h-5 text-blue-600"></i>
+              </div>
+              <div>
+                <p class="text-2xl font-bold text-gray-800">${stats.total || 0}</p>
+                <p class="text-sm text-gray-500">Total Schedules</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+              </div>
+              <div>
+                <p class="text-2xl font-bold text-gray-800">${stats.active || 0}</p>
+                <p class="text-sm text-gray-500">Active</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="pause-circle" class="w-5 h-5 text-gray-600"></i>
+              </div>
+              <div>
+                <p class="text-2xl font-bold text-gray-800">${stats.inactive || 0}</p>
+                <p class="text-sm text-gray-500">Inactive</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="repeat" class="w-5 h-5 text-purple-600"></i>
+              </div>
+              <div>
+                <p class="text-2xl font-bold text-gray-800">${(stats.byRecurrence?.weekly || 0)}</p>
+                <p class="text-sm text-gray-500">Weekly</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedules Table -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Schedule</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Route</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pattern</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assignment</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${scheduleRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No schedules found. Click "Add Schedule" to create one.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add/Edit Schedule Modal -->
+      <div id="scheduleModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <h2 id="scheduleModalTitle" class="text-xl font-bold text-gray-800">Add Schedule</h2>
+              <button onclick="closeScheduleModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+              </button>
+            </div>
+          </div>
+          <form id="scheduleForm" class="p-6 space-y-4">
+            <input type="hidden" id="editScheduleId" value="">
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Schedule Name *</label>
+              <input type="text" id="scheduleName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., Monday Morning Collection">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Route *</label>
+              <select id="scheduleRouteId" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <option value="">Select a route</option>
+                ${routeOptions}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Recurrence Type *</label>
+              <div class="flex gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="recurrenceType" value="daily" class="text-primary-500 focus:ring-primary-500" onchange="updateRecurrenceOptions()">
+                  <span class="text-gray-700">Daily</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="recurrenceType" value="weekly" checked class="text-primary-500 focus:ring-primary-500" onchange="updateRecurrenceOptions()">
+                  <span class="text-gray-700">Weekly</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="recurrenceType" value="monthly" class="text-primary-500 focus:ring-primary-500" onchange="updateRecurrenceOptions()">
+                  <span class="text-gray-700">Monthly</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Weekly Days Selection -->
+            <div id="weeklyDaysSection">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Select Days *</label>
+              <div class="flex flex-wrap gap-2">
+                ${DAYS_OF_WEEK.map((day, i) => `
+                  <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" name="weeklyDays" value="${i}" class="text-primary-500 focus:ring-primary-500 rounded">
+                    <span class="text-sm text-gray-700">${day.slice(0, 3)}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Monthly Dates Selection -->
+            <div id="monthlyDatesSection" class="hidden">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Select Dates *</label>
+              <div class="grid grid-cols-7 gap-1">
+                ${Array.from({length: 31}, (_, i) => i + 1).map(d => `
+                  <label class="flex items-center justify-center w-8 h-8 border border-gray-300 rounded cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" name="monthlyDates" value="${d}" class="hidden peer">
+                    <span class="peer-checked:bg-primary-500 peer-checked:text-white w-full h-full flex items-center justify-center rounded text-sm">${d}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Time</label>
+              <input type="time" id="scheduledTime" value="07:00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Driver</label>
+                <select id="scheduleDriver" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="">Select driver</option>
+                  ${driverOptions}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Vehicle</label>
+                <select id="scheduleVehicle" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="">Select vehicle</option>
+                  ${truckOptions}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea id="scheduleNotes" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Optional notes about this schedule"></textarea>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+              <button type="button" onclick="closeScheduleModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button type="submit" class="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
+                Save Schedule
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    hidePageLoading();
+    lucide.createIcons();
+
+    // Setup form submission
+    document.getElementById('scheduleForm').addEventListener('submit', handleScheduleSubmit);
+
+  } catch (error) {
+    console.error('Error loading schedules:', error);
+    hidePageLoading();
+    showToast('Error loading schedules', 'error');
+  }
+}
+
+function updateRecurrenceOptions() {
+  const recurrenceType = document.querySelector('input[name="recurrenceType"]:checked')?.value;
+  const weeklySection = document.getElementById('weeklyDaysSection');
+  const monthlySection = document.getElementById('monthlyDatesSection');
+
+  if (recurrenceType === 'daily') {
+    weeklySection.classList.add('hidden');
+    monthlySection.classList.add('hidden');
+  } else if (recurrenceType === 'weekly') {
+    weeklySection.classList.remove('hidden');
+    monthlySection.classList.add('hidden');
+  } else if (recurrenceType === 'monthly') {
+    weeklySection.classList.add('hidden');
+    monthlySection.classList.remove('hidden');
+  }
+}
+
+function showAddScheduleForm() {
+  document.getElementById('scheduleModalTitle').textContent = 'Add Schedule';
+  document.getElementById('editScheduleId').value = '';
+  document.getElementById('scheduleForm').reset();
+  document.querySelector('input[name="recurrenceType"][value="weekly"]').checked = true;
+  updateRecurrenceOptions();
+  document.getElementById('scheduleModal').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeScheduleModal() {
+  document.getElementById('scheduleModal').classList.add('hidden');
+}
+
+async function handleScheduleSubmit(e) {
+  e.preventDefault();
+
+  const editId = document.getElementById('editScheduleId').value;
+  const recurrenceType = document.querySelector('input[name="recurrenceType"]:checked')?.value;
+
+  // Get selected days/dates
+  const weeklyDays = recurrenceType === 'weekly'
+    ? Array.from(document.querySelectorAll('input[name="weeklyDays"]:checked')).map(cb => parseInt(cb.value))
+    : [];
+
+  const monthlyDates = recurrenceType === 'monthly'
+    ? Array.from(document.querySelectorAll('input[name="monthlyDates"]:checked')).map(cb => parseInt(cb.value))
+    : [];
+
+  // Validation
+  if (recurrenceType === 'weekly' && weeklyDays.length === 0) {
+    showToast('Please select at least one day for weekly schedule', 'warning');
+    return;
+  }
+  if (recurrenceType === 'monthly' && monthlyDates.length === 0) {
+    showToast('Please select at least one date for monthly schedule', 'warning');
+    return;
+  }
+
+  const scheduleData = {
+    name: document.getElementById('scheduleName').value,
+    routeId: document.getElementById('scheduleRouteId').value,
+    recurrenceType,
+    weeklyDays,
+    monthlyDates,
+    scheduledTime: document.getElementById('scheduledTime').value || '07:00',
+    assignedDriver: document.getElementById('scheduleDriver').value || null,
+    assignedVehicle: document.getElementById('scheduleVehicle').value || null,
+    notes: document.getElementById('scheduleNotes').value || ''
+  };
+
+  try {
+    const token = localStorage.getItem('token');
+    const url = editId ? `${API_URL}/schedules/${editId}` : `${API_URL}/schedules`;
+    const method = editId ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(scheduleData)
+    });
+
+    if (response.ok) {
+      showToast(editId ? 'Schedule updated successfully' : 'Schedule created successfully', 'success');
+      closeScheduleModal();
+      showScheduleManagement();
+    } else {
+      const error = await response.json();
+      showToast(error.error || 'Failed to save schedule', 'error');
+    }
+  } catch (error) {
+    console.error('Error saving schedule:', error);
+    showToast('Error saving schedule', 'error');
+  }
+}
+
+window.editSchedule = async function(id) {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/schedules/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      showToast('Failed to load schedule', 'error');
+      return;
+    }
+
+    const schedule = await response.json();
+
+    document.getElementById('scheduleModalTitle').textContent = 'Edit Schedule';
+    document.getElementById('editScheduleId').value = id;
+    document.getElementById('scheduleName').value = schedule.name;
+    document.getElementById('scheduleRouteId').value = schedule.routeId;
+    document.getElementById('scheduledTime').value = schedule.scheduledTime || '07:00';
+    document.getElementById('scheduleDriver').value = schedule.assignedDriver || '';
+    document.getElementById('scheduleVehicle').value = schedule.assignedVehicle || '';
+    document.getElementById('scheduleNotes').value = schedule.notes || '';
+
+    // Set recurrence type
+    const recurrenceRadio = document.querySelector(`input[name="recurrenceType"][value="${schedule.recurrenceType}"]`);
+    if (recurrenceRadio) recurrenceRadio.checked = true;
+    updateRecurrenceOptions();
+
+    // Set weekly days
+    if (schedule.recurrenceType === 'weekly' && schedule.weeklyDays) {
+      document.querySelectorAll('input[name="weeklyDays"]').forEach(cb => {
+        cb.checked = schedule.weeklyDays.includes(parseInt(cb.value));
+      });
+    }
+
+    // Set monthly dates
+    if (schedule.recurrenceType === 'monthly' && schedule.monthlyDates) {
+      document.querySelectorAll('input[name="monthlyDates"]').forEach(cb => {
+        cb.checked = schedule.monthlyDates.includes(parseInt(cb.value));
+      });
+    }
+
+    document.getElementById('scheduleModal').classList.remove('hidden');
+    lucide.createIcons();
+
+  } catch (error) {
+    console.error('Error loading schedule:', error);
+    showToast('Error loading schedule', 'error');
+  }
+};
+
+window.toggleScheduleStatus = async function(id) {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/schedules/${id}/toggle`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      showToast(result.message, 'success');
+      showScheduleManagement();
+    } else {
+      showToast('Failed to toggle schedule status', 'error');
+    }
+  } catch (error) {
+    console.error('Error toggling schedule:', error);
+    showToast('Error toggling schedule', 'error');
+  }
+};
+
+window.deleteSchedule = async function(id) {
+  if (!await showConfirm('Delete Schedule', 'Are you sure you want to delete this schedule? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/schedules/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      showToast('Schedule deleted', 'success');
+      showScheduleManagement();
+    } else {
+      showToast('Failed to delete schedule', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    showToast('Error deleting schedule', 'error');
+  }
+};
+
+// Make schedule functions globally accessible
+window.showScheduleManagement = showScheduleManagement;
+window.showAddScheduleForm = showAddScheduleForm;
+window.closeScheduleModal = closeScheduleModal;
+window.updateRecurrenceOptions = updateRecurrenceOptions;
+
+// ============================================
+// REPORTS MODULE WITH PDF EXPORT
+// ============================================
+
+let currentReportType = 'collection';
+let currentReportData = null;
+
+async function showReportsModule() {
+  if (user.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+
+  setActiveSidebarButton('reportsBtn');
+  showPageContent();
+
+  const pageContent = document.getElementById('pageContent');
+  pageContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800">Reports</h1>
+          <p class="text-gray-500 mt-1">Generate and export operational reports</p>
+        </div>
+      </div>
+
+      <!-- Report Type Tabs -->
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="border-b border-gray-200">
+          <nav class="flex -mb-px">
+            <button onclick="selectReportType('collection')" id="collectionTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-primary-500 text-primary-600 font-medium">
+              <i data-lucide="truck" class="w-5 h-5 mx-auto mb-1"></i>
+              Collection Summary
+            </button>
+            <button onclick="selectReportType('driver')" id="driverTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+              <i data-lucide="users" class="w-5 h-5 mx-auto mb-1"></i>
+              Driver Performance
+            </button>
+            <button onclick="selectReportType('complaint')" id="complaintTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+              <i data-lucide="message-square-warning" class="w-5 h-5 mx-auto mb-1"></i>
+              Complaint Analytics
+            </button>
+          </nav>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="p-4 bg-gray-50 border-b border-gray-200">
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="date" id="reportStartDate" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input type="date" id="reportEndDate" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            </div>
+            <button onclick="generateReport()" class="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              Generate Report
+            </button>
+            <button onclick="exportReportPDF()" class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Export PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Report Content Area -->
+        <div id="reportContent" class="p-6">
+          <div class="text-center py-12 text-gray-500">
+            <i data-lucide="file-bar-chart" class="w-12 h-12 mx-auto mb-4 opacity-50"></i>
+            <p>Select date range and click "Generate Report" to view data</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+
+  // Set default dates (last 7 days)
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 7);
+
+  document.getElementById('reportStartDate').value = startDate.toISOString().split('T')[0];
+  document.getElementById('reportEndDate').value = endDate.toISOString().split('T')[0];
+}
+
+window.selectReportType = function(type) {
+  currentReportType = type;
+  currentReportData = null;
+
+  // Update tab styles
+  document.querySelectorAll('.report-tab').forEach(tab => {
+    tab.classList.remove('border-primary-500', 'text-primary-600');
+    tab.classList.add('border-transparent', 'text-gray-500');
+  });
+
+  const activeTab = document.getElementById(`${type}Tab`);
+  if (activeTab) {
+    activeTab.classList.remove('border-transparent', 'text-gray-500');
+    activeTab.classList.add('border-primary-500', 'text-primary-600');
+  }
+
+  // Clear report content
+  document.getElementById('reportContent').innerHTML = `
+    <div class="text-center py-12 text-gray-500">
+      <i data-lucide="file-bar-chart" class="w-12 h-12 mx-auto mb-4 opacity-50"></i>
+      <p>Click "Generate Report" to view ${type} data</p>
+    </div>
+  `;
+  lucide.createIcons();
+};
+
+window.generateReport = async function() {
+  const startDate = document.getElementById('reportStartDate').value;
+  const endDate = document.getElementById('reportEndDate').value;
+
+  if (!startDate || !endDate) {
+    showToast('Please select start and end dates', 'warning');
+    return;
+  }
+
+  const reportContent = document.getElementById('reportContent');
+  reportContent.innerHTML = `
+    <div class="text-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent mx-auto mb-4"></div>
+      <p class="text-gray-500">Generating report...</p>
+    </div>
+  `;
+
+  try {
+    const token = localStorage.getItem('token');
+    let endpoint = '';
+
+    switch (currentReportType) {
+      case 'collection':
+        endpoint = `/reports/collection-summary?startDate=${startDate}&endDate=${endDate}`;
+        break;
+      case 'driver':
+        endpoint = `/reports/driver-performance?startDate=${startDate}&endDate=${endDate}`;
+        break;
+      case 'complaint':
+        endpoint = `/reports/complaint-analytics?startDate=${startDate}&endDate=${endDate}`;
+        break;
+    }
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch report');
+    }
+
+    currentReportData = await response.json();
+
+    // Render based on report type
+    switch (currentReportType) {
+      case 'collection':
+        renderCollectionReport(currentReportData);
+        break;
+      case 'driver':
+        renderDriverReport(currentReportData);
+        break;
+      case 'complaint':
+        renderComplaintReport(currentReportData);
+        break;
+    }
+
+  } catch (error) {
+    console.error('Error generating report:', error);
+    reportContent.innerHTML = `
+      <div class="text-center py-12 text-red-500">
+        <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-4"></i>
+        <p>Error generating report. Please try again.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    showToast('Error generating report', 'error');
+  }
+};
+
+function renderCollectionReport(data) {
+  const reportContent = document.getElementById('reportContent');
+  const { summary, byRoute, daily } = data;
+
+  const routeRows = (byRoute || []).map(r => `
+    <tr class="border-b border-gray-100">
+      <td class="px-4 py-3 font-medium text-gray-800">${r.routeName || r.routeId}</td>
+      <td class="px-4 py-3 text-gray-600">${r.completions || 0}</td>
+      <td class="px-4 py-3 text-gray-600">${(r.totalDistance || 0).toFixed(2)} km</td>
+      <td class="px-4 py-3 text-gray-600">${r.totalStops || 0}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No data available</td></tr>';
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Routes</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.totalRoutes || 0}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Completed</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.completedRoutes || 0}</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium">Total Distance</p>
+          <p class="text-2xl font-bold text-purple-700">${(summary?.totalDistance || 0).toFixed(2)} km</p>
+        </div>
+        <div class="bg-orange-50 rounded-xl p-4 border border-orange-200">
+          <p class="text-sm text-orange-600 font-medium">Total Stops</p>
+          <p class="text-2xl font-bold text-orange-700">${summary?.totalStops || 0}</p>
+        </div>
+      </div>
+
+      <!-- Completion Rate -->
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700">Completion Rate</span>
+          <span class="text-sm font-bold text-gray-800">${summary?.completionRate || 0}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3">
+          <div class="bg-green-500 h-3 rounded-full transition-all" style="width: ${summary?.completionRate || 0}%"></div>
+        </div>
+      </div>
+
+      <!-- By Route Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">By Route</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Route</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Completions</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Distance</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Stops</th>
+              </tr>
+            </thead>
+            <tbody>${routeRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+}
+
+function renderDriverReport(data) {
+  const reportContent = document.getElementById('reportContent');
+  const { drivers, summary } = data;
+
+  const driverRows = (drivers || []).map((d, i) => `
+    <tr class="border-b border-gray-100">
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          ${i === 0 ? '<i data-lucide="trophy" class="w-4 h-4 text-yellow-500"></i>' : ''}
+          <span class="font-medium text-gray-800">${d.fullName || d.username}</span>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-gray-600">${d.routesCompleted || 0}</td>
+      <td class="px-4 py-3 text-gray-600">${(d.totalDistance || 0).toFixed(2)} km</td>
+      <td class="px-4 py-3 text-gray-600">${d.totalStops || 0}</td>
+      <td class="px-4 py-3 text-gray-600">${(d.avgSpeed || 0).toFixed(1)} km/h</td>
+      <td class="px-4 py-3 text-gray-600">${d.fuelEfficiency > 0 ? d.fuelEfficiency.toFixed(2) + ' km/L' : '-'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No driver data available</td></tr>';
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Active Drivers</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.totalDrivers || 0}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Avg Routes/Driver</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.avgRoutesPerDriver || 0}</p>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+          <p class="text-sm text-yellow-600 font-medium">Top Performer</p>
+          <p class="text-2xl font-bold text-yellow-700">${summary?.topPerformer || '-'}</p>
+        </div>
+      </div>
+
+      <!-- Drivers Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">Driver Performance</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Driver</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Routes</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Distance</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Stops</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Avg Speed</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Fuel Efficiency</th>
+              </tr>
+            </thead>
+            <tbody>${driverRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+}
+
+function renderComplaintReport(data) {
+  const reportContent = document.getElementById('reportContent');
+  const { summary, byBarangay, byStatus } = data;
+
+  const barangayRows = (byBarangay || []).map(b => `
+    <tr class="border-b border-gray-100">
+      <td class="px-4 py-3 font-medium text-gray-800">${b.barangay || 'Unknown'}</td>
+      <td class="px-4 py-3 text-gray-600">${b.count || 0}</td>
+      <td class="px-4 py-3 text-gray-600">${b.resolved || 0}</td>
+      <td class="px-4 py-3 text-gray-600">${b.count > 0 ? Math.round((b.resolved / b.count) * 100) : 0}%</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No complaint data available</td></tr>';
+
+  const statusColors = {
+    'pending': 'bg-yellow-100 text-yellow-700',
+    'in-progress': 'bg-blue-100 text-blue-700',
+    'resolved': 'bg-green-100 text-green-700',
+    'closed': 'bg-gray-100 text-gray-700'
+  };
+
+  const statusBadges = (byStatus || []).map(s => `
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg">
+      <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[s.status] || 'bg-gray-100'}">${s.status}</span>
+      <span class="font-bold text-gray-800">${s.count || 0}</span>
+    </div>
+  `).join('');
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Complaints</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.total || 0}</p>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+          <p class="text-sm text-yellow-600 font-medium">Pending</p>
+          <p class="text-2xl font-bold text-yellow-700">${summary?.pending || 0}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Resolved</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.resolved || 0}</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium">Avg Resolution</p>
+          <p class="text-2xl font-bold text-purple-700">${summary?.avgResolutionTime || 0}h</p>
+        </div>
+      </div>
+
+      <!-- Status Breakdown -->
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <h3 class="font-semibold text-gray-800 mb-3">Status Breakdown</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          ${statusBadges}
+        </div>
+      </div>
+
+      <!-- By Barangay Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">By Barangay</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Barangay</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Total</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Resolved</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Resolution Rate</th>
+              </tr>
+            </thead>
+            <tbody>${barangayRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+}
+
+window.exportReportPDF = function() {
+  if (!currentReportData) {
+    showToast('Please generate a report first', 'warning');
+    return;
+  }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const startDate = document.getElementById('reportStartDate').value;
+    const endDate = document.getElementById('reportEndDate').value;
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Kolek-Ta Report', 14, 22);
+
+    doc.setFontSize(12);
+    doc.setTextColor(127, 140, 141);
+
+    let reportTitle = '';
+    switch (currentReportType) {
+      case 'collection':
+        reportTitle = 'Collection Summary Report';
+        break;
+      case 'driver':
+        reportTitle = 'Driver Performance Report';
+        break;
+      case 'complaint':
+        reportTitle = 'Complaint Analytics Report';
+        break;
+    }
+
+    doc.text(reportTitle, 14, 30);
+    doc.text(`Period: ${startDate} to ${endDate}`, 14, 36);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 42);
+
+    doc.setDrawColor(52, 73, 94);
+    doc.line(14, 46, 196, 46);
+
+    let yPosition = 56;
+
+    switch (currentReportType) {
+      case 'collection':
+        generateCollectionPDF(doc, currentReportData, yPosition);
+        break;
+      case 'driver':
+        generateDriverPDF(doc, currentReportData, yPosition);
+        break;
+      case 'complaint':
+        generateComplaintPDF(doc, currentReportData, yPosition);
+        break;
+    }
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(10);
+      doc.setTextColor(127, 140, 141);
+      doc.text(`Page ${i} of ${pageCount}`, 14, 287);
+      doc.text('Kolek-Ta Waste Collection Management System', 196, 287, { align: 'right' });
+    }
+
+    // Save
+    const filename = `kolek-ta-${currentReportType}-report-${startDate}-to-${endDate}.pdf`;
+    doc.save(filename);
+
+    showToast('PDF exported successfully', 'success');
+  } catch (error) {
+    console.error('Error exporting PDF:', error);
+    showToast('Error exporting PDF. Please try again.', 'error');
+  }
+};
+
+function generateCollectionPDF(doc, data, y) {
+  const { summary, byRoute } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Total Routes: ${summary?.totalRoutes || 0}`, 14, y);
+  doc.text(`Completed Routes: ${summary?.completedRoutes || 0}`, 100, y);
+  y += 6;
+  doc.text(`Completion Rate: ${summary?.completionRate || 0}%`, 14, y);
+  doc.text(`Total Distance: ${(summary?.totalDistance || 0).toFixed(2)} km`, 100, y);
+  y += 6;
+  doc.text(`Total Stops: ${summary?.totalStops || 0}`, 14, y);
+  doc.text(`Fuel Consumed: ${(summary?.totalFuelConsumed || 0).toFixed(2)} L`, 100, y);
+  y += 14;
+
+  // Route breakdown table
+  if (byRoute && byRoute.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Route Breakdown', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Route', 'Completions', 'Distance (km)', 'Stops']],
+      body: byRoute.map(r => [
+        r.routeName || r.routeId,
+        r.completions || 0,
+        (r.totalDistance || 0).toFixed(2),
+        r.totalStops || 0
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+  }
+}
+
+function generateDriverPDF(doc, data, y) {
+  const { drivers, summary } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Active Drivers: ${summary?.totalDrivers || 0}`, 14, y);
+  doc.text(`Avg Routes/Driver: ${summary?.avgRoutesPerDriver || 0}`, 100, y);
+  y += 6;
+  doc.text(`Top Performer: ${summary?.topPerformer || '-'}`, 14, y);
+  y += 14;
+
+  // Drivers table
+  if (drivers && drivers.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Driver Performance', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Driver', 'Routes', 'Distance (km)', 'Stops', 'Avg Speed', 'Fuel Eff.']],
+      body: drivers.map(d => [
+        d.fullName || d.username,
+        d.routesCompleted || 0,
+        (d.totalDistance || 0).toFixed(2),
+        d.totalStops || 0,
+        `${(d.avgSpeed || 0).toFixed(1)} km/h`,
+        d.fuelEfficiency > 0 ? `${d.fuelEfficiency.toFixed(2)} km/L` : '-'
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 9 }
+    });
+  }
+}
+
+function generateComplaintPDF(doc, data, y) {
+  const { summary, byBarangay, byStatus } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Total Complaints: ${summary?.total || 0}`, 14, y);
+  doc.text(`Pending: ${summary?.pending || 0}`, 100, y);
+  y += 6;
+  doc.text(`In Progress: ${summary?.inProgress || 0}`, 14, y);
+  doc.text(`Resolved: ${summary?.resolved || 0}`, 100, y);
+  y += 6;
+  doc.text(`Avg Resolution Time: ${summary?.avgResolutionTime || 0} hours`, 14, y);
+  y += 14;
+
+  // Status breakdown
+  if (byStatus && byStatus.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Status Breakdown', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Status', 'Count']],
+      body: byStatus.map(s => [s.status, s.count || 0]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // Barangay breakdown
+  if (byBarangay && byBarangay.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('By Barangay', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Barangay', 'Total', 'Resolved', 'Resolution Rate']],
+      body: byBarangay.map(b => [
+        b.barangay || 'Unknown',
+        b.count || 0,
+        b.resolved || 0,
+        `${b.count > 0 ? Math.round((b.resolved / b.count) * 100) : 0}%`
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+  }
+}
+
+// Make reports functions globally accessible
+window.showReportsModule = showReportsModule;
