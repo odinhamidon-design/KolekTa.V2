@@ -10390,6 +10390,13 @@ async function showComplaints() {
     const { column, direction } = sortState.complaints;
     const sortedComplaints = sortData(cachedComplaintsData, column, direction);
 
+    const statusColors = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'in-progress': 'bg-blue-100 text-blue-800',
+      'resolved': 'bg-green-100 text-green-800',
+      'closed': 'bg-gray-100 text-gray-800'
+    };
+
     const complaintRows = sortedComplaints.map(c => {
       const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric'
