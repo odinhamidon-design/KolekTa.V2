@@ -474,6 +474,77 @@ function handleSort(module, column) {
 // END TABLE SORTING SYSTEM
 // ============================================
 
+// ============================================
+// TABLE SEARCH SYSTEM
+// ============================================
+
+// Search state for each module
+const searchState = {
+  users: '',
+  trucks: '',
+  routes: '',
+  complaints: '',
+  schedules: ''
+};
+
+// Generic filter function for arrays based on search term
+function filterData(data, searchTerm, searchFields) {
+  if (!searchTerm || searchTerm.trim() === '') return data;
+
+  const term = searchTerm.toLowerCase().trim();
+
+  return data.filter(item => {
+    return searchFields.some(field => {
+      // Handle nested properties (e.g., 'user.name')
+      const value = field.split('.').reduce((obj, key) => obj?.[key], item);
+      if (value == null) return false;
+      return String(value).toLowerCase().includes(term);
+    });
+  });
+}
+
+// Generate search input HTML
+function createSearchInput(module, placeholder = 'Search...') {
+  return `
+    <div class="relative">
+      <input type="text"
+             id="${module}SearchInput"
+             placeholder="${placeholder}"
+             value="${searchState[module] || ''}"
+             oninput="handleSearch('${module}', this.value)"
+             class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-full sm:w-64">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+      ${searchState[module] ? `
+        <button onclick="clearSearch('${module}')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Handle search input - will trigger module's refresh function
+function handleSearch(module, value) {
+  searchState[module] = value;
+  if (sortHandlers[module]) {
+    sortHandlers[module]();
+  }
+}
+
+// Clear search input
+function clearSearch(module) {
+  searchState[module] = '';
+  const input = document.getElementById(`${module}SearchInput`);
+  if (input) input.value = '';
+  if (sortHandlers[module]) {
+    sortHandlers[module]();
+  }
+}
+
+// ============================================
+// END TABLE SEARCH SYSTEM
+// ============================================
+
 // Check authentication
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -1433,9 +1504,15 @@ async function showUserManagement() {
 function renderUserTable() {
   const users = cachedUsersData;
 
+  // Define searchable fields
+  const searchFields = ['username', 'fullName', 'email', 'phoneNumber', 'role'];
+
+  // Apply search filter first
+  const filteredUsers = filterData(users, searchState.users, searchFields);
+
   // Apply sorting
   const { column, direction } = sortState.users;
-  const sortedUsers = sortData(users, column, direction);
+  const sortedUsers = sortData(filteredUsers, column, direction);
 
   const admins = users.filter(u => u.role === 'admin');
   const drivers = users.filter(u => u.role === 'driver');
@@ -1543,15 +1620,18 @@ function renderUserTable() {
       <!-- Users Table Card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- Table Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Users</h2>
-            <p class="text-sm text-gray-500">${activeCount} active users</p>
+            <p class="text-sm text-gray-500">${sortedUsers.length} of ${users.length} users${searchState.users ? ' (filtered)' : ''}</p>
           </div>
-          <button onclick="showAddUserForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>Add Driver</span>
-          </button>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            ${createSearchInput('users', 'Search users...')}
+            <button onclick="showAddUserForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Add Driver</span>
+            </button>
+          </div>
         </div>
 
         <!-- Table -->
@@ -1823,11 +1903,17 @@ function renderTruckTable() {
   const trucks = cachedTrucksData;
   const drivers = cachedTruckDrivers;
 
+  // Define searchable fields
+  const searchFields = ['truckId', 'plateNumber', 'model', 'status', 'assignedDriver'];
+
+  // Apply search filter first
+  const filteredTrucks = filterData(trucks, searchState.trucks, searchFields);
+
   // Apply sorting
   const { column, direction } = sortState.trucks;
-  const sortedTrucks = sortData(trucks, column, direction);
+  const sortedTrucks = sortData(filteredTrucks, column, direction);
 
-  // Stats
+  // Stats (from all trucks)
   const availableCount = trucks.filter(t => t.status === 'available').length;
   const inUseCount = trucks.filter(t => t.status === 'in-use').length;
   const maintenanceCount = trucks.filter(t => t.status === 'maintenance').length;
@@ -1964,15 +2050,18 @@ function renderTruckTable() {
       <!-- Trucks Table Card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- Table Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Trucks</h2>
-            <p class="text-sm text-gray-500">${inUseCount} currently in use</p>
+            <p class="text-sm text-gray-500">${sortedTrucks.length} of ${trucks.length} trucks${searchState.trucks ? ' (filtered)' : ''}</p>
           </div>
-          <button onclick="showAddTruckForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>Add Truck</span>
-          </button>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            ${createSearchInput('trucks', 'Search trucks...')}
+            <button onclick="showAddTruckForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Add Truck</span>
+            </button>
+          </div>
         </div>
 
         <!-- Table -->
@@ -2357,14 +2446,20 @@ function renderRoutesTable() {
   const routes = cachedRoutesData;
   const drivers = cachedRouteDrivers;
 
+  // Define searchable fields
+  const searchFields = ['routeId', 'name', 'status', 'assignedDriver'];
+
+  // Apply search filter first
+  const filteredRoutes = filterData(routes, searchState.routes, searchFields);
+
   // Apply sorting with custom sort for nested properties
   const { column, direction } = sortState.routes;
   const customSort = {
     locationCount: (r) => r.path ? r.path.coordinates.length : 0
   };
-  const sortedRoutes = sortData(routes, column, direction, customSort);
+  const sortedRoutes = sortData(filteredRoutes, column, direction, customSort);
 
-  // Stats
+  // Stats (from all routes)
   const plannedCount = routes.filter(r => r.status === 'planned').length;
   const activeCount = routes.filter(r => r.status === 'active').length;
   const completedCount = routes.filter(r => r.status === 'completed').length;
@@ -2509,15 +2604,18 @@ function renderRoutesTable() {
       <!-- Routes Table Card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- Table Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Routes</h2>
-            <p class="text-sm text-gray-500">${assignedCount} routes assigned to drivers <span class="text-primary-500 ml-2">• Click a row to view on map</span></p>
+            <p class="text-sm text-gray-500">${sortedRoutes.length} of ${routes.length} routes${searchState.routes ? ' (filtered)' : ''} <span class="text-primary-500 ml-2">• Click a row to view on map</span></p>
           </div>
-          <button onclick="showAddRouteForm()" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>Add Route</span>
-          </button>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            ${createSearchInput('routes', 'Search routes...')}
+            <button onclick="showAddRouteForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Add Route</span>
+            </button>
+          </div>
         </div>
 
         <!-- Table -->
@@ -9997,9 +10095,22 @@ const reportTypeLabels = {
 
 // Render complaints table with current sort state
 function renderComplaintsTable() {
+  // Define searchable fields
+  const searchFields = ['referenceNumber', 'name', 'barangay', 'description', 'status', 'reportType'];
+
+  // Apply search filter first
+  const filteredComplaints = filterData(cachedComplaintsData, searchState.complaints, searchFields);
+
+  // Apply sorting
   const { column, direction } = sortState.complaints;
-  const sortedComplaints = sortData(cachedComplaintsData, column, direction);
+  const sortedComplaints = sortData(filteredComplaints, column, direction);
   const stats = cachedComplaintsStats;
+
+  // Update search results count display
+  const countDisplay = document.querySelector('#complaintsCountDisplay');
+  if (countDisplay) {
+    countDisplay.textContent = `${sortedComplaints.length} of ${cachedComplaintsData.length} reports${searchState.complaints ? ' (filtered)' : ''}`;
+  }
 
   const complaintRows = sortedComplaints.map(c => {
     const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
@@ -10222,6 +10333,10 @@ async function showComplaints() {
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
         <div class="flex flex-wrap items-center gap-4">
           <div>
+            <label class="block text-xs text-gray-500 mb-1">Search</label>
+            ${createSearchInput('complaints', 'Search reports...')}
+          </div>
+          <div>
             <label class="block text-xs text-gray-500 mb-1">Report Type</label>
             <select id="filterReportType" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
               <option value="">All Types</option>
@@ -10250,7 +10365,8 @@ async function showComplaints() {
               ${barangayOptions}
             </select>
           </div>
-          <div class="ml-auto flex gap-2">
+          <div class="ml-auto flex flex-col sm:flex-row items-end gap-2">
+            <span id="complaintsCountDisplay" class="text-sm text-gray-500">${sortedComplaints.length} of ${cachedComplaintsData.length} reports</span>
             ${stats.newCount > 0 ? `
               <button onclick="markAllComplaintsRead()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
                 <i data-lucide="check-check" class="w-4 h-4"></i>
@@ -10741,8 +10857,21 @@ const schedulesColumns = [
 
 // Render schedules table with current sort state
 function renderSchedulesTable() {
+  // Define searchable fields
+  const searchFields = ['name', 'scheduleId', 'routeName', 'recurrenceType', 'assignedDriver', 'assignedVehicle'];
+
+  // Apply search filter first
+  const filteredSchedules = filterData(cachedSchedulesData, searchState.schedules, searchFields);
+
+  // Apply sorting
   const { column, direction } = sortState.schedules;
-  const sortedSchedules = sortData(cachedSchedulesData, column, direction);
+  const sortedSchedules = sortData(filteredSchedules, column, direction);
+
+  // Update search results count display
+  const countDisplay = document.querySelector('#schedulesCountDisplay');
+  if (countDisplay) {
+    countDisplay.textContent = `${sortedSchedules.length} of ${cachedSchedulesData.length} schedules${searchState.schedules ? ' (filtered)' : ''}`;
+  }
 
   const scheduleRows = sortedSchedules.map(s => {
     // Format recurrence pattern
@@ -10914,12 +11043,15 @@ async function showScheduleManagement() {
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 class="text-2xl font-bold text-gray-800">Collection Schedules</h1>
-            <p class="text-gray-500 mt-1">Manage recurring garbage collection schedules</p>
+            <p id="schedulesCountDisplay" class="text-gray-500 mt-1">${sortedSchedules.length} of ${schedules.length} schedules</p>
           </div>
-          <button onclick="showAddScheduleForm()" class="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl transition-colors">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            <span>Add Schedule</span>
-          </button>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            ${createSearchInput('schedules', 'Search schedules...')}
+            <button onclick="showAddScheduleForm()" class="inline-flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl transition-colors">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+              <span>Add Schedule</span>
+            </button>
+          </div>
         </div>
 
         <!-- Stats Cards -->
