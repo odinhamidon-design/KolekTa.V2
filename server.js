@@ -110,6 +110,7 @@ if (useMockAuth) {
 app.use('/api/fuel', require('./routes/fuel'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/resident', require('./routes/resident-portal'));
+app.use('/api/driver', require('./routes/driver-features'));
 
 // Schedules and Reports routes
 if (useMockAuth) {

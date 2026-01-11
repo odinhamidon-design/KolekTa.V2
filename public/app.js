@@ -4486,7 +4486,7 @@ window.markInspectionItem = function(itemId, value) {
   showVehicleInspection();
 };
 
-// Submit inspection
+// Submit inspection - syncs to server
 window.submitInspection = async function() {
   const savedInspection = JSON.parse(localStorage.getItem('vehicleInspection') || '{}');
   const items = savedInspection.items || {};
@@ -4497,16 +4497,84 @@ window.submitInspection = async function() {
     if (!confirmed) return;
   }
 
-  // Mark inspection as submitted
-  savedInspection.submitted = true;
-  savedInspection.submittedAt = new Date().toISOString();
-  localStorage.setItem('vehicleInspection', JSON.stringify(savedInspection));
+  // Get assigned truck
+  const token = localStorage.getItem('token');
+  let truckId = 'UNKNOWN';
+  try {
+    const trucksRes = await fetch(`${API_URL}/trucks`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const trucks = await trucksRes.json();
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const assignedTruck = trucks.find(t => t.assignedDriver === user.username);
+    if (assignedTruck) truckId = assignedTruck.truckId;
+  } catch (e) {
+    console.error('Failed to get truck:', e);
+  }
 
-  closeModal();
-  showToast('Inspection submitted successfully!', 'success');
+  // Format inspection items for API
+  const inspectionItems = [
+    { id: 'lights', label: 'Headlights & Taillights' },
+    { id: 'brakes', label: 'Brakes & Brake Lights' },
+    { id: 'tires', label: 'Tires & Tire Pressure' },
+    { id: 'mirrors', label: 'Mirrors (Side & Rear)' },
+    { id: 'horn', label: 'Horn Working' },
+    { id: 'fuel', label: 'Fuel Level Adequate' },
+    { id: 'fluids', label: 'Oil & Fluids' },
+    { id: 'wipers', label: 'Windshield & Wipers' },
+    { id: 'seatbelt', label: 'Seatbelt Functional' },
+    { id: 'hydraulics', label: 'Hydraulic System (Lift)' },
+    { id: 'compactor', label: 'Compactor System' },
+    { id: 'leaks', label: 'No Visible Leaks' }
+  ];
 
-  if (problems.length > 0) {
-    showToast('Admin has been notified about vehicle issues', 'warning');
+  const formattedItems = inspectionItems.map(item => ({
+    item: item.label,
+    status: items[item.id] === true ? 'pass' : items[item.id] === 'problem' ? 'fail' : 'na',
+    notes: ''
+  }));
+
+  try {
+    const response = await fetch(`${API_URL}/driver/inspections`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        truckId,
+        inspectionType: 'pre-trip',
+        items: formattedItems,
+        notes: problems.length > 0 ? `${problems.length} issue(s) reported` : ''
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to submit inspection');
+
+    const result = await response.json();
+
+    // Mark inspection as submitted locally
+    savedInspection.submitted = true;
+    savedInspection.submittedAt = new Date().toISOString();
+    savedInspection.inspectionId = result.inspection?.inspectionId;
+    localStorage.setItem('vehicleInspection', JSON.stringify(savedInspection));
+
+    closeModal();
+    showToast('Inspection submitted successfully!', 'success');
+
+    if (problems.length > 0) {
+      showToast('Admin has been notified about vehicle issues', 'warning');
+    }
+  } catch (error) {
+    console.error('Inspection submit error:', error);
+    showToast('Failed to submit inspection. Saved locally.', 'error');
+
+    // Still save locally as fallback
+    savedInspection.submitted = true;
+    savedInspection.submittedAt = new Date().toISOString();
+    savedInspection.pendingSync = true;
+    localStorage.setItem('vehicleInspection', JSON.stringify(savedInspection));
+    closeModal();
   }
 };
 
@@ -4967,27 +5035,221 @@ function showNavigationPanel(route, stops, completedStops) {
   }
 }
 
-// Mark stop as completed
-window.markStopCompleted = function(stopIndex) {
+// Mark stop as completed - syncs to server
+window.markStopCompleted = async function(stopIndex) {
   const activeRouteId = localStorage.getItem('activeRouteId');
   if (!activeRouteId) return;
 
-  const completedStops = parseInt(localStorage.getItem(`route_${activeRouteId}_completed`) || '0');
+  const token = localStorage.getItem('token');
+
+  // Get current GPS location
+  let gpsLocation = null;
+  if (navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+      });
+      gpsLocation = {
+        type: 'Point',
+        coordinates: [pos.coords.longitude, pos.coords.latitude]
+      };
+    } catch (e) {
+      console.log('Could not get GPS for stop completion');
+    }
+  }
+
+  // Get stop info from active route
+  const activeRoute = window.currentActiveRoute;
+  const stopLocation = activeRoute?.path?.coordinates?.[stopIndex] || [0, 0];
+
+  try {
+    await fetch(`${API_URL}/driver/stops/complete`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        routeId: activeRouteId,
+        stopIndex,
+        stopName: `Stop ${stopIndex + 1}`,
+        location: { type: 'Point', coordinates: stopLocation },
+        gpsLocation,
+        binsCollected: 1,
+        wasteType: 'mixed'
+      })
+    });
+  } catch (e) {
+    console.error('Failed to sync stop completion:', e);
+  }
+
+  // Always update local storage
   localStorage.setItem(`route_${activeRouteId}_completed`, stopIndex + 1);
 
   showToast(`Stop ${stopIndex + 1} completed!`, 'success');
   showActiveRouteNavigation();
 };
 
-// Skip a stop
+// Skip a stop - requires justification
 window.skipStop = async function(stopIndex) {
-  const confirmed = await showConfirm('Skip Stop', 'Are you sure you want to skip this stop?\n\nPlease select a reason:');
-  if (!confirmed) return;
+  const activeRouteId = localStorage.getItem('activeRouteId');
+  if (!activeRouteId) return;
+
+  // Show skip justification modal
+  showModal('Skip Stop', `
+    <div class="space-y-4">
+      <p class="text-gray-600">Please provide a reason for skipping Stop ${stopIndex + 1}:</p>
+
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-gray-700">Reason *</label>
+        <select id="skipReason" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500">
+          <option value="">Select a reason...</option>
+          <option value="road-blocked">Road Blocked / Inaccessible</option>
+          <option value="no-access">Cannot Access Location</option>
+          <option value="safety-concern">Safety Concern</option>
+          <option value="no-waste">No Waste to Collect</option>
+          <option value="resident-request">Resident Request</option>
+          <option value="vehicle-issue">Vehicle Issue</option>
+          <option value="weather">Weather Conditions</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-gray-700">Additional Notes</label>
+        <textarea id="skipNotes" rows="2" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500" placeholder="Describe the situation..."></textarea>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-gray-700">
+          Photo Evidence <span id="photoRequiredBadge" class="hidden text-red-500">*</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <input type="file" id="skipPhoto" accept="image/*" capture="environment" class="hidden" onchange="previewSkipPhoto(this)">
+          <button onclick="document.getElementById('skipPhoto').click()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            Take Photo
+          </button>
+          <span id="skipPhotoName" class="text-sm text-gray-500">No photo</span>
+        </div>
+        <div id="skipPhotoPreview" class="hidden mt-2">
+          <img id="skipPhotoImg" class="w-32 h-32 object-cover rounded-lg border">
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button onclick="submitSkipStop(${stopIndex})" class="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg">
+          Skip Stop
+        </button>
+        <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `);
+
+  // Add event listener for reason change to show/hide photo requirement
+  setTimeout(() => {
+    const reasonSelect = document.getElementById('skipReason');
+    if (reasonSelect) {
+      reasonSelect.addEventListener('change', () => {
+        const photoRequired = ['road-blocked', 'no-access', 'safety-concern', 'vehicle-issue'].includes(reasonSelect.value);
+        document.getElementById('photoRequiredBadge').classList.toggle('hidden', !photoRequired);
+      });
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }, 100);
+};
+
+// Preview skip photo
+window.previewSkipPhoto = function(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('skipPhotoImg').src = e.target.result;
+      document.getElementById('skipPhotoPreview').classList.remove('hidden');
+      document.getElementById('skipPhotoName').textContent = input.files[0].name;
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+};
+
+// Submit skip stop
+window.submitSkipStop = async function(stopIndex) {
+  const reason = document.getElementById('skipReason').value;
+  const notes = document.getElementById('skipNotes').value;
+  const photoInput = document.getElementById('skipPhoto');
+
+  if (!reason) {
+    showToast('Please select a reason for skipping', 'error');
+    return;
+  }
+
+  // Check if photo is required
+  const photoRequiredReasons = ['road-blocked', 'no-access', 'safety-concern', 'vehicle-issue'];
+  if (photoRequiredReasons.includes(reason) && (!photoInput.files || !photoInput.files[0])) {
+    showToast('Photo evidence is required for this reason', 'error');
+    return;
+  }
 
   const activeRouteId = localStorage.getItem('activeRouteId');
   if (!activeRouteId) return;
 
+  const token = localStorage.getItem('token');
+
+  // Get photo as base64
+  let skipPhoto = null;
+  if (photoInput.files && photoInput.files[0]) {
+    skipPhoto = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(photoInput.files[0]);
+    });
+  }
+
+  // Get current GPS location
+  let gpsLocation = null;
+  if (navigator.geolocation) {
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+      });
+      gpsLocation = {
+        type: 'Point',
+        coordinates: [pos.coords.longitude, pos.coords.latitude]
+      };
+    } catch (e) {
+      console.log('Could not get GPS for skip');
+    }
+  }
+
+  try {
+    await fetch(`${API_URL}/driver/stops/skip`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        routeId: activeRouteId,
+        stopIndex,
+        stopName: `Stop ${stopIndex + 1}`,
+        skipReason: reason,
+        skipNotes: notes,
+        skipPhoto,
+        gpsLocation
+      })
+    });
+
+    showToast('Admin notified about skipped stop', 'info');
+  } catch (e) {
+    console.error('Failed to sync skip:', e);
+  }
+
+  // Always update local storage
   localStorage.setItem(`route_${activeRouteId}_completed`, stopIndex + 1);
+
+  closeModal();
   showToast(`Stop ${stopIndex + 1} skipped`, 'info');
   showActiveRouteNavigation();
 };
@@ -4996,6 +5258,358 @@ window.skipStop = async function(stopIndex) {
 window.closeNavigationPanel = function() {
   const panel = document.getElementById('navigationPanel');
   if (panel) panel.remove();
+};
+
+// ============================================
+// DRIVER NOTIFICATIONS
+// ============================================
+
+// Driver notification polling interval
+let driverNotificationInterval = null;
+
+// Initialize driver notifications
+window.initDriverNotifications = async function() {
+  // Load initial notifications
+  await loadDriverNotifications();
+
+  // Poll every 30 seconds
+  if (driverNotificationInterval) clearInterval(driverNotificationInterval);
+  driverNotificationInterval = setInterval(loadDriverNotifications, 30000);
+};
+
+// Load driver notifications
+window.loadDriverNotifications = async function() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (user.role !== 'driver') return;
+
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${API_URL}/driver/notifications/count`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) return;
+
+    const { count } = await response.json();
+
+    // Update notification badge
+    const badge = document.getElementById('driverNotificationBadge');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load notification count:', e);
+  }
+};
+
+// Show driver notifications panel
+window.showDriverNotifications = async function() {
+  const token = localStorage.getItem('token');
+
+  try {
+    const response = await fetch(`${API_URL}/driver/notifications`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Failed to load notifications');
+
+    const notifications = await response.json();
+
+    const notificationHtml = notifications.length === 0 ? `
+      <div class="text-center py-8 text-gray-500">
+        <i data-lucide="bell-off" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p>No notifications</p>
+      </div>
+    ` : notifications.map(n => {
+      const typeColors = {
+        'route-assigned': 'bg-blue-100 text-blue-600',
+        'route-changed': 'bg-orange-100 text-orange-600',
+        'route-cancelled': 'bg-red-100 text-red-600',
+        'urgent-message': 'bg-red-100 text-red-600',
+        'schedule-change': 'bg-yellow-100 text-yellow-600',
+        'vehicle-assigned': 'bg-green-100 text-green-600',
+        'inspection-required': 'bg-purple-100 text-purple-600',
+        'performance-update': 'bg-primary-100 text-primary-600',
+        'system-alert': 'bg-gray-100 text-gray-600',
+        'complaint-related': 'bg-pink-100 text-pink-600'
+      };
+      const typeIcons = {
+        'route-assigned': 'map-pin',
+        'route-changed': 'edit-3',
+        'route-cancelled': 'x-circle',
+        'urgent-message': 'alert-triangle',
+        'schedule-change': 'calendar',
+        'vehicle-assigned': 'truck',
+        'inspection-required': 'clipboard-check',
+        'performance-update': 'trending-up',
+        'system-alert': 'info',
+        'complaint-related': 'message-circle'
+      };
+
+      const colorClass = typeColors[n.type] || 'bg-gray-100 text-gray-600';
+      const icon = typeIcons[n.type] || 'bell';
+      const timeAgo = getTimeAgo(new Date(n.createdAt));
+
+      return `
+        <div class="p-3 border-b last:border-b-0 ${n.isRead ? 'bg-white' : 'bg-blue-50'} hover:bg-gray-50 cursor-pointer" onclick="markNotificationRead('${n._id}')">
+          <div class="flex items-start gap-3">
+            <div class="p-2 rounded-lg ${colorClass}">
+              <i data-lucide="${icon}" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <p class="font-medium text-sm text-gray-800 truncate">${n.title}</p>
+                ${n.priority === 'urgent' ? '<span class="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">Urgent</span>' : ''}
+              </div>
+              <p class="text-xs text-gray-600 mt-1 line-clamp-2">${n.message}</p>
+              <p class="text-xs text-gray-400 mt-1">${timeAgo}</p>
+            </div>
+            ${!n.isRead ? '<div class="w-2 h-2 bg-blue-500 rounded-full"></div>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    showModal('Notifications', `
+      <div class="space-y-2">
+        <div class="flex justify-between items-center mb-4">
+          <span class="text-sm text-gray-500">${notifications.filter(n => !n.isRead).length} unread</span>
+          <button onclick="markAllNotificationsRead()" class="text-sm text-primary-600 hover:text-primary-700">Mark all read</button>
+        </div>
+        <div class="max-h-[400px] overflow-y-auto -mx-4">
+          ${notificationHtml}
+        </div>
+      </div>
+    `);
+
+    if (typeof lucide !== 'undefined') {
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+  } catch (error) {
+    console.error('Failed to show notifications:', error);
+    showToast('Failed to load notifications', 'error');
+  }
+};
+
+// Mark notification as read
+window.markNotificationRead = async function(notificationId) {
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`${API_URL}/driver/notifications/${notificationId}/read`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadDriverNotifications();
+  } catch (e) {
+    console.error('Failed to mark notification as read:', e);
+  }
+};
+
+// Mark all notifications as read
+window.markAllNotificationsRead = async function() {
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`${API_URL}/driver/notifications/read-all`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadDriverNotifications();
+    showToast('All notifications marked as read', 'success');
+    closeModal();
+  } catch (e) {
+    console.error('Failed to mark all as read:', e);
+  }
+};
+
+// Helper: Get time ago string
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+// ============================================
+// DRIVER PERFORMANCE DASHBOARD
+// ============================================
+
+// Show driver performance dashboard
+window.showDriverPerformance = async function() {
+  const token = localStorage.getItem('token');
+
+  showModal('My Performance', `
+    <div class="text-center py-8">
+      <div class="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+      <p class="text-gray-500 mt-2">Loading stats...</p>
+    </div>
+  `);
+
+  try {
+    // Fetch performance data for different periods
+    const [todayRes, weekRes, monthRes] = await Promise.all([
+      fetch(`${API_URL}/driver/performance?period=today`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/driver/performance?period=week`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`${API_URL}/driver/performance?period=month`, { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
+    const today = await todayRes.json();
+    const week = await weekRes.json();
+    const month = await monthRes.json();
+
+    showModal('My Performance', `
+      <div class="space-y-4">
+        <!-- Period Tabs -->
+        <div class="flex border-b">
+          <button onclick="showPerformancePeriod('today')" id="perfTabToday" class="px-4 py-2 text-sm font-medium border-b-2 border-primary-500 text-primary-600">Today</button>
+          <button onclick="showPerformancePeriod('week')" id="perfTabWeek" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">This Week</button>
+          <button onclick="showPerformancePeriod('month')" id="perfTabMonth" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">This Month</button>
+        </div>
+
+        <!-- Today Stats (Default) -->
+        <div id="perfContentToday" class="space-y-4">
+          ${renderPerformanceStats(today, 'Today')}
+        </div>
+
+        <!-- Week Stats (Hidden) -->
+        <div id="perfContentWeek" class="space-y-4 hidden">
+          ${renderPerformanceStats(week, 'This Week')}
+        </div>
+
+        <!-- Month Stats (Hidden) -->
+        <div id="perfContentMonth" class="space-y-4 hidden">
+          ${renderPerformanceStats(month, 'This Month')}
+        </div>
+
+        <!-- Efficiency Score -->
+        <div class="bg-gradient-to-r from-primary-50 to-green-50 rounded-xl p-4 border border-primary-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Efficiency Score</p>
+              <p class="text-3xl font-bold text-primary-600">${today.efficiency?.completionRate || 100}%</p>
+            </div>
+            <div class="w-16 h-16 relative">
+              <svg class="w-16 h-16 transform -rotate-90">
+                <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="4" fill="none"/>
+                <circle cx="32" cy="32" r="28" stroke="#22c55e" stroke-width="4" fill="none"
+                        stroke-dasharray="${(today.efficiency?.completionRate || 100) * 1.76} 176"
+                        stroke-linecap="round"/>
+              </svg>
+              <i data-lucide="award" class="w-6 h-6 text-primary-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">Based on stops completed vs skipped</p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="flex gap-2">
+          <button onclick="closeModal(); showDriverNotifications();" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            Notifications
+          </button>
+          <button onclick="closeModal(); showVehicleInspection();" class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">
+            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+            Inspection
+          </button>
+        </div>
+      </div>
+    `);
+
+    // Store data for tab switching
+    window.performanceData = { today, week, month };
+
+    if (typeof lucide !== 'undefined') {
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+  } catch (error) {
+    console.error('Failed to load performance:', error);
+    showModal('My Performance', `
+      <div class="text-center py-8 text-gray-500">
+        <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p>Failed to load performance data</p>
+        <button onclick="showDriverPerformance()" class="mt-4 px-4 py-2 bg-primary-500 text-white rounded-lg">Retry</button>
+      </div>
+    `);
+    if (typeof lucide !== 'undefined') {
+      setTimeout(() => lucide.createIcons(), 100);
+    }
+  }
+};
+
+// Helper: Render performance stats card
+function renderPerformanceStats(data, periodLabel) {
+  return `
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-white border rounded-xl p-3">
+        <div class="flex items-center gap-2 text-green-600 mb-1">
+          <i data-lucide="check-circle" class="w-4 h-4"></i>
+          <span class="text-xs font-medium">Stops Completed</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-800">${data.stops?.completed || 0}</p>
+      </div>
+      <div class="bg-white border rounded-xl p-3">
+        <div class="flex items-center gap-2 text-orange-600 mb-1">
+          <i data-lucide="skip-forward" class="w-4 h-4"></i>
+          <span class="text-xs font-medium">Stops Skipped</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-800">${data.stops?.skipped || 0}</p>
+      </div>
+      <div class="bg-white border rounded-xl p-3">
+        <div class="flex items-center gap-2 text-blue-600 mb-1">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span class="text-xs font-medium">Bins Collected</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-800">${data.stops?.totalBins || 0}</p>
+      </div>
+      <div class="bg-white border rounded-xl p-3">
+        <div class="flex items-center gap-2 text-purple-600 mb-1">
+          <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+          <span class="text-xs font-medium">Inspections</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-800">${data.inspections?.total || 0}</p>
+      </div>
+    </div>
+
+    <div class="bg-white border rounded-xl p-3">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-gray-700">Routes Completed</span>
+        <span class="text-lg font-bold text-primary-600">${data.routes?.completed || 0}</span>
+      </div>
+      <div class="flex items-center justify-between text-sm text-gray-500">
+        <span>Distance: ${((data.routes?.totalDistance || 0) / 1000).toFixed(1)} km</span>
+        <span>Fuel: ${(data.routes?.totalFuel || 0).toFixed(1)} L</span>
+      </div>
+    </div>
+  `;
+}
+
+// Switch performance period tab
+window.showPerformancePeriod = function(period) {
+  // Update tabs
+  ['today', 'week', 'month'].forEach(p => {
+    const tab = document.getElementById(`perfTab${p.charAt(0).toUpperCase() + p.slice(1)}`);
+    const content = document.getElementById(`perfContent${p.charAt(0).toUpperCase() + p.slice(1)}`);
+    if (tab && content) {
+      if (p === period) {
+        tab.classList.add('border-b-2', 'border-primary-500', 'text-primary-600');
+        tab.classList.remove('text-gray-500');
+        content.classList.remove('hidden');
+      } else {
+        tab.classList.remove('border-b-2', 'border-primary-500', 'text-primary-600');
+        tab.classList.add('text-gray-500');
+        content.classList.add('hidden');
+      }
+    }
+  });
 };
 
 // ============================================
