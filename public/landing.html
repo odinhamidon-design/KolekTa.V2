@@ -79,12 +79,42 @@
     }
 
     .hero-bg {
-      background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
-                        url('https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1920&q=80');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
+      position: relative;
+      overflow: hidden;
     }
+
+    /* Floating icons animation */
+    @keyframes floatIcon {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-15px) rotate(5deg); }
+      50% { transform: translateY(-5px) rotate(0deg); }
+      75% { transform: translateY(-20px) rotate(-5deg); }
+    }
+
+    @keyframes floatIconSlow {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-25px) rotate(10deg); }
+    }
+
+    @keyframes floatIconReverse {
+      0%, 100% { transform: translateY(-10px) rotate(5deg); }
+      50% { transform: translateY(10px) rotate(-5deg); }
+    }
+
+    .floating-icon {
+      position: absolute;
+      opacity: 0.15;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .float-1 { animation: floatIcon 6s ease-in-out infinite; }
+    .float-2 { animation: floatIconSlow 8s ease-in-out infinite; }
+    .float-3 { animation: floatIconReverse 7s ease-in-out infinite; }
+    .float-4 { animation: floatIcon 5s ease-in-out infinite 0.5s; }
+    .float-5 { animation: floatIconSlow 9s ease-in-out infinite 1s; }
+    .float-6 { animation: floatIconReverse 6s ease-in-out infinite 0.3s; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -108,19 +138,45 @@
     </div>
   </header>
 
-  <!-- Hero Section with Background Image -->
+  <!-- Hero Section with Floating Icons -->
   <section class="hero-bg py-16 md:py-24">
-    <div class="container mx-auto px-4">
+    <!-- Floating Decorative Icons -->
+    <div class="floating-icon float-1 text-primary-500" style="top: 10%; left: 5%; font-size: 4rem;">
+      <i data-lucide="recycle" class="w-16 h-16"></i>
+    </div>
+    <div class="floating-icon float-2 text-primary-400" style="top: 20%; right: 10%; font-size: 3rem;">
+      <i data-lucide="leaf" class="w-12 h-12"></i>
+    </div>
+    <div class="floating-icon float-3 text-primary-600" style="top: 60%; left: 8%; font-size: 2.5rem;">
+      <i data-lucide="trash-2" class="w-10 h-10"></i>
+    </div>
+    <div class="floating-icon float-4 text-primary-300" style="top: 70%; right: 5%; font-size: 3.5rem;">
+      <i data-lucide="trees" class="w-14 h-14"></i>
+    </div>
+    <div class="floating-icon float-5 text-primary-500" style="top: 40%; left: 3%; font-size: 2rem;">
+      <i data-lucide="sprout" class="w-8 h-8"></i>
+    </div>
+    <div class="floating-icon float-6 text-primary-400" style="top: 15%; right: 25%; font-size: 2.5rem;">
+      <i data-lucide="truck" class="w-10 h-10"></i>
+    </div>
+    <div class="floating-icon float-1 text-primary-300" style="top: 80%; left: 20%; font-size: 2rem;">
+      <i data-lucide="droplets" class="w-8 h-8"></i>
+    </div>
+    <div class="floating-icon float-3 text-primary-500" style="top: 50%; right: 15%; font-size: 3rem;">
+      <i data-lucide="globe" class="w-12 h-12"></i>
+    </div>
+
+    <div class="container mx-auto px-4 relative z-10">
       <div class="text-center max-w-3xl mx-auto animate-fade-in-up">
-        <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-6">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 rounded-full text-primary-700 text-sm font-medium mb-6">
           <i data-lucide="map-pin" class="w-4 h-4"></i>
           Mati City, Davao Oriental
         </div>
-        <h2 class="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+        <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
           Smart Waste Collection for a
-          <span class="text-primary-300">Cleaner City</span>
+          <span class="text-primary-500">Cleaner City</span>
         </h2>
-        <p class="text-lg text-gray-100 mb-8 drop-shadow">
+        <p class="text-lg text-gray-600 mb-8">
           Report waste issues, track collection schedules, and help keep our community clean with Kolek-Ta's integrated waste management system.
         </p>
       </div>
