@@ -77,9 +77,17 @@
       transform: translateY(-5px);
       box-shadow: 0 20px 40px rgba(0,0,0,0.1);
     }
+
+    .hero-bg {
+      background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
+                        url('https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=1920&q=80');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
   </style>
 </head>
-<body class="bg-pattern min-h-screen">
+<body class="min-h-screen">
 
   <!-- Header -->
   <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
@@ -100,24 +108,25 @@
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="container mx-auto px-4 py-12 md:py-20">
-    <div class="text-center max-w-3xl mx-auto animate-fade-in-up">
-      <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 rounded-full text-primary-700 text-sm font-medium mb-6">
-        <i data-lucide="map-pin" class="w-4 h-4"></i>
-        Mati City, Davao Oriental
+  <!-- Hero Section with Background Image -->
+  <section class="hero-bg py-16 md:py-24">
+    <div class="container mx-auto px-4">
+      <div class="text-center max-w-3xl mx-auto animate-fade-in-up">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-6">
+          <i data-lucide="map-pin" class="w-4 h-4"></i>
+          Mati City, Davao Oriental
+        </div>
+        <h2 class="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+          Smart Waste Collection for a
+          <span class="text-primary-300">Cleaner City</span>
+        </h2>
+        <p class="text-lg text-gray-100 mb-8 drop-shadow">
+          Report waste issues, track collection schedules, and help keep our community clean with Kolek-Ta's integrated waste management system.
+        </p>
       </div>
-      <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-        Smart Waste Collection for a
-        <span class="text-primary-500">Cleaner City</span>
-      </h2>
-      <p class="text-lg text-gray-600 mb-8">
-        Report waste issues, track collection schedules, and help keep our community clean with Kolek-Ta's integrated waste management system.
-      </p>
-    </div>
 
-    <!-- Main Action Cards -->
-    <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
+      <!-- Main Action Cards -->
+      <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
 
       <!-- Report an Issue Card -->
       <a href="/complaint" class="card-hover bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in-up-delay-1">
@@ -165,6 +174,7 @@
           <i data-lucide="arrow-right" class="w-5 h-5"></i>
         </div>
       </a>
+      </div>
     </div>
   </section>
 
