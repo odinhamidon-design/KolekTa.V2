@@ -359,6 +359,121 @@ function showConfirm(title, message, type = 'warning') {
 // END TOAST NOTIFICATION SYSTEM
 // ============================================
 
+// ============================================
+// TABLE SORTING SYSTEM
+// ============================================
+
+// Sort state for each module
+const sortState = {
+  users: { column: null, direction: 'asc' },
+  trucks: { column: null, direction: 'asc' },
+  routes: { column: null, direction: 'asc' },
+  complaints: { column: null, direction: 'asc' },
+  schedules: { column: null, direction: 'asc' },
+  reports: { column: null, direction: 'asc' }
+};
+
+// Generic sort function for arrays
+function sortData(data, column, direction, customSort = null) {
+  if (!column) return data;
+
+  return [...data].sort((a, b) => {
+    let valA, valB;
+
+    // Handle custom sort functions
+    if (customSort && customSort[column]) {
+      valA = customSort[column](a);
+      valB = customSort[column](b);
+    } else {
+      // Handle nested properties (e.g., 'user.name')
+      valA = column.split('.').reduce((obj, key) => obj?.[key], a);
+      valB = column.split('.').reduce((obj, key) => obj?.[key], b);
+    }
+
+    // Handle null/undefined values
+    if (valA == null && valB == null) return 0;
+    if (valA == null) return direction === 'asc' ? 1 : -1;
+    if (valB == null) return direction === 'asc' ? -1 : 1;
+
+    // Handle different types
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return direction === 'asc' ? valA - valB : valB - valA;
+    }
+
+    if (valA instanceof Date && valB instanceof Date) {
+      return direction === 'asc' ? valA - valB : valB - valA;
+    }
+
+    // Handle date strings
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      const dateA = new Date(valA);
+      const dateB = new Date(valB);
+      if (!isNaN(dateA) && !isNaN(dateB) && valA.includes('-')) {
+        return direction === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+    }
+
+    // Default string comparison
+    const strA = String(valA).toLowerCase();
+    const strB = String(valB).toLowerCase();
+    if (strA < strB) return direction === 'asc' ? -1 : 1;
+    if (strA > strB) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+// Toggle sort direction and update state
+function toggleSort(module, column) {
+  const state = sortState[module];
+  if (state.column === column) {
+    state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.column = column;
+    state.direction = 'asc';
+  }
+  return state;
+}
+
+// Generate sortable table header
+function createSortableHeader(module, columns) {
+  const state = sortState[module];
+  return columns.map(col => {
+    if (!col.sortable) {
+      return `<th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${col.label}</th>`;
+    }
+
+    const isActive = state.column === col.key;
+    const icon = isActive
+      ? (state.direction === 'asc' ? 'arrow-up' : 'arrow-down')
+      : 'arrow-up-down';
+    const activeClass = isActive ? 'text-primary-600' : 'text-gray-400';
+
+    return `
+      <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+          onclick="handleSort('${module}', '${col.key}')">
+        <div class="flex items-center gap-1">
+          <span>${col.label}</span>
+          <i data-lucide="${icon}" class="w-3 h-3 ${activeClass}"></i>
+        </div>
+      </th>
+    `;
+  }).join('');
+}
+
+// Handle sort click - will be overridden by each module's refresh function
+const sortHandlers = {};
+
+function handleSort(module, column) {
+  toggleSort(module, column);
+  if (sortHandlers[module]) {
+    sortHandlers[module]();
+  }
+}
+
+// ============================================
+// END TABLE SORTING SYSTEM
+// ============================================
+
 // Check authentication
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -1287,65 +1402,104 @@ function showMapView() {
   if (pageContainer) pageContainer.classList.add('hidden');
 }
 
+// Store users data for sorting
+let cachedUsersData = [];
+
 async function showUserManagement() {
   showPageLoading('Loading users...');
   try {
     const response = await fetch(`${API_URL}/users`);
-    const users = await response.json();
+    cachedUsersData = await response.json();
 
-    const admins = users.filter(u => u.role === 'admin');
-    const drivers = users.filter(u => u.role === 'driver');
-    const activeCount = users.filter(u => u.isActive).length;
+    // Register sort handler
+    sortHandlers.users = () => renderUserTable();
 
-    const userRows = users.map(u => {
-      const statusColor = u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-      const roleColor = u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
-      const initial = (u.fullName || u.username || 'U').charAt(0).toUpperCase();
+    renderUserTable();
+  } catch (error) {
+    console.error('Error loading users:', error);
+    hidePageLoading();
+    showPage('User Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading users: ${error.message}</p>
+        <button onclick="showUserManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
 
-      return `
-        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-          <td class="px-4 py-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold">
-                ${initial}
-              </div>
-              <div>
-                <div class="font-medium text-gray-800">${u.username}</div>
-                <div class="text-sm text-gray-500">${u.email}</div>
-              </div>
+function renderUserTable() {
+  const users = cachedUsersData;
+
+  // Apply sorting
+  const { column, direction } = sortState.users;
+  const sortedUsers = sortData(users, column, direction);
+
+  const admins = users.filter(u => u.role === 'admin');
+  const drivers = users.filter(u => u.role === 'driver');
+  const activeCount = users.filter(u => u.isActive).length;
+
+  // Define sortable columns
+  const columns = [
+    { key: 'username', label: 'User', sortable: true },
+    { key: 'fullName', label: 'Full Name', sortable: true },
+    { key: 'phoneNumber', label: 'Phone', sortable: true },
+    { key: 'role', label: 'Role', sortable: true },
+    { key: 'isActive', label: 'Status', sortable: true },
+    { key: 'actions', label: 'Actions', sortable: false }
+  ];
+
+  const userRows = sortedUsers.map(u => {
+    const statusColor = u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+    const roleColor = u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+    const initial = (u.fullName || u.username || 'U').charAt(0).toUpperCase();
+
+    return `
+      <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+        <td class="px-4 py-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold">
+              ${initial}
             </div>
-          </td>
-          <td class="px-4 py-4 text-gray-700">${u.fullName || '-'}</td>
-          <td class="px-4 py-4 text-gray-600">${u.phoneNumber || '-'}</td>
-          <td class="px-4 py-4">
-            <span class="px-3 py-1 rounded-full text-xs font-medium ${roleColor}">
-              ${u.role === 'admin' ? 'Admin' : 'Driver'}
-            </span>
-          </td>
-          <td class="px-4 py-4">
-            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">
-              ${u.isActive ? 'Active' : 'Inactive'}
-            </span>
-          </td>
-          <td class="px-4 py-4">
-            <div class="flex items-center gap-2">
-              <button onclick="editUser('${u._id || u.username}')" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
-                <i data-lucide="pencil" class="w-4 h-4 text-gray-600"></i>
+            <div>
+              <div class="font-medium text-gray-800">${u.username}</div>
+              <div class="text-sm text-gray-500">${u.email}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-4 py-4 text-gray-700">${u.fullName || '-'}</td>
+        <td class="px-4 py-4 text-gray-600">${u.phoneNumber || '-'}</td>
+        <td class="px-4 py-4">
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${roleColor}">
+            ${u.role === 'admin' ? 'Admin' : 'Driver'}
+          </span>
+        </td>
+        <td class="px-4 py-4">
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">
+            ${u.isActive ? 'Active' : 'Inactive'}
+          </span>
+        </td>
+        <td class="px-4 py-4">
+          <div class="flex items-center gap-2">
+            <button onclick="editUser('${u._id || u.username}')" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
+              <i data-lucide="pencil" class="w-4 h-4 text-gray-600"></i>
+            </button>
+            ${u.role !== 'admin' ? `
+              <button onclick="deleteUser('${u._id || u.username}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
               </button>
-              ${u.role !== 'admin' ? `
-                <button onclick="deleteUser('${u._id || u.username}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
-                  <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
-                </button>
-              ` : `
-                <span class="p-2 text-gray-400" title="Protected account">
-                  <i data-lucide="shield" class="w-4 h-4"></i>
-                </span>
-              `}
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+            ` : `
+              <span class="p-2 text-gray-400" title="Protected account">
+                <i data-lucide="shield" class="w-4 h-4"></i>
+              </span>
+            `}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
     hidePageLoading();
     showPage('User Management', `
@@ -1405,12 +1559,7 @@ async function showUserManagement() {
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                ${createSortableHeader('users', columns)}
               </tr>
             </thead>
             <tbody>
@@ -1420,19 +1569,6 @@ async function showUserManagement() {
         </div>
       </div>
     `);
-  } catch (error) {
-    console.error('Error loading users:', error);
-    hidePageLoading();
-    showPage('User Management', `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
-        <p class="text-red-700">Error loading users: ${error.message}</p>
-        <button onclick="showUserManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-          Try Again
-        </button>
-      </div>
-    `);
-  }
 }
 
 window.showAddUserForm = function() {
@@ -1646,6 +1782,9 @@ window.deleteUser = async function(userId) {
 };
 
 // Truck Management Functions
+let cachedTrucksData = [];
+let cachedTruckDrivers = [];
+
 async function showTruckManagement() {
   showPageLoading('Loading trucks...');
   try {
@@ -1657,17 +1796,56 @@ async function showTruckManagement() {
     if (!trucksRes.ok) throw new Error(`Failed to load trucks: ${trucksRes.status}`);
     if (!usersRes.ok) throw new Error(`Failed to load users: ${usersRes.status}`);
 
-    const trucks = await trucksRes.json();
+    cachedTrucksData = await trucksRes.json();
     const users = await usersRes.json();
-    const drivers = users.filter(u => u.role === 'driver');
+    cachedTruckDrivers = users.filter(u => u.role === 'driver');
 
-    // Stats
-    const availableCount = trucks.filter(t => t.status === 'available').length;
-    const inUseCount = trucks.filter(t => t.status === 'in-use').length;
-    const maintenanceCount = trucks.filter(t => t.status === 'maintenance').length;
-    const lowFuelCount = trucks.filter(t => t.fuelLevel < 25).length;
+    // Register sort handler
+    sortHandlers.trucks = () => renderTruckTable();
 
-    const truckRows = trucks.map(t => {
+    renderTruckTable();
+  } catch (error) {
+    console.error('Error loading trucks:', error);
+    hidePageLoading();
+    showPage('Truck Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading trucks: ${error.message}</p>
+        <button onclick="showTruckManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
+
+function renderTruckTable() {
+  const trucks = cachedTrucksData;
+  const drivers = cachedTruckDrivers;
+
+  // Apply sorting
+  const { column, direction } = sortState.trucks;
+  const sortedTrucks = sortData(trucks, column, direction);
+
+  // Stats
+  const availableCount = trucks.filter(t => t.status === 'available').length;
+  const inUseCount = trucks.filter(t => t.status === 'in-use').length;
+  const maintenanceCount = trucks.filter(t => t.status === 'maintenance').length;
+  const lowFuelCount = trucks.filter(t => t.fuelLevel < 25).length;
+
+  // Define sortable columns
+  const columns = [
+    { key: 'truckId', label: 'Truck', sortable: true },
+    { key: 'model', label: 'Model', sortable: true },
+    { key: 'capacity', label: 'Capacity', sortable: true },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'assignedDriver', label: 'Driver', sortable: true },
+    { key: 'fuelLevel', label: 'Fuel', sortable: true },
+    { key: 'mileage', label: 'Mileage', sortable: true },
+    { key: 'actions', label: 'Actions', sortable: false }
+  ];
+
+  const truckRows = sortedTrucks.map(t => {
       const driver = drivers.find(d => d.username === t.assignedDriver);
       const statusColors = {
         'available': 'bg-green-100 text-green-700',
@@ -1802,14 +1980,7 @@ async function showTruckManagement() {
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Truck</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Model</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Capacity</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fuel</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mileage</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                ${createSortableHeader('trucks', columns)}
               </tr>
             </thead>
             <tbody>
@@ -1819,19 +1990,6 @@ async function showTruckManagement() {
         </div>
       </div>
     `);
-  } catch (error) {
-    console.error('Error loading trucks:', error);
-    hidePageLoading();
-    showPage('Truck Management', `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
-        <p class="text-red-700">Error loading trucks: ${error.message}</p>
-        <button onclick="showTruckManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-          Try Again
-        </button>
-      </div>
-    `);
-  }
 }
 
 window.showAddTruckForm = function() {
@@ -2158,6 +2316,8 @@ window.deleteTruck = async function(truckId) {
 let routeLocations = [];
 let tempMarkers = [];
 let isAddingLocation = false;
+let cachedRoutesData = [];
+let cachedRouteDrivers = [];
 
 async function showRoutesManagement() {
   showPageLoading('Loading routes...');
@@ -2170,17 +2330,57 @@ async function showRoutesManagement() {
       fetch(`${API_URL}/users`, { headers })
     ]);
 
-    const routes = await routesRes.json();
+    cachedRoutesData = await routesRes.json();
     const users = await usersRes.json();
-    const drivers = users.filter(u => u.role === 'driver');
+    cachedRouteDrivers = users.filter(u => u.role === 'driver');
 
-    // Stats
-    const plannedCount = routes.filter(r => r.status === 'planned').length;
-    const activeCount = routes.filter(r => r.status === 'active').length;
-    const completedCount = routes.filter(r => r.status === 'completed').length;
-    const assignedCount = routes.filter(r => r.assignedDriver).length;
+    // Register sort handler
+    sortHandlers.routes = () => renderRoutesTable();
 
-    const routeRows = routes.map(r => {
+    renderRoutesTable();
+  } catch (error) {
+    console.error('Error loading routes:', error);
+    hidePageLoading();
+    showPage('Routes Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading routes: ${error.message}</p>
+        <button onclick="showRoutesManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
+
+function renderRoutesTable() {
+  const routes = cachedRoutesData;
+  const drivers = cachedRouteDrivers;
+
+  // Apply sorting with custom sort for nested properties
+  const { column, direction } = sortState.routes;
+  const customSort = {
+    locationCount: (r) => r.path ? r.path.coordinates.length : 0
+  };
+  const sortedRoutes = sortData(routes, column, direction, customSort);
+
+  // Stats
+  const plannedCount = routes.filter(r => r.status === 'planned').length;
+  const activeCount = routes.filter(r => r.status === 'active').length;
+  const completedCount = routes.filter(r => r.status === 'completed').length;
+  const assignedCount = routes.filter(r => r.assignedDriver).length;
+
+  // Define sortable columns
+  const columns = [
+    { key: 'routeId', label: 'Route', sortable: true },
+    { key: 'locationCount', label: 'Locations', sortable: true },
+    { key: 'distance', label: 'Distance', sortable: true },
+    { key: 'assignedDriver', label: 'Driver', sortable: true },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'actions', label: 'Actions', sortable: false }
+  ];
+
+  const routeRows = sortedRoutes.map(r => {
       const driver = drivers.find(d => d.username === r.assignedDriver);
       const isAssigned = !!r.assignedDriver;
       const locationCount = r.path ? r.path.coordinates.length : 0;
@@ -2325,12 +2525,7 @@ async function showRoutesManagement() {
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Route</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Locations</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Distance</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                ${createSortableHeader('routes', columns)}
               </tr>
             </thead>
             <tbody>
@@ -2340,19 +2535,6 @@ async function showRoutesManagement() {
         </div>
       </div>
     `);
-  } catch (error) {
-    console.error('Error loading routes:', error);
-    hidePageLoading();
-    showPage('Routes Management', `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
-        <p class="text-red-700">Error loading routes: ${error.message}</p>
-        <button onclick="showRoutesManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-          Try Again
-        </button>
-      </div>
-    `);
-  }
 }
 
 window.showAddRouteForm = function() {
@@ -9781,6 +9963,111 @@ function updateComplaintsBadge(count) {
   }
 }
 
+// Cached data for complaints sorting
+let cachedComplaintsData = [];
+let cachedComplaintsStats = {};
+let cachedComplaintsDrivers = [];
+
+// Complaints table column configuration
+const complaintsColumns = [
+  { key: 'referenceNumber', label: 'Reference', sortable: true },
+  { key: 'reportType', label: 'Type', sortable: true },
+  { key: 'name', label: 'Reporter', sortable: true },
+  { key: 'description', label: 'Description', sortable: false },
+  { key: 'status', label: 'Status', sortable: true },
+  { key: 'createdAt', label: 'Submitted', sortable: true },
+  { key: 'actions', label: 'Actions', sortable: false }
+];
+
+const complaintsStatusColors = {
+  'pending': 'bg-yellow-100 text-yellow-700',
+  'in-progress': 'bg-blue-100 text-blue-700',
+  'resolved': 'bg-green-100 text-green-700',
+  'closed': 'bg-gray-100 text-gray-700'
+};
+
+const reportTypeLabels = {
+  'missed_collection': { label: 'Missed Collection', color: 'bg-orange-100 text-orange-700' },
+  'illegal_dumping': { label: 'Illegal Dumping', color: 'bg-red-100 text-red-700' },
+  'overflowing_bin': { label: 'Overflowing Bin', color: 'bg-purple-100 text-purple-700' },
+  'damaged_bin': { label: 'Damaged Bin', color: 'bg-amber-100 text-amber-700' },
+  'odor_complaint': { label: 'Odor Complaint', color: 'bg-teal-100 text-teal-700' },
+  'other': { label: 'Other', color: 'bg-gray-100 text-gray-700' }
+};
+
+// Render complaints table with current sort state
+function renderComplaintsTable() {
+  const { column, direction } = sortState.complaints;
+  const sortedComplaints = sortData(cachedComplaintsData, column, direction);
+  const stats = cachedComplaintsStats;
+
+  const complaintRows = sortedComplaints.map(c => {
+    const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+    const reportType = c.reportType || 'missed_collection';
+    const typeInfo = reportTypeLabels[reportType] || reportTypeLabels['other'];
+
+    return `
+      <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${c.isNew ? 'bg-yellow-50' : ''}">
+        <td class="px-4 py-4">
+          <div class="flex items-center gap-2">
+            ${c.isNew ? '<span class="w-2 h-2 bg-yellow-500 rounded-full"></span>' : ''}
+            <span class="font-mono text-sm text-gray-800">${c.referenceNumber}</span>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <span class="px-2 py-1 rounded-full text-xs font-medium ${typeInfo.color}">
+            ${typeInfo.label}
+          </span>
+        </td>
+        <td class="px-4 py-4">
+          <div>
+            <div class="font-medium text-gray-800">${c.name}</div>
+            <div class="text-sm text-gray-500">${c.barangay}</div>
+          </div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="text-sm text-gray-600 max-w-xs truncate" title="${c.description}">${c.description}</div>
+        </td>
+        <td class="px-4 py-4">
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${complaintsStatusColors[c.status] || 'bg-gray-100 text-gray-700'}">
+            ${c.status}
+          </span>
+        </td>
+        <td class="px-4 py-4 text-sm text-gray-500">${createdDate}</td>
+        <td class="px-4 py-4">
+          <div class="flex items-center gap-1">
+            <button onclick="viewComplaint('${c._id || c.referenceNumber}')" class="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="View Details">
+              <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
+            </button>
+            <button onclick="showUpdateComplaintForm('${c._id || c.referenceNumber}')" class="p-2 hover:bg-green-100 rounded-lg transition-colors" title="Update">
+              <i data-lucide="pencil" class="w-4 h-4 text-green-600"></i>
+            </button>
+            <button onclick="deleteComplaint('${c._id || c.referenceNumber}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+              <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Update table body
+  const tbody = document.querySelector('#pageContent table tbody');
+  if (tbody) {
+    tbody.innerHTML = complaintRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No reports found</td></tr>';
+    lucide.createIcons();
+  }
+
+  // Update table header
+  const thead = document.querySelector('#pageContent table thead tr');
+  if (thead) {
+    thead.innerHTML = createSortableHeader('complaints', complaintsColumns);
+    lucide.createIcons();
+  }
+}
+
 // Main complaints management view
 async function showComplaints() {
   if (user.role !== 'admin') {
@@ -9798,28 +10085,19 @@ async function showComplaints() {
       fetch(`${API_URL}/users`, { headers: { 'Authorization': `Bearer ${token}` } })
     ]);
 
-    const complaints = await complaintsRes.json();
-    const stats = await statsRes.json();
+    cachedComplaintsData = await complaintsRes.json();
+    cachedComplaintsStats = await statsRes.json();
     const users = await usersRes.json();
-    const drivers = users.filter(u => u.role === 'driver');
+    cachedComplaintsDrivers = users.filter(u => u.role === 'driver');
 
-    const statusColors = {
-      'pending': 'bg-yellow-100 text-yellow-700',
-      'in-progress': 'bg-blue-100 text-blue-700',
-      'resolved': 'bg-green-100 text-green-700',
-      'closed': 'bg-gray-100 text-gray-700'
-    };
+    // Register sort handler
+    sortHandlers.complaints = renderComplaintsTable;
 
-    const reportTypeLabels = {
-      'missed_collection': { label: 'Missed Collection', color: 'bg-orange-100 text-orange-700' },
-      'illegal_dumping': { label: 'Illegal Dumping', color: 'bg-red-100 text-red-700' },
-      'overflowing_bin': { label: 'Overflowing Bin', color: 'bg-purple-100 text-purple-700' },
-      'damaged_bin': { label: 'Damaged Bin', color: 'bg-amber-100 text-amber-700' },
-      'odor_complaint': { label: 'Odor Complaint', color: 'bg-teal-100 text-teal-700' },
-      'other': { label: 'Other', color: 'bg-gray-100 text-gray-700' }
-    };
+    const stats = cachedComplaintsStats;
+    const { column, direction } = sortState.complaints;
+    const sortedComplaints = sortData(cachedComplaintsData, column, direction);
 
-    const complaintRows = complaints.map(c => {
+    const complaintRows = sortedComplaints.map(c => {
       const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric'
       });
@@ -9993,13 +10271,7 @@ async function showComplaints() {
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reporter</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                ${createSortableHeader('complaints', complaintsColumns)}
               </tr>
             </thead>
             <tbody>
@@ -10010,9 +10282,9 @@ async function showComplaints() {
       </div>
     `);
 
-    // Store data for filtering
-    window.complaintsData = complaints;
-    window.driversData = drivers;
+    // Store data for filtering (also update cached data)
+    window.complaintsData = cachedComplaintsData;
+    window.driversData = cachedComplaintsDrivers;
 
   } catch (error) {
     console.error('Error loading complaints:', error);
@@ -10450,6 +10722,94 @@ window.showComplaints = showComplaints;
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// Cached data for schedules sorting
+let cachedSchedulesData = [];
+let cachedSchedulesStats = {};
+let cachedScheduleRoutes = [];
+let cachedScheduleDrivers = [];
+let cachedScheduleTrucks = [];
+
+// Schedules table column configuration
+const schedulesColumns = [
+  { key: 'name', label: 'Schedule', sortable: true },
+  { key: 'routeName', label: 'Route', sortable: true },
+  { key: 'recurrenceType', label: 'Pattern', sortable: true },
+  { key: 'assignedDriver', label: 'Assignment', sortable: true },
+  { key: 'isActive', label: 'Status', sortable: true },
+  { key: 'actions', label: 'Actions', sortable: false }
+];
+
+// Render schedules table with current sort state
+function renderSchedulesTable() {
+  const { column, direction } = sortState.schedules;
+  const sortedSchedules = sortData(cachedSchedulesData, column, direction);
+
+  const scheduleRows = sortedSchedules.map(s => {
+    // Format recurrence pattern
+    let patternText = '';
+    if (s.recurrenceType === 'daily') {
+      patternText = 'Daily';
+    } else if (s.recurrenceType === 'weekly') {
+      const days = (s.weeklyDays || []).map(d => DAYS_OF_WEEK[d].slice(0, 3)).join(', ');
+      patternText = `Weekly: ${days}`;
+    } else if (s.recurrenceType === 'monthly') {
+      const dates = (s.monthlyDates || []).join(', ');
+      patternText = `Monthly: ${dates}`;
+    }
+
+    const statusColor = s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
+    const statusText = s.isActive ? 'Active' : 'Inactive';
+
+    return `
+      <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+        <td class="px-4 py-4">
+          <div class="font-medium text-gray-800">${s.name}</div>
+          <div class="text-sm text-gray-500">${s.scheduleId}</div>
+        </td>
+        <td class="px-4 py-4 text-gray-600">${s.routeName || 'Unknown Route'}</td>
+        <td class="px-4 py-4">
+          <div class="text-sm text-gray-600">${patternText}</div>
+          <div class="text-xs text-gray-400">at ${s.scheduledTime || '07:00'}</div>
+        </td>
+        <td class="px-4 py-4">
+          <div class="text-sm text-gray-600">${s.assignedDriver || '-'}</div>
+          <div class="text-xs text-gray-400">${s.assignedVehicle || '-'}</div>
+        </td>
+        <td class="px-4 py-4">
+          <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">${statusText}</span>
+        </td>
+        <td class="px-4 py-4">
+          <div class="flex items-center gap-1">
+            <button onclick="editSchedule('${s.scheduleId || s._id}')" class="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="Edit">
+              <i data-lucide="pencil" class="w-4 h-4 text-blue-600"></i>
+            </button>
+            <button onclick="toggleScheduleStatus('${s.scheduleId || s._id}')" class="p-2 hover:bg-yellow-100 rounded-lg transition-colors" title="${s.isActive ? 'Deactivate' : 'Activate'}">
+              <i data-lucide="${s.isActive ? 'pause' : 'play'}" class="w-4 h-4 text-yellow-600"></i>
+            </button>
+            <button onclick="deleteSchedule('${s.scheduleId || s._id}')" class="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+              <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Update table body
+  const tbody = document.querySelector('#pageContent table tbody');
+  if (tbody) {
+    tbody.innerHTML = scheduleRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No schedules found. Click "Add Schedule" to create one.</td></tr>';
+    lucide.createIcons();
+  }
+
+  // Update table header
+  const thead = document.querySelector('#pageContent table thead tr');
+  if (thead) {
+    thead.innerHTML = createSortableHeader('schedules', schedulesColumns);
+    lucide.createIcons();
+  }
+}
+
 async function showScheduleManagement() {
   if (user.role !== 'admin') {
     showToast('Admin access required', 'error');
@@ -10470,16 +10830,28 @@ async function showScheduleManagement() {
       fetch(`${API_URL}/trucks`, { headers: { 'Authorization': `Bearer ${token}` } })
     ]);
 
-    const schedules = await schedulesRes.json();
-    const stats = await statsRes.json();
-    const routes = await routesRes.json();
+    cachedSchedulesData = await schedulesRes.json();
+    cachedSchedulesStats = await statsRes.json();
+    cachedScheduleRoutes = await routesRes.json();
     const users = await usersRes.json();
-    const trucks = await trucksRes.json();
+    cachedScheduleTrucks = await trucksRes.json();
+    cachedScheduleDrivers = users.filter(u => u.role === 'driver');
 
-    const drivers = users.filter(u => u.role === 'driver');
+    // Register sort handler
+    sortHandlers.schedules = renderSchedulesTable;
+
+    const schedules = cachedSchedulesData;
+    const stats = cachedSchedulesStats;
+    const routes = cachedScheduleRoutes;
+    const trucks = cachedScheduleTrucks;
+    const drivers = cachedScheduleDrivers;
+
+    // Apply sorting to schedule rows
+    const { column, direction } = sortState.schedules;
+    const sortedSchedules = sortData(schedules, column, direction);
 
     // Generate schedule rows
-    const scheduleRows = schedules.map(s => {
+    const scheduleRows = sortedSchedules.map(s => {
       // Format recurrence pattern
       let patternText = '';
       if (s.recurrenceType === 'daily') {
@@ -10604,12 +10976,7 @@ async function showScheduleManagement() {
             <table class="w-full">
               <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Schedule</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Route</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pattern</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assignment</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  ${createSortableHeader('schedules', schedulesColumns)}
                 </tr>
               </thead>
               <tbody>
