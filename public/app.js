@@ -9810,13 +9810,24 @@ async function showComplaints() {
       'closed': 'bg-gray-100 text-gray-700'
     };
 
+    const reportTypeLabels = {
+      'missed_collection': { label: 'Missed Collection', color: 'bg-orange-100 text-orange-700' },
+      'illegal_dumping': { label: 'Illegal Dumping', color: 'bg-red-100 text-red-700' },
+      'overflowing_bin': { label: 'Overflowing Bin', color: 'bg-purple-100 text-purple-700' },
+      'damaged_bin': { label: 'Damaged Bin', color: 'bg-amber-100 text-amber-700' },
+      'odor_complaint': { label: 'Odor Complaint', color: 'bg-teal-100 text-teal-700' },
+      'other': { label: 'Other', color: 'bg-gray-100 text-gray-700' }
+    };
+
     const complaintRows = complaints.map(c => {
       const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric'
       });
-      const missedDate = new Date(c.missedCollectionDate).toLocaleDateString('en-US', {
+      const missedDate = c.missedCollectionDate ? new Date(c.missedCollectionDate).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric'
-      });
+      }) : '-';
+      const reportType = c.reportType || 'missed_collection';
+      const typeInfo = reportTypeLabels[reportType] || reportTypeLabels['other'];
 
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${c.isNew ? 'bg-yellow-50' : ''}">
@@ -9827,6 +9838,11 @@ async function showComplaints() {
             </div>
           </td>
           <td class="px-4 py-4">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${typeInfo.color}">
+              ${typeInfo.label}
+            </span>
+          </td>
+          <td class="px-4 py-4">
             <div>
               <div class="font-medium text-gray-800">${c.name}</div>
               <div class="text-sm text-gray-500">${c.barangay}</div>
@@ -9835,7 +9851,6 @@ async function showComplaints() {
           <td class="px-4 py-4">
             <div class="text-sm text-gray-600 max-w-xs truncate" title="${c.description}">${c.description}</div>
           </td>
-          <td class="px-4 py-4 text-sm text-gray-600">${missedDate}</td>
           <td class="px-4 py-4">
             <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-700'}">
               ${c.status}
@@ -9929,6 +9944,18 @@ async function showComplaints() {
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
         <div class="flex flex-wrap items-center gap-4">
           <div>
+            <label class="block text-xs text-gray-500 mb-1">Report Type</label>
+            <select id="filterReportType" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+              <option value="">All Types</option>
+              <option value="missed_collection">Missed Collection</option>
+              <option value="illegal_dumping">Illegal Dumping</option>
+              <option value="overflowing_bin">Overflowing Bin</option>
+              <option value="damaged_bin">Damaged Bin</option>
+              <option value="odor_complaint">Odor Complaint</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
             <label class="block text-xs text-gray-500 mb-1">Status</label>
             <select id="filterStatus" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
               <option value="">All Status</option>
@@ -9960,23 +9987,23 @@ async function showComplaints() {
         </div>
       </div>
 
-      <!-- Complaints Table -->
+      <!-- Reports Table -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reference</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Complainant</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reporter</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Missed Date</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
-              ${complaintRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No complaints found</td></tr>'}
+              ${complaintRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No reports found</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -10004,12 +10031,14 @@ async function showComplaints() {
 
 // Filter complaints table
 window.filterComplaints = async function() {
+  const reportType = document.getElementById('filterReportType').value;
   const status = document.getElementById('filterStatus').value;
   const barangay = document.getElementById('filterBarangay').value;
 
   try {
     const token = localStorage.getItem('token');
     let url = `${API_URL}/complaints?`;
+    if (reportType) url += `reportType=${reportType}&`;
     if (status) url += `status=${status}&`;
     if (barangay) url += `barangay=${encodeURIComponent(barangay)}`;
 
@@ -10047,9 +10076,9 @@ window.viewComplaint = async function(id) {
     }
 
     const createdDate = new Date(complaint.createdAt).toLocaleString();
-    const missedDate = new Date(complaint.missedCollectionDate).toLocaleDateString('en-US', {
+    const missedDate = complaint.missedCollectionDate ? new Date(complaint.missedCollectionDate).toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
+    }) : null;
 
     const statusColors = {
       'pending': 'bg-yellow-100 text-yellow-700',
@@ -10058,26 +10087,47 @@ window.viewComplaint = async function(id) {
       'closed': 'bg-gray-100 text-gray-700'
     };
 
+    const reportTypeLabels = {
+      'missed_collection': { label: 'Missed Collection', color: 'bg-orange-100 text-orange-700' },
+      'illegal_dumping': { label: 'Illegal Dumping', color: 'bg-red-100 text-red-700' },
+      'overflowing_bin': { label: 'Overflowing Bin', color: 'bg-purple-100 text-purple-700' },
+      'damaged_bin': { label: 'Damaged Bin', color: 'bg-amber-100 text-amber-700' },
+      'odor_complaint': { label: 'Odor Complaint', color: 'bg-teal-100 text-teal-700' },
+      'other': { label: 'Other', color: 'bg-gray-100 text-gray-700' }
+    };
+
+    const reportType = complaint.reportType || 'missed_collection';
+    const typeInfo = reportTypeLabels[reportType] || reportTypeLabels['other'];
+
     const photosHtml = complaint.photos && complaint.photos.length > 0
       ? complaint.photos.map((photo, index) =>
           `<img src="${photo}" class="w-24 h-24 object-cover rounded-lg cursor-pointer border-2 border-gray-200 hover:border-blue-500 transition-colors" onclick="openComplaintPhoto('${index}', '${complaint.referenceNumber}')" title="Click to view">`
         ).join('')
       : '<p class="text-gray-500 text-sm">No photos attached</p>';
 
-    showModal(`Complaint: ${complaint.referenceNumber}`, `
+    // Check if location is available
+    const hasLocation = complaint.location && complaint.location.coordinates && complaint.location.coordinates.length === 2;
+    const locationMapId = 'complaintLocationMap_' + Date.now();
+
+    showModal(`Report: ${complaint.referenceNumber}`, `
       <div class="space-y-4">
-        <!-- Status Badge -->
-        <div class="flex items-center justify-between">
-          <span class="px-4 py-2 rounded-full text-sm font-medium ${statusColors[complaint.status]}">
-            ${complaint.status.toUpperCase()}
-          </span>
+        <!-- Status and Type Badges -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full text-sm font-medium ${typeInfo.color}">
+              ${typeInfo.label}
+            </span>
+            <span class="px-3 py-1 rounded-full text-sm font-medium ${statusColors[complaint.status]}">
+              ${complaint.status.toUpperCase()}
+            </span>
+          </div>
           <span class="text-sm text-gray-500">Submitted: ${createdDate}</span>
         </div>
 
-        <!-- Complainant Info -->
+        <!-- Reporter Info -->
         <div class="bg-gray-50 rounded-lg p-4">
           <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <i data-lucide="user" class="w-4 h-4"></i> Complainant
+            <i data-lucide="user" class="w-4 h-4"></i> Reporter
           </h4>
           <div class="grid grid-cols-2 gap-2 text-sm">
             <div><span class="text-gray-500">Name:</span> <span class="font-medium">${complaint.name}</span></div>
@@ -10090,15 +10140,28 @@ window.viewComplaint = async function(id) {
           </div>
         </div>
 
-        <!-- Complaint Details -->
+        <!-- Pinned Location Map -->
+        ${hasLocation ? `
+        <div class="bg-blue-50 rounded-lg p-4">
+          <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <i data-lucide="map-pin" class="w-4 h-4 text-blue-600"></i> Pinned Location
+          </h4>
+          <div id="${locationMapId}" style="height: 200px; border-radius: 8px;"></div>
+          <p class="text-xs text-gray-500 mt-2">Coordinates: ${complaint.location.coordinates[1].toFixed(6)}, ${complaint.location.coordinates[0].toFixed(6)}</p>
+        </div>
+        ` : ''}
+
+        <!-- Report Details -->
         <div class="bg-yellow-50 rounded-lg p-4">
           <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-600"></i> Complaint Details
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-yellow-600"></i> Report Details
           </h4>
+          ${missedDate ? `
           <div class="text-sm mb-2">
             <span class="text-gray-500">Missed Collection Date:</span>
             <span class="font-medium text-yellow-700">${missedDate}</span>
           </div>
+          ` : ''}
           <p class="text-gray-700">${complaint.description}</p>
         </div>
 
@@ -10161,6 +10224,29 @@ window.viewComplaint = async function(id) {
 
     // Store photos for viewer
     window.complaintPhotos = complaint.photos || [];
+
+    // Initialize location map if available
+    if (hasLocation) {
+      setTimeout(() => {
+        const mapContainer = document.getElementById(locationMapId);
+        if (mapContainer) {
+          const lat = complaint.location.coordinates[1];
+          const lng = complaint.location.coordinates[0];
+          const locationMap = L.map(locationMapId).setView([lat, lng], 16);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(locationMap);
+          L.marker([lat, lng], {
+            icon: L.divIcon({
+              html: '<div style="background-color: #ef4444; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>',
+              className: '',
+              iconSize: [24, 24],
+              iconAnchor: [12, 12]
+            })
+          }).addTo(locationMap);
+        }
+      }, 100);
+    }
 
   } catch (error) {
     console.error('Error viewing complaint:', error);

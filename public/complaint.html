@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Submit Complaint - Kolek-Ta</title>
+  <title>Submit Report - Kolek-Ta</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS and JS for map picker -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
     .photo-preview {
@@ -14,6 +17,26 @@
       height: 100px;
       object-fit: cover;
       border-radius: 8px;
+    }
+    #mapPickerContainer {
+      height: 400px;
+      width: 100%;
+      border-radius: 8px;
+    }
+    .report-type-card {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .report-type-card:hover {
+      border-color: #22c55e;
+      background-color: #f0fdf4;
+    }
+    .report-type-card.selected {
+      border-color: #22c55e;
+      background-color: #dcfce7;
+    }
+    .report-type-card.selected .check-icon {
+      display: flex;
     }
   </style>
 </head>
@@ -43,20 +66,29 @@
       <div class="flex items-start gap-3">
         <i data-lucide="info" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"></i>
         <div>
-          <h3 class="font-semibold text-blue-800">Report Uncollected Waste</h3>
+          <h3 class="font-semibold text-blue-800">Citizen Reporting System</h3>
           <p class="text-blue-700 text-sm mt-1">
-            Use this form to report if waste collection was missed in your area.
-            After submission, you'll receive a reference number to track your complaint status.
+            Report waste collection issues, illegal dumping, damaged bins, and other concerns.
+            After submission, you'll receive a reference number to track your report status.
           </p>
         </div>
       </div>
     </div>
 
-    <!-- Complaint Form -->
+    <!-- Report Form -->
     <div class="bg-white rounded-xl shadow-lg p-6">
-      <h2 class="text-xl font-bold text-gray-800 mb-6">Submit a Complaint</h2>
+      <h2 class="text-xl font-bold text-gray-800 mb-6">Submit a Report</h2>
 
       <form id="complaintForm" enctype="multipart/form-data">
+        <!-- Report Type Selection -->
+        <div class="mb-6">
+          <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">What would you like to report? *</h3>
+          <div id="reportTypeContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Report type cards will be loaded here -->
+          </div>
+          <input type="hidden" id="reportType" name="reportType" value="missed_collection" required>
+        </div>
+
         <!-- Personal Information -->
         <div class="mb-6">
           <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Personal Information</h3>
@@ -105,17 +137,41 @@
                 <option value="">Select your barangay</option>
               </select>
             </div>
+
+            <!-- Map Location Picker -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Pin Location on Map (Optional)</label>
+              <button type="button" id="openMapPicker"
+                class="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition">
+                <i data-lucide="map-pin" class="w-5 h-5 text-gray-500"></i>
+                <span class="text-gray-600">Click to pin exact location on map</span>
+              </button>
+              <div id="selectedLocationDisplay" class="hidden mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-green-600"></i>
+                    <span class="text-sm text-green-800" id="locationCoords">Location selected</span>
+                  </div>
+                  <button type="button" onclick="clearLocation()" class="text-red-500 hover:text-red-700">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+              <input type="hidden" id="latitude" name="latitude">
+              <input type="hidden" id="longitude" name="longitude">
+            </div>
           </div>
         </div>
 
-        <!-- Complaint Details -->
+        <!-- Report Details -->
         <div class="mb-6">
-          <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Complaint Details</h3>
+          <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Report Details</h3>
 
           <div class="space-y-4">
-            <div>
+            <!-- Missed Collection Date - Only shown for missed_collection type -->
+            <div id="missedDateContainer">
               <label for="missedCollectionDate" class="block text-sm font-medium text-gray-700 mb-1">Date of Missed Collection *</label>
-              <input type="date" id="missedCollectionDate" name="missedCollectionDate" required
+              <input type="date" id="missedCollectionDate" name="missedCollectionDate"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
             </div>
 
@@ -123,7 +179,7 @@
               <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
               <textarea id="description" name="description" rows="4" required
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                placeholder="Please describe your complaint in detail. Include information about how long the waste has been uncollected, the type of waste, etc."></textarea>
+                placeholder="Please describe the issue in detail. Include relevant information such as exact location, how long the issue has been present, etc."></textarea>
             </div>
 
             <!-- Photo Upload -->
@@ -146,7 +202,7 @@
         <button type="submit" id="submitBtn"
           class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition flex items-center justify-center gap-2">
           <i data-lucide="send" class="w-5 h-5"></i>
-          <span>Submit Complaint</span>
+          <span>Submit Report</span>
         </button>
       </form>
     </div>
@@ -185,7 +241,38 @@
         </div>
 
         <button onclick="closeModal()" class="mt-4 text-gray-500 hover:text-gray-700 text-sm">
-          Submit another complaint
+          Submit another report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Picker Modal -->
+  <div id="mapPickerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div class="p-4 border-b flex items-center justify-between">
+        <div>
+          <h3 class="text-lg font-bold text-gray-800">Pin Location on Map</h3>
+          <p class="text-sm text-gray-500">Click on the map to mark the exact location</p>
+        </div>
+        <button onclick="closeMapPicker()" class="text-gray-500 hover:text-gray-700">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <div class="p-4">
+        <div id="mapPickerContainer"></div>
+        <div id="mapPickerCoords" class="mt-3 text-sm text-gray-600 text-center hidden">
+          <i data-lucide="map-pin" class="w-4 h-4 inline"></i>
+          <span id="pickerCoordsText">No location selected</span>
+        </div>
+      </div>
+      <div class="p-4 border-t flex gap-3 justify-end">
+        <button type="button" onclick="closeMapPicker()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+          Cancel
+        </button>
+        <button type="button" onclick="confirmLocation()" id="confirmLocationBtn" disabled
+          class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+          Confirm Location
         </button>
       </div>
     </div>
@@ -195,8 +282,95 @@
     // Initialize Lucide icons
     lucide.createIcons();
 
+    // Mati City center coordinates
+    const MATI_CENTER = [6.9549, 126.2185];
+
+    // State variables
+    let selectedFiles = [];
+    let selectedReportType = 'missed_collection';
+    let pickerMap = null;
+    let pickerMarker = null;
+    let tempLocation = null;
+
     // Set max date to today
     document.getElementById('missedCollectionDate').max = new Date().toISOString().split('T')[0];
+
+    // Load report types
+    async function loadReportTypes() {
+      try {
+        const response = await fetch('/api/complaints/report-types');
+        const types = await response.json();
+        const container = document.getElementById('reportTypeContainer');
+
+        const icons = {
+          'missed_collection': 'truck',
+          'illegal_dumping': 'trash-2',
+          'overflowing_bin': 'archive',
+          'damaged_bin': 'alert-triangle',
+          'odor_complaint': 'wind',
+          'other': 'help-circle'
+        };
+
+        types.forEach((type, index) => {
+          const card = document.createElement('div');
+          card.className = `report-type-card border-2 rounded-lg p-3 ${index === 0 ? 'selected border-green-500 bg-green-50' : 'border-gray-200'}`;
+          card.dataset.value = type.value;
+          card.innerHTML = `
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <i data-lucide="${icons[type.value] || 'file'}" class="w-5 h-5 text-gray-600"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-800">${type.label}</p>
+                <p class="text-xs text-gray-500 mt-0.5">${type.description}</p>
+              </div>
+              <div class="check-icon hidden w-5 h-5 rounded-full bg-green-500 items-center justify-center flex-shrink-0">
+                <i data-lucide="check" class="w-3 h-3 text-white"></i>
+              </div>
+            </div>
+          `;
+          card.addEventListener('click', () => selectReportType(type.value));
+          container.appendChild(card);
+        });
+
+        lucide.createIcons();
+        updateDateFieldVisibility();
+      } catch (error) {
+        console.error('Error loading report types:', error);
+      }
+    }
+
+    function selectReportType(value) {
+      selectedReportType = value;
+      document.getElementById('reportType').value = value;
+
+      // Update card styles
+      document.querySelectorAll('.report-type-card').forEach(card => {
+        if (card.dataset.value === value) {
+          card.classList.add('selected', 'border-green-500', 'bg-green-50');
+          card.classList.remove('border-gray-200');
+        } else {
+          card.classList.remove('selected', 'border-green-500', 'bg-green-50');
+          card.classList.add('border-gray-200');
+        }
+      });
+
+      updateDateFieldVisibility();
+    }
+
+    function updateDateFieldVisibility() {
+      const dateContainer = document.getElementById('missedDateContainer');
+      const dateInput = document.getElementById('missedCollectionDate');
+
+      if (selectedReportType === 'missed_collection') {
+        dateContainer.style.display = 'block';
+        dateInput.required = true;
+      } else {
+        dateContainer.style.display = 'none';
+        dateInput.required = false;
+        dateInput.value = '';
+      }
+    }
 
     // Load barangays
     async function loadBarangays() {
@@ -214,13 +388,107 @@
         console.error('Error loading barangays:', error);
       }
     }
+
+    // Initialize data
+    loadReportTypes();
     loadBarangays();
 
-    // Photo upload handling
+    // ===== Map Picker Functionality =====
+    document.getElementById('openMapPicker').addEventListener('click', openMapPicker);
+
+    function openMapPicker() {
+      const modal = document.getElementById('mapPickerModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      // Initialize map if not already done
+      if (!pickerMap) {
+        setTimeout(() => {
+          pickerMap = L.map('mapPickerContainer').setView(MATI_CENTER, 14);
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(pickerMap);
+
+          // Add click handler
+          pickerMap.on('click', (e) => {
+            const { lat, lng } = e.latlng;
+            setPickerMarker(lat, lng);
+          });
+
+          // Restore existing location if any
+          const existingLat = document.getElementById('latitude').value;
+          const existingLng = document.getElementById('longitude').value;
+          if (existingLat && existingLng) {
+            setPickerMarker(parseFloat(existingLat), parseFloat(existingLng));
+          }
+        }, 100);
+      } else {
+        pickerMap.invalidateSize();
+        // Restore existing location
+        const existingLat = document.getElementById('latitude').value;
+        const existingLng = document.getElementById('longitude').value;
+        if (existingLat && existingLng) {
+          setPickerMarker(parseFloat(existingLat), parseFloat(existingLng));
+        }
+      }
+    }
+
+    function setPickerMarker(lat, lng) {
+      tempLocation = { lat, lng };
+
+      if (pickerMarker) {
+        pickerMarker.setLatLng([lat, lng]);
+      } else {
+        pickerMarker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            html: '<div style="background-color: #22c55e; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>',
+            className: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          })
+        }).addTo(pickerMap);
+      }
+
+      // Update coords display
+      document.getElementById('mapPickerCoords').classList.remove('hidden');
+      document.getElementById('pickerCoordsText').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('confirmLocationBtn').disabled = false;
+    }
+
+    function confirmLocation() {
+      if (tempLocation) {
+        document.getElementById('latitude').value = tempLocation.lat;
+        document.getElementById('longitude').value = tempLocation.lng;
+        document.getElementById('locationCoords').textContent = `${tempLocation.lat.toFixed(6)}, ${tempLocation.lng.toFixed(6)}`;
+        document.getElementById('selectedLocationDisplay').classList.remove('hidden');
+      }
+      closeMapPicker();
+    }
+
+    function closeMapPicker() {
+      const modal = document.getElementById('mapPickerModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function clearLocation() {
+      document.getElementById('latitude').value = '';
+      document.getElementById('longitude').value = '';
+      document.getElementById('selectedLocationDisplay').classList.add('hidden');
+      tempLocation = null;
+      if (pickerMarker) {
+        pickerMap.removeLayer(pickerMarker);
+        pickerMarker = null;
+      }
+      document.getElementById('mapPickerCoords').classList.add('hidden');
+      document.getElementById('confirmLocationBtn').disabled = true;
+    }
+
+    // ===== Photo Upload Handling =====
     const dropZone = document.getElementById('dropZone');
     const photoInput = document.getElementById('photos');
     const photoPreview = document.getElementById('photoPreview');
-    let selectedFiles = [];
 
     dropZone.addEventListener('click', () => photoInput.click());
 
@@ -280,7 +548,7 @@
       updatePhotoPreview();
     }
 
-    // Form submission
+    // ===== Form Submission =====
     document.getElementById('complaintForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -290,13 +558,27 @@
       lucide.createIcons();
 
       const formData = new FormData();
+      formData.append('reportType', document.getElementById('reportType').value);
       formData.append('name', document.getElementById('name').value);
       formData.append('phone', document.getElementById('phone').value);
       formData.append('email', document.getElementById('email').value);
       formData.append('address', document.getElementById('address').value);
       formData.append('barangay', document.getElementById('barangay').value);
-      formData.append('missedCollectionDate', document.getElementById('missedCollectionDate').value);
       formData.append('description', document.getElementById('description').value);
+
+      // Add missed collection date only if applicable
+      const missedDate = document.getElementById('missedCollectionDate').value;
+      if (missedDate) {
+        formData.append('missedCollectionDate', missedDate);
+      }
+
+      // Add location if selected
+      const latitude = document.getElementById('latitude').value;
+      const longitude = document.getElementById('longitude').value;
+      if (latitude && longitude) {
+        formData.append('latitude', latitude);
+        formData.append('longitude', longitude);
+      }
 
       selectedFiles.forEach(file => {
         formData.append('photos', file);
@@ -317,15 +599,18 @@
           document.getElementById('complaintForm').reset();
           selectedFiles = [];
           photoPreview.innerHTML = '';
+          clearLocation();
+          // Reset report type selection to first option
+          selectReportType('missed_collection');
         } else {
-          alert(result.error || 'Failed to submit complaint');
+          alert(result.error || 'Failed to submit report');
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('Failed to submit complaint. Please try again.');
+        alert('Failed to submit report. Please try again.');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i><span>Submit Complaint</span>';
+        submitBtn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i><span>Submit Report</span>';
         lucide.createIcons();
       }
     });

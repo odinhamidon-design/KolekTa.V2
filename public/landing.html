@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kolek-Ta - Mati City Waste Collection Management</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              300: '#86efac',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .animate-fade-in-up-delay-1 {
+      animation: fadeInUp 0.6s ease-out 0.1s both;
+    }
+
+    .animate-fade-in-up-delay-2 {
+      animation: fadeInUp 0.6s ease-out 0.2s both;
+    }
+
+    .animate-fade-in-up-delay-3 {
+      animation: fadeInUp 0.6s ease-out 0.3s both;
+    }
+
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .bg-pattern {
+      background-color: #f0fdf4;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2322c55e' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body class="bg-pattern min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+          <i data-lucide="recycle" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-gray-800">Kolek-Ta</h1>
+          <p class="text-xs text-gray-500">Mati City Waste Management</p>
+        </div>
+      </div>
+      <a href="/login.html" class="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors text-sm font-medium">
+        <i data-lucide="log-in" class="w-4 h-4"></i>
+        Staff Login
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="container mx-auto px-4 py-12 md:py-20">
+    <div class="text-center max-w-3xl mx-auto animate-fade-in-up">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 rounded-full text-primary-700 text-sm font-medium mb-6">
+        <i data-lucide="map-pin" class="w-4 h-4"></i>
+        Mati City, Davao Oriental
+      </div>
+      <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+        Smart Waste Collection for a
+        <span class="text-primary-500">Cleaner City</span>
+      </h2>
+      <p class="text-lg text-gray-600 mb-8">
+        Report waste issues, track collection schedules, and help keep our community clean with Kolek-Ta's integrated waste management system.
+      </p>
+    </div>
+
+    <!-- Main Action Cards -->
+    <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
+
+      <!-- Report an Issue Card -->
+      <a href="/complaint" class="card-hover bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in-up-delay-1">
+        <div class="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center mb-6 animate-float">
+          <i data-lucide="message-square-warning" class="w-8 h-8 text-white"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-gray-800 mb-3">Report an Issue</h3>
+        <p class="text-gray-600 mb-6">
+          Submit reports for missed collections, illegal dumping, overflowing bins, or other waste-related concerns in your area.
+        </p>
+        <div class="flex flex-wrap gap-2 mb-6">
+          <span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Missed Collection</span>
+          <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Illegal Dumping</span>
+          <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Overflowing Bins</span>
+          <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">Damaged Bins</span>
+        </div>
+        <div class="flex items-center gap-2 text-primary-600 font-medium">
+          <span>Submit a Report</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </div>
+      </a>
+
+      <!-- Track Report Card -->
+      <a href="/track.html" class="card-hover bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in-up-delay-2">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center mb-6 animate-float" style="animation-delay: 0.5s;">
+          <i data-lucide="search" class="w-8 h-8 text-white"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-gray-800 mb-3">Track Your Report</h3>
+        <p class="text-gray-600 mb-6">
+          Already submitted a report? Enter your reference number to check the current status and see updates from our team.
+        </p>
+        <div class="bg-gray-50 rounded-xl p-4 mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500">Reference Format</p>
+              <p class="text-sm font-mono font-medium text-gray-700">CMPL-2024-XXXXX</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-blue-600 font-medium">
+          <span>Track Status</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="bg-white py-16 animate-fade-in-up-delay-3">
+    <div class="container mx-auto px-4">
+      <h3 class="text-2xl font-bold text-gray-800 text-center mb-12">How It Works</h3>
+      <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+
+        <div class="text-center">
+          <div class="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-primary-600 font-bold text-xl">1</span>
+          </div>
+          <h4 class="font-semibold text-gray-800 mb-2">Select Report Type</h4>
+          <p class="text-gray-600 text-sm">Choose the type of waste issue you want to report from our list of categories.</p>
+        </div>
+
+        <div class="text-center">
+          <div class="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-primary-600 font-bold text-xl">2</span>
+          </div>
+          <h4 class="font-semibold text-gray-800 mb-2">Provide Details</h4>
+          <p class="text-gray-600 text-sm">Fill in your information, location, and description. Pin the exact spot on our interactive map.</p>
+        </div>
+
+        <div class="text-center">
+          <div class="w-14 h-14 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-primary-600 font-bold text-xl">3</span>
+          </div>
+          <h4 class="font-semibold text-gray-800 mb-2">Track Progress</h4>
+          <p class="text-gray-600 text-sm">Receive a reference number and track your report status until the issue is resolved.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="container mx-auto px-4 py-16">
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-3xl p-8 md:p-12 text-white">
+      <div class="grid md:grid-cols-4 gap-8 text-center">
+        <div>
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <i data-lucide="map-pin" class="w-6 h-6"></i>
+            <span class="text-4xl font-bold">26</span>
+          </div>
+          <p class="text-primary-100">Barangays Covered</p>
+        </div>
+        <div>
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <i data-lucide="truck" class="w-6 h-6"></i>
+            <span class="text-4xl font-bold">24/7</span>
+          </div>
+          <p class="text-primary-100">GPS Tracking</p>
+        </div>
+        <div>
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <i data-lucide="clock" class="w-6 h-6"></i>
+            <span class="text-4xl font-bold">Fast</span>
+          </div>
+          <p class="text-primary-100">Response Time</p>
+        </div>
+        <div>
+          <div class="flex items-center justify-center gap-2 mb-2">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+            <span class="text-4xl font-bold">100%</span>
+          </div>
+          <p class="text-primary-100">Report Tracking</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-8">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+            <i data-lucide="recycle" class="w-6 h-6 text-white"></i>
+          </div>
+          <div>
+            <h3 class="font-bold">Kolek-Ta</h3>
+            <p class="text-sm text-gray-400">Waste Collection Management System</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+          <a href="/complaint" class="text-gray-400 hover:text-white transition-colors">Report Issue</a>
+          <a href="/track.html" class="text-gray-400 hover:text-white transition-colors">Track Report</a>
+          <a href="/login.html" class="text-gray-400 hover:text-white transition-colors">Staff Login</a>
+        </div>
+        <p class="text-gray-400 text-sm">
+          Mati City, Davao Oriental
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

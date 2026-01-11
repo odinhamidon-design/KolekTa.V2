@@ -20,6 +20,16 @@ const BARANGAYS = [
   'Tagbinonga', 'Taguibo', 'Tamisan', 'Tarragona'
 ];
 
+// Report Types
+const REPORT_TYPES = [
+  { value: 'missed_collection', label: 'Missed Collection', description: 'Garbage not collected on scheduled day' },
+  { value: 'illegal_dumping', label: 'Illegal Dumping', description: 'Unauthorized waste disposal in public areas' },
+  { value: 'overflowing_bin', label: 'Overflowing Bin', description: 'Public bin is full or overflowing' },
+  { value: 'damaged_bin', label: 'Damaged Bin', description: 'Broken or damaged waste container' },
+  { value: 'odor_complaint', label: 'Odor Complaint', description: 'Bad smell from waste in area' },
+  { value: 'other', label: 'Other', description: 'Other waste-related concerns' }
+];
+
 // Configure multer for memory storage (photos)
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -51,19 +61,49 @@ router.get('/barangays', (req, res) => {
   res.json(BARANGAYS);
 });
 
+// Get list of report types
+router.get('/report-types', (req, res) => {
+  res.json(REPORT_TYPES);
+});
+
 // Submit a new complaint (PUBLIC)
 router.post('/submit', upload.array('photos', 3), async (req, res) => {
   try {
-    const { name, phone, email, address, barangay, description, missedCollectionDate } = req.body;
+    const { name, phone, email, address, barangay, description, missedCollectionDate, reportType, latitude, longitude } = req.body;
 
     // Validate required fields
-    if (!name || !phone || !email || !address || !barangay || !description || !missedCollectionDate) {
-      return res.status(400).json({ error: 'All fields are required' });
+    if (!name || !phone || !email || !address || !barangay || !description) {
+      return res.status(400).json({ error: 'Name, phone, email, address, barangay, and description are required' });
+    }
+
+    // Validate report type
+    const validReportTypes = REPORT_TYPES.map(t => t.value);
+    const selectedReportType = reportType || 'missed_collection';
+    if (!validReportTypes.includes(selectedReportType)) {
+      return res.status(400).json({ error: 'Invalid report type selected' });
+    }
+
+    // Validate missedCollectionDate is required for missed_collection type
+    if (selectedReportType === 'missed_collection' && !missedCollectionDate) {
+      return res.status(400).json({ error: 'Missed collection date is required for this report type' });
     }
 
     // Validate barangay
     if (!BARANGAYS.includes(barangay)) {
       return res.status(400).json({ error: 'Invalid barangay selected' });
+    }
+
+    // Build location object if coordinates provided
+    let location = null;
+    if (latitude && longitude) {
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        location = {
+          type: 'Point',
+          coordinates: [lng, lat] // GeoJSON format: [longitude, latitude]
+        };
+      }
     }
 
     // Convert uploaded files to base64 data URLs
@@ -80,29 +120,41 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
 
     if (!useMockAuth && Complaint) {
       // MongoDB mode
-      const complaint = new Complaint({
+      const complaintData = {
         referenceNumber,
+        reportType: selectedReportType,
         name,
         phone,
         email,
         address,
         barangay,
         description,
-        missedCollectionDate: new Date(missedCollectionDate),
         photos,
         status: 'pending',
         isNew: true
-      });
+      };
 
+      // Add location if provided
+      if (location) {
+        complaintData.location = location;
+      }
+
+      // Add missedCollectionDate if provided
+      if (missedCollectionDate) {
+        complaintData.missedCollectionDate = new Date(missedCollectionDate);
+      }
+
+      const complaint = new Complaint(complaintData);
       await complaint.save();
 
-      console.log('New complaint submitted (MongoDB):', referenceNumber);
+      console.log('New complaint submitted (MongoDB):', referenceNumber, 'Type:', selectedReportType);
 
       res.status(201).json({
         message: 'Complaint submitted successfully',
         referenceNumber,
         complaint: {
           referenceNumber: complaint.referenceNumber,
+          reportType: complaint.reportType,
           status: complaint.status,
           createdAt: complaint.createdAt
         }
@@ -112,13 +164,15 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
       const complaint = {
         _id: Date.now().toString(),
         referenceNumber,
+        reportType: selectedReportType,
         name,
         phone,
         email,
         address,
         barangay,
+        location: location,
         description,
-        missedCollectionDate: new Date(missedCollectionDate).toISOString(),
+        missedCollectionDate: missedCollectionDate ? new Date(missedCollectionDate).toISOString() : null,
         photos,
         status: 'pending',
         isNew: true,
@@ -135,6 +189,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
         referenceNumber,
         complaint: {
           referenceNumber: complaint.referenceNumber,
+          reportType: complaint.reportType,
           status: complaint.status,
           createdAt: complaint.createdAt
         }
@@ -171,10 +226,12 @@ router.get('/track/:referenceNumber', async (req, res) => {
 
     res.json({
       referenceNumber: complaint.referenceNumber,
+      reportType: complaint.reportType || 'missed_collection',
       status: complaint.status,
       barangay: complaint.barangay,
+      location: complaint.location || null,
       description: complaint.description,
-      missedCollectionDate: complaint.missedCollectionDate,
+      missedCollectionDate: complaint.missedCollectionDate || null,
       adminResponse: complaint.adminResponse || null,
       assignedDriver: complaint.assignedDriver || null,
       resolvedAt: complaint.resolvedAt || null,
@@ -196,7 +253,7 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const { status, barangay, startDate, endDate } = req.query;
+    const { status, barangay, reportType, startDate, endDate } = req.query;
     let complaints;
 
     if (!useMockAuth && Complaint) {
@@ -204,6 +261,7 @@ router.get('/', authenticateToken, async (req, res) => {
       const query = {};
       if (status) query.status = status;
       if (barangay) query.barangay = barangay;
+      if (reportType) query.reportType = reportType;
       if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -223,6 +281,9 @@ router.get('/', authenticateToken, async (req, res) => {
       }
       if (barangay) {
         complaints = complaints.filter(c => c.barangay === barangay);
+      }
+      if (reportType) {
+        complaints = complaints.filter(c => c.reportType === reportType);
       }
       if (startDate) {
         const start = new Date(startDate);

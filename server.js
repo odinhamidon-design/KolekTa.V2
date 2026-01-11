@@ -11,6 +11,36 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Define explicit routes BEFORE static middleware
+// (so they take precedence over index.html)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Redirect /mobile to dashboard (now responsive)
+app.get('/mobile', (req, res) => {
+  res.redirect('/dashboard');
+});
+
+// Public complaint pages (no auth required)
+app.get('/complaint', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'complaint.html'));
+});
+
+app.get('/track', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'track.html'));
+});
+
+// Static file serving (after explicit routes)
 app.use(express.static('public'));
 
 // Check if using mock authentication
@@ -83,28 +113,6 @@ if (useMockAuth) {
   app.use('/api/schedules', require('./routes/schedules-mongo'));
   app.use('/api/reports', require('./routes/reports-mongo'));
 }
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Redirect /mobile to dashboard (now responsive)
-app.get('/mobile', (req, res) => {
-  res.redirect('/dashboard');
-});
-
-// Public complaint pages (no auth required)
-app.get('/complaint', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'complaint.html'));
-});
-
-app.get('/track', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'track.html'));
-});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Kolek-Ta server running on port ${PORT}`);
