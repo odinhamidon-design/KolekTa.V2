@@ -1489,7 +1489,7 @@ async function showDashboard() {
 
 // Helper function to set active sidebar button
 function setActiveSidebarButton(activeId) {
-  const buttons = ['dashboardBtn', 'userManagementBtn', 'truckManagementBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'completionHistoryBtn', 'fuelManagementBtn', 'complaintsBtn'];
+  const buttons = ['dashboardBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'truckManagementBtn', 'schedulesBtn', 'completionHistoryBtn', 'userManagementBtn', 'complaintsBtn', 'fuelManagementBtn', 'reportsBtn'];
   buttons.forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
@@ -11019,6 +11019,247 @@ let cachedScheduleRoutes = [];
 let cachedScheduleDrivers = [];
 let cachedScheduleTrucks = [];
 
+// Calendar state
+let currentCalendarDate = new Date();
+let currentScheduleView = 'table';
+
+// Toggle between table and calendar views
+function setScheduleView(view) {
+  currentScheduleView = view;
+  const tableView = document.getElementById('schedulesTableView');
+  const calendarView = document.getElementById('schedulesCalendarView');
+  const tableBtn = document.getElementById('tableViewBtn');
+  const calendarBtn = document.getElementById('calendarViewBtn');
+
+  if (view === 'table') {
+    tableView.classList.remove('hidden');
+    calendarView.classList.add('hidden');
+    tableBtn.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+    tableBtn.classList.add('bg-primary-500', 'text-white');
+    calendarBtn.classList.remove('bg-primary-500', 'text-white');
+    calendarBtn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+  } else {
+    tableView.classList.add('hidden');
+    calendarView.classList.remove('hidden');
+    calendarBtn.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+    calendarBtn.classList.add('bg-primary-500', 'text-white');
+    tableBtn.classList.remove('bg-primary-500', 'text-white');
+    tableBtn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+    renderScheduleCalendar();
+  }
+  lucide.createIcons();
+}
+
+// Navigate calendar by months
+function navigateCalendarMonth(delta) {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+  renderScheduleCalendar();
+}
+
+// Get schedules for a specific date
+function getSchedulesForDate(date, schedules) {
+  const dayOfWeek = date.getDay();
+  const dateOfMonth = date.getDate();
+
+  return schedules.filter(schedule => {
+    // Check if schedule has date range
+    if (schedule.startDate) {
+      const startDate = new Date(schedule.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      if (date < startDate) return false;
+    }
+    if (schedule.endDate) {
+      const endDate = new Date(schedule.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (date > endDate) return false;
+    }
+
+    // Check recurrence type
+    if (schedule.recurrenceType === 'daily') {
+      return true;
+    } else if (schedule.recurrenceType === 'weekly') {
+      const weeklyDays = schedule.weeklyDays || [];
+      return weeklyDays.includes(dayOfWeek);
+    } else if (schedule.recurrenceType === 'monthly') {
+      const monthlyDates = schedule.monthlyDates || [];
+      return monthlyDates.includes(dateOfMonth);
+    }
+    return false;
+  });
+}
+
+// Render the calendar grid
+function renderScheduleCalendar() {
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+
+  // Update month/year header
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthYearEl = document.getElementById('calendarMonthYear');
+  if (monthYearEl) {
+    monthYearEl.textContent = `${monthNames[month]} ${year}`;
+  }
+
+  // Get first day of month and total days
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Build calendar grid
+  const calendarGrid = document.getElementById('calendarGrid');
+  if (!calendarGrid) return;
+
+  let gridHTML = '';
+
+  // Empty cells for days before first day of month
+  for (let i = 0; i < firstDay; i++) {
+    gridHTML += '<div class="min-h-24 bg-gray-50 rounded-lg"></div>';
+  }
+
+  // Days of the month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    date.setHours(0, 0, 0, 0);
+    const isToday = date.getTime() === today.getTime();
+    const schedulesForDay = getSchedulesForDate(date, cachedSchedulesData);
+
+    // Build schedule indicators
+    const maxIndicators = 3;
+    let indicatorsHTML = '';
+    const activeSchedules = schedulesForDay.filter(s => s.isActive);
+    const inactiveSchedules = schedulesForDay.filter(s => !s.isActive);
+    const allSchedules = [...activeSchedules, ...inactiveSchedules];
+
+    allSchedules.slice(0, maxIndicators).forEach(schedule => {
+      let colorClass = 'bg-gray-300';
+      if (schedule.isActive) {
+        if (schedule.recurrenceType === 'daily') colorClass = 'bg-blue-500';
+        else if (schedule.recurrenceType === 'weekly') colorClass = 'bg-green-500';
+        else if (schedule.recurrenceType === 'monthly') colorClass = 'bg-purple-500';
+      }
+      indicatorsHTML += `<span class="w-2 h-2 rounded-full ${colorClass}" title="${schedule.name}"></span>`;
+    });
+
+    if (allSchedules.length > maxIndicators) {
+      indicatorsHTML += `<span class="text-xs text-gray-500">+${allSchedules.length - maxIndicators}</span>`;
+    }
+
+    const todayClass = isToday ? 'ring-2 ring-primary-500 ring-offset-2' : '';
+    const hasSchedules = schedulesForDay.length > 0;
+    const cursorClass = hasSchedules ? 'cursor-pointer hover:bg-gray-100' : '';
+
+    gridHTML += `
+      <div class="min-h-24 bg-white border border-gray-200 rounded-lg p-2 ${todayClass} ${cursorClass} transition-colors"
+           ${hasSchedules ? `onclick="showDayScheduleDetails(${year}, ${month}, ${day})"` : ''}>
+        <div class="flex justify-between items-start">
+          <span class="text-sm font-medium ${isToday ? 'text-primary-600' : 'text-gray-700'}">${day}</span>
+          ${isToday ? '<span class="text-xs bg-primary-100 text-primary-600 px-1 rounded">Today</span>' : ''}
+        </div>
+        <div class="flex flex-wrap gap-1 mt-2">
+          ${indicatorsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  calendarGrid.innerHTML = gridHTML;
+}
+
+// Show schedules for a specific day
+function showDayScheduleDetails(year, month, day) {
+  const date = new Date(year, month, day);
+  const schedulesForDay = getSchedulesForDate(date, cachedSchedulesData);
+
+  if (schedulesForDay.length === 0) return;
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const dateStr = `${dayNames[date.getDay()]}, ${monthNames[month]} ${day}, ${year}`;
+
+  const schedulesList = schedulesForDay.map(s => {
+    let patternText = '';
+    if (s.recurrenceType === 'daily') patternText = 'Daily';
+    else if (s.recurrenceType === 'weekly') {
+      const days = (s.weeklyDays || []).map(d => DAYS_OF_WEEK[d].slice(0, 3)).join(', ');
+      patternText = `Weekly: ${days}`;
+    } else if (s.recurrenceType === 'monthly') {
+      const dates = (s.monthlyDates || []).join(', ');
+      patternText = `Monthly: ${dates}`;
+    }
+
+    const statusColor = s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
+    const statusText = s.isActive ? 'Active' : 'Inactive';
+
+    let recurrenceColor = 'border-gray-300';
+    if (s.isActive) {
+      if (s.recurrenceType === 'daily') recurrenceColor = 'border-blue-500';
+      else if (s.recurrenceType === 'weekly') recurrenceColor = 'border-green-500';
+      else if (s.recurrenceType === 'monthly') recurrenceColor = 'border-purple-500';
+    }
+
+    return `
+      <div class="p-4 border-l-4 ${recurrenceColor} bg-gray-50 rounded-r-lg">
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <h4 class="font-medium text-gray-800">${s.name}</h4>
+            <p class="text-sm text-gray-500">${s.routeName || 'Unknown Route'}</p>
+          </div>
+          <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">${statusText}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+          <div><span class="text-gray-400">Time:</span> ${s.scheduledTime || '07:00'}</div>
+          <div><span class="text-gray-400">Pattern:</span> ${patternText}</div>
+          <div><span class="text-gray-400">Driver:</span> ${s.assignedDriver || '-'}</div>
+          <div><span class="text-gray-400">Vehicle:</span> ${s.assignedVehicle || '-'}</div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="closeDayModal(); editSchedule('${s.scheduleId || s._id}')"
+                  class="text-xs px-3 py-1 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-lg transition-colors">
+            Edit
+          </button>
+          <button onclick="closeDayModal(); toggleScheduleStatus('${s.scheduleId || s._id}')"
+                  class="text-xs px-3 py-1 bg-yellow-100 text-yellow-600 hover:bg-yellow-200 rounded-lg transition-colors">
+            ${s.isActive ? 'Deactivate' : 'Activate'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Create modal
+  const modalHTML = `
+    <div id="dayScheduleModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+        <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-gray-800">Schedules</h3>
+            <p class="text-sm text-gray-500">${dateStr}</p>
+          </div>
+          <button onclick="closeDayModal()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+          </button>
+        </div>
+        <div class="p-4 space-y-3 overflow-y-auto max-h-[60vh]">
+          ${schedulesList}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  lucide.createIcons();
+}
+
+// Close day schedule modal
+function closeDayModal() {
+  const modal = document.getElementById('dayScheduleModal');
+  if (modal) modal.remove();
+}
+
 // Schedules table column configuration
 const schedulesColumns = [
   { key: 'name', label: 'Schedule', sortable: true },
@@ -11276,8 +11517,20 @@ async function showScheduleManagement() {
           </div>
         </div>
 
+        <!-- View Toggle -->
+        <div class="flex items-center gap-2">
+          <button id="tableViewBtn" onclick="setScheduleView('table')" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg transition-colors">
+            <i data-lucide="table" class="w-4 h-4"></i>
+            <span>Table View</span>
+          </button>
+          <button id="calendarViewBtn" onclick="setScheduleView('calendar')" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
+            <i data-lucide="calendar" class="w-4 h-4"></i>
+            <span>Calendar View</span>
+          </button>
+        </div>
+
         <!-- Schedules Table -->
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div id="schedulesTableView" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full">
               <thead class="bg-gray-50 border-b border-gray-200">
@@ -11289,6 +11542,49 @@ async function showScheduleManagement() {
                 ${scheduleRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No schedules found. Click "Add Schedule" to create one.</td></tr>'}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Calendar View -->
+        <div id="schedulesCalendarView" class="hidden bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+            <button onclick="navigateCalendarMonth(-1)" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <i data-lucide="chevron-left" class="w-5 h-5 text-gray-600"></i>
+            </button>
+            <h3 id="calendarMonthYear" class="text-lg font-semibold text-gray-800"></h3>
+            <button onclick="navigateCalendarMonth(1)" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <i data-lucide="chevron-right" class="w-5 h-5 text-gray-600"></i>
+            </button>
+          </div>
+          <div class="p-4">
+            <div class="grid grid-cols-7 gap-1 mb-2">
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Sun</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Mon</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Tue</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Wed</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Thu</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Fri</div>
+              <div class="text-center text-sm font-medium text-gray-500 py-2">Sat</div>
+            </div>
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+          </div>
+          <div class="p-4 border-t border-gray-200 flex flex-wrap gap-4 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+              <span class="text-gray-600">Daily</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-green-500"></span>
+              <span class="text-gray-600">Weekly</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+              <span class="text-gray-600">Monthly</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-gray-300"></span>
+              <span class="text-gray-600">Inactive</span>
+            </div>
           </div>
         </div>
       </div>
