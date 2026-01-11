@@ -14,6 +14,8 @@ const routeSchema = new mongoose.Schema({
   assignedVehicle: String,
   assignedDriver: String,
   scheduledDate: Date,
+  expiresAt: { type: Date, default: null },
+  isExpired: { type: Boolean, default: false },
   notes: String,
   // Completion fields
   completedAt: Date,
@@ -33,5 +35,7 @@ const routeSchema = new mongoose.Schema({
 // Add indexes for faster queries
 routeSchema.index({ assignedDriver: 1 });
 routeSchema.index({ status: 1 });
+routeSchema.index({ expiresAt: 1 });
+routeSchema.index({ isExpired: 1 });
 
 module.exports = mongoose.models.Route || mongoose.model('Route', routeSchema);

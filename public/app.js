@@ -487,6 +487,53 @@ const searchState = {
   schedules: ''
 };
 
+// Expiration filter state for routes
+let routeExpirationFilter = 'all'; // 'all', 'active', 'expiring-soon', 'expired'
+
+// Filter routes by expiration
+function filterRoutesByExpiration(routes, filter) {
+  if (filter === 'all') return routes;
+
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return routes.filter(r => {
+    const isExpired = r.isExpired || (r.expiresAt && new Date(r.expiresAt) < now);
+    const isExpiringSoon = !isExpired && r.expiresAt && new Date(r.expiresAt) <= sevenDaysFromNow;
+    const isActive = !r.expiresAt || (!isExpired && !isExpiringSoon);
+
+    switch (filter) {
+      case 'expired': return isExpired;
+      case 'expiring-soon': return isExpiringSoon;
+      case 'active': return isActive;
+      default: return true;
+    }
+  });
+}
+
+// Handle expiration filter change
+function handleExpirationFilter(value) {
+  routeExpirationFilter = value;
+  if (sortHandlers.routes) {
+    sortHandlers.routes();
+  }
+}
+
+// Create expiration filter dropdown
+function createExpirationFilter() {
+  return `
+    <select
+      id="routeExpirationFilter"
+      onchange="handleExpirationFilter(this.value)"
+      class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+      <option value="all" ${routeExpirationFilter === 'all' ? 'selected' : ''}>All Routes</option>
+      <option value="active" ${routeExpirationFilter === 'active' ? 'selected' : ''}>Active Only</option>
+      <option value="expiring-soon" ${routeExpirationFilter === 'expiring-soon' ? 'selected' : ''}>Expiring Soon</option>
+      <option value="expired" ${routeExpirationFilter === 'expired' ? 'selected' : ''}>Expired</option>
+    </select>
+  `;
+}
+
 // Generic filter function for arrays based on search term
 function filterData(data, searchTerm, searchFields) {
   if (!searchTerm || searchTerm.trim() === '') return data;
@@ -1985,6 +2032,11 @@ function renderTruckTable() {
               <button onclick="assignDriver('${t._id || t.truckId}')" class="p-2 hover:bg-green-100 rounded-lg transition-colors" title="Assign Driver">
                 <i data-lucide="user-plus" class="w-4 h-4 text-green-600"></i>
               </button>
+              ${t.assignedDriver ? `
+                <button onclick="unassignTruck('${t._id || t.truckId}')" class="p-2 hover:bg-amber-100 rounded-lg transition-colors" title="Unassign Driver">
+                  <i data-lucide="user-minus" class="w-4 h-4 text-amber-600"></i>
+                </button>
+              ` : ''}
               <button onclick="editTruck('${t._id || t.truckId}')" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
                 <i data-lucide="pencil" class="w-4 h-4 text-gray-600"></i>
               </button>
@@ -2378,11 +2430,38 @@ window.assignDriver = async function(truckId) {
   }
 };
 
+window.unassignTruck = async function(truckId) {
+  if (!await showConfirm('Unassign Driver', 'Are you sure you want to unassign the driver from this truck?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/trucks/${truckId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assignedDriver: null,
+        status: 'available'
+      })
+    });
+
+    if (response.ok) {
+      showToast('Driver unassigned from truck successfully!', 'success');
+      showTruckManagement();
+    } else {
+      const error = await response.json();
+      showToast(error.error || 'Failed to unassign driver', 'error');
+    }
+  } catch (error) {
+    showToast('Error unassigning driver: ' + error.message, 'error');
+  }
+};
+
 window.deleteTruck = async function(truckId) {
   if (!await showConfirm('Delete Truck', 'Are you sure you want to delete this truck?')) {
     return;
   }
-  
+
   try {
     const response = await fetch(`${API_URL}/trucks/${truckId}`, {
       method: 'DELETE'
@@ -2449,8 +2528,11 @@ function renderRoutesTable() {
   // Define searchable fields
   const searchFields = ['routeId', 'name', 'status', 'assignedDriver'];
 
-  // Apply search filter first
-  const filteredRoutes = filterData(routes, searchState.routes, searchFields);
+  // Apply expiration filter first
+  const expirationFiltered = filterRoutesByExpiration(routes, routeExpirationFilter);
+
+  // Apply search filter
+  const filteredRoutes = filterData(expirationFiltered, searchState.routes, searchFields);
 
   // Apply sorting with custom sort for nested properties
   const { column, direction } = sortState.routes;
@@ -2465,6 +2547,16 @@ function renderRoutesTable() {
   const completedCount = routes.filter(r => r.status === 'completed').length;
   const assignedCount = routes.filter(r => r.assignedDriver).length;
 
+  // Calculate expiration stats
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const expiredCount = routes.filter(r => r.isExpired || (r.expiresAt && new Date(r.expiresAt) < now)).length;
+  const expiringSoonCount = routes.filter(r => {
+    if (r.isExpired || !r.expiresAt) return false;
+    const expiresAt = new Date(r.expiresAt);
+    return expiresAt >= now && expiresAt <= sevenDaysFromNow;
+  }).length;
+
   // Define sortable columns
   const columns = [
     { key: 'routeId', label: 'Route', sortable: true },
@@ -2472,6 +2564,7 @@ function renderRoutesTable() {
     { key: 'distance', label: 'Distance', sortable: true },
     { key: 'assignedDriver', label: 'Driver', sortable: true },
     { key: 'status', label: 'Status', sortable: true },
+    { key: 'expiresAt', label: 'Expires', sortable: true },
     { key: 'actions', label: 'Actions', sortable: false }
   ];
 
@@ -2479,6 +2572,25 @@ function renderRoutesTable() {
       const driver = drivers.find(d => d.username === r.assignedDriver);
       const isAssigned = !!r.assignedDriver;
       const locationCount = r.path ? r.path.coordinates.length : 0;
+
+      // Calculate expiration status for this route
+      const routeNow = new Date();
+      const routeSevenDays = new Date(routeNow.getTime() + 7 * 24 * 60 * 60 * 1000);
+      let expirationBadge = '<span class="text-gray-400">-</span>';
+      if (r.expiresAt) {
+        const expiresAt = new Date(r.expiresAt);
+        const isExpired = r.isExpired || expiresAt < routeNow;
+        const isExpiringSoon = !isExpired && expiresAt <= routeSevenDays;
+        const formattedDate = expiresAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        if (isExpired) {
+          expirationBadge = `<span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700" title="Expired on ${formattedDate}">Expired</span>`;
+        } else if (isExpiringSoon) {
+          expirationBadge = `<span class="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700" title="Expires ${formattedDate}">${formattedDate}</span>`;
+        } else {
+          expirationBadge = `<span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700" title="Expires ${formattedDate}">${formattedDate}</span>`;
+        }
+      }
 
       const statusColors = {
         'planned': 'bg-blue-100 text-blue-700',
@@ -2522,6 +2634,9 @@ function renderRoutesTable() {
             <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[r.status] || 'bg-gray-100 text-gray-700'}">
               ${r.status}
             </span>
+          </td>
+          <td class="px-4 py-4">
+            ${expirationBadge}
           </td>
           <td class="px-4 py-4" onclick="event.stopPropagation()">
             <div class="flex items-center gap-1">
@@ -2601,15 +2716,30 @@ function renderRoutesTable() {
         </div>
       </div>
 
+      ${(expiredCount > 0 || expiringSoonCount > 0) ? `
+      <!-- Expiration Alert Banner -->
+      <div class="mb-4 p-4 rounded-xl border ${expiredCount > 0 ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}">
+        <div class="flex items-center gap-3">
+          <i data-lucide="${expiredCount > 0 ? 'alert-circle' : 'clock'}" class="w-5 h-5 ${expiredCount > 0 ? 'text-red-500' : 'text-orange-500'}"></i>
+          <div>
+            ${expiredCount > 0 ? `<span class="font-medium text-red-700">${expiredCount} route${expiredCount > 1 ? 's' : ''} expired</span>` : ''}
+            ${expiredCount > 0 && expiringSoonCount > 0 ? ' • ' : ''}
+            ${expiringSoonCount > 0 ? `<span class="font-medium ${expiredCount > 0 ? 'text-red-700' : 'text-orange-700'}">${expiringSoonCount} route${expiringSoonCount > 1 ? 's' : ''} expiring soon</span>` : ''}
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
       <!-- Routes Table Card -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- Table Header -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Routes</h2>
-            <p class="text-sm text-gray-500">${sortedRoutes.length} of ${routes.length} routes${searchState.routes ? ' (filtered)' : ''} <span class="text-primary-500 ml-2">• Click a row to view on map</span></p>
+            <p class="text-sm text-gray-500">${sortedRoutes.length} of ${routes.length} routes${searchState.routes || routeExpirationFilter !== 'all' ? ' (filtered)' : ''} <span class="text-primary-500 ml-2">• Click a row to view on map</span></p>
           </div>
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            ${createExpirationFilter()}
             ${createSearchInput('routes', 'Search routes...')}
             <button onclick="showAddRouteForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
               <i data-lucide="plus" class="w-4 h-4"></i>
@@ -2627,7 +2757,7 @@ function renderRoutesTable() {
               </tr>
             </thead>
             <tbody>
-              ${routeRows || '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No routes found</td></tr>'}
+              ${routeRows || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No routes found</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -2723,6 +2853,22 @@ window.showAddRouteForm = function() {
         ></textarea>
       </div>
 
+      <!-- Expiration Date Section -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          <span class="flex items-center gap-2">
+            <i data-lucide="calendar-clock" class="w-4 h-4 text-primary-500"></i>
+            Expires On <span class="text-gray-400 font-normal">(Optional)</span>
+          </span>
+        </label>
+        <input
+          type="date"
+          id="newRouteExpiresAt"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-gray-700"
+        >
+        <p class="text-xs text-gray-500 mt-1">Leave empty if the route has no expiration date</p>
+      </div>
+
       <!-- Form Actions -->
       <div class="flex gap-3 pt-4 border-t border-gray-100">
         <button
@@ -2757,6 +2903,7 @@ window.showAddRouteForm = function() {
       return;
     }
     
+    const expiresAtValue = document.getElementById('newRouteExpiresAt').value;
     const routeData = {
       routeId: 'ROUTE-' + Date.now(), // Auto-generate route ID
       name: document.getElementById('newRouteName').value,
@@ -2764,7 +2911,9 @@ window.showAddRouteForm = function() {
         coordinates: routeLocations
       },
       notes: document.getElementById('newRouteNotes').value,
-      status: 'planned'
+      status: 'planned',
+      expiresAt: expiresAtValue ? new Date(expiresAtValue).toISOString() : null,
+      isExpired: false
     };
     
     try {
@@ -3585,6 +3734,9 @@ function showRouteInfoPanel(route, distanceKm, durationMin, pointCount) {
         <i data-lucide="arrow-left" class="w-4 h-4"></i>
         Back to Routes
       </button>
+      <button onclick="closeRouteInfoPanel(); createScheduleFromRoute('${route._id || route.routeId}', '${(route.name || 'Unnamed Route').replace(/'/g, "\\'")}', '${route.assignedDriver || ''}', '${route.assignedVehicle || ''}')" class="flex items-center justify-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors" title="Create Schedule">
+        <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+      </button>
       ${route.path && route.path.coordinates && route.path.coordinates.length >= 2 ? `
         <button onclick="closeRouteInfoPanel(); optimizeRouteUI('${route._id || route.routeId}')" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors" title="Optimize this route">
           <i data-lucide="sparkles" class="w-4 h-4"></i>
@@ -3606,6 +3758,38 @@ window.closeRouteInfoPanel = function() {
   const panel = document.getElementById('routeInfoPanel');
   if (panel) panel.remove();
   clearTempMarkers();
+};
+
+// Create schedule from route - pre-fills the schedule form with route data
+window.createScheduleFromRoute = async function(routeId, routeName, assignedDriver, assignedVehicle) {
+  try {
+    // Navigate to schedules management first
+    await showScheduleManagement();
+
+    // Wait for the modal elements to be ready
+    setTimeout(() => {
+      // Open the add schedule form
+      showAddScheduleForm();
+
+      // Pre-fill the form fields
+      setTimeout(() => {
+        const scheduleNameInput = document.getElementById('scheduleName');
+        const scheduleRouteIdInput = document.getElementById('scheduleRouteId');
+        const scheduleDriverInput = document.getElementById('scheduleDriver');
+        const scheduleVehicleInput = document.getElementById('scheduleVehicle');
+
+        if (scheduleNameInput) scheduleNameInput.value = `Schedule for ${routeName}`;
+        if (scheduleRouteIdInput) scheduleRouteIdInput.value = routeId;
+        if (scheduleDriverInput && assignedDriver) scheduleDriverInput.value = assignedDriver;
+        if (scheduleVehicleInput && assignedVehicle) scheduleVehicleInput.value = assignedVehicle;
+
+        showToast('Schedule form pre-filled with route data', 'success');
+      }, 100);
+    }, 300);
+  } catch (error) {
+    console.error('Error creating schedule from route:', error);
+    showToast('Error opening schedule form', 'error');
+  }
 };
 
 // Route Optimization UI - Enhanced with OSRM support
@@ -3959,8 +4143,6 @@ window.assignRouteToDriver = async function(routeId) {
       const assignedDriverInfo = drivers.find(d => d.username === route.assignedDriver);
       const driverName = assignedDriverInfo ? assignedDriverInfo.fullName : route.assignedDriver;
       
-      const canUnassign = route.status === 'completed';
-      
       showModal('Route Already Assigned', `
         <div class="space-y-4">
           <div class="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
@@ -3977,26 +4159,18 @@ window.assignRouteToDriver = async function(routeId) {
           </div>
           <p class="text-sm text-gray-600">
             Ang route na ito ay naka-assign na kay <strong class="text-gray-800">${driverName}</strong>.
-            Hindi na pwedeng i-assign sa ibang driver para maiwasan ang conflict.
+            Pwede mo itong i-unassign kung gusto mong i-assign sa ibang driver.
           </p>
-          ${canUnassign ? `
-            <div class="p-3 bg-green-50 border border-green-200 rounded-xl">
-              <p class="text-sm text-green-700 flex items-center gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4"></i>
-                Ang route na ito ay <strong>completed</strong> na. Pwede mo na itong i-unassign para ma-assign sa bagong driver.
-              </p>
-            </div>
-          ` : `
-            <p class="text-sm text-gray-500">
-              Kung gusto mong i-unassign, kailangan mong i-complete muna ang route.
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <p class="text-sm text-blue-700 flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4"></i>
+              Click "Unassign Route" to remove the current driver assignment.
             </p>
-          `}
+          </div>
           <div class="flex gap-3 pt-2">
-            ${canUnassign ? `
-              <button onclick="unassignRoute('${routeId}')" class="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-colors">
-                Unassign Route
-              </button>
-            ` : ''}
+            <button onclick="unassignRoute('${routeId}')" class="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-colors">
+              Unassign Route
+            </button>
             <button onclick="closeModal()" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
               Close
             </button>

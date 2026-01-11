@@ -3,10 +3,24 @@ const router = express.Router();
 const { routesStorage } = require('../data/storage');
 const routeOptimizer = require('../lib/routeOptimizer');
 
+// Helper function to check and update route expiration
+function checkRouteExpiration(route) {
+  if (route.expiresAt && !route.isExpired) {
+    const expiresAt = new Date(route.expiresAt);
+    if (new Date() > expiresAt) {
+      route.isExpired = true;
+      routesStorage.update(route._id || route.routeId, { isExpired: true });
+    }
+  }
+  return route;
+}
+
 // Get all routes
 router.get('/', async (req, res) => {
   try {
-    const routes = routesStorage.getAll();
+    let routes = routesStorage.getAll();
+    // Check expiration for each route
+    routes = routes.map(checkRouteExpiration);
     res.json(routes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -16,10 +30,12 @@ router.get('/', async (req, res) => {
 // Get single route
 router.get('/:id', async (req, res) => {
   try {
-    const route = routesStorage.findById(req.params.id);
+    let route = routesStorage.findById(req.params.id);
     if (!route) {
       return res.status(404).json({ error: 'Route not found' });
     }
+    // Check expiration
+    route = checkRouteExpiration(route);
     res.json(route);
   } catch (error) {
     res.status(500).json({ error: error.message });
