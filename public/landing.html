@@ -182,52 +182,71 @@
       </div>
 
       <!-- Main Action Cards -->
-      <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-12">
+      <div class="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto mt-12">
 
       <!-- Report an Issue Card -->
-      <a href="/complaint" class="card-hover bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in-up-delay-1">
-        <div class="w-16 h-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center mb-6 animate-float">
-          <i data-lucide="message-square-warning" class="w-8 h-8 text-white"></i>
+      <a href="/complaint" class="card-hover bg-white rounded-2xl shadow-lg p-6 border border-gray-100 animate-fade-in-up-delay-1">
+        <div class="w-14 h-14 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center mb-4 animate-float">
+          <i data-lucide="message-square-warning" class="w-7 h-7 text-white"></i>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800 mb-3">Report an Issue</h3>
-        <p class="text-gray-600 mb-6">
-          Submit reports for missed collections, illegal dumping, overflowing bins, or other waste-related concerns in your area.
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Report an Issue</h3>
+        <p class="text-gray-600 text-sm mb-4">
+          Submit reports for missed collections, illegal dumping, or other waste concerns.
         </p>
-        <div class="flex flex-wrap gap-2 mb-6">
-          <span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Missed Collection</span>
-          <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Illegal Dumping</span>
-          <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Overflowing Bins</span>
-          <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">Damaged Bins</span>
+        <div class="flex flex-wrap gap-1 mb-4">
+          <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Missed</span>
+          <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Dumping</span>
+          <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Bins</span>
         </div>
-        <div class="flex items-center gap-2 text-primary-600 font-medium">
-          <span>Submit a Report</span>
-          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        <div class="flex items-center gap-2 text-primary-600 font-medium text-sm">
+          <span>Submit Report</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </div>
+      </a>
+
+      <!-- Resident Portal Card -->
+      <a href="/resident-portal" class="card-hover bg-white rounded-2xl shadow-lg p-6 border border-gray-100 animate-fade-in-up-delay-2">
+        <div class="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center mb-4 animate-float" style="animation-delay: 0.3s;">
+          <i data-lucide="users" class="w-7 h-7 text-white"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Resident Portal</h3>
+        <p class="text-gray-600 text-sm mb-4">
+          View schedules, request special pickups, and learn about waste segregation.
+        </p>
+        <div class="flex flex-wrap gap-1 mb-4">
+          <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Schedules</span>
+          <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">E-Waste</span>
+          <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">Education</span>
+        </div>
+        <div class="flex items-center gap-2 text-emerald-600 font-medium text-sm">
+          <span>Open Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </div>
       </a>
 
       <!-- Track Report Card -->
-      <a href="/track.html" class="card-hover bg-white rounded-2xl shadow-lg p-8 border border-gray-100 animate-fade-in-up-delay-2">
-        <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center mb-6 animate-float" style="animation-delay: 0.5s;">
-          <i data-lucide="search" class="w-8 h-8 text-white"></i>
+      <a href="/track.html" class="card-hover bg-white rounded-2xl shadow-lg p-6 border border-gray-100 animate-fade-in-up-delay-3">
+        <div class="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center mb-4 animate-float" style="animation-delay: 0.5s;">
+          <i data-lucide="search" class="w-7 h-7 text-white"></i>
         </div>
-        <h3 class="text-2xl font-bold text-gray-800 mb-3">Track Your Report</h3>
-        <p class="text-gray-600 mb-6">
-          Already submitted a report? Enter your reference number to check the current status and see updates from our team.
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Track Your Report</h3>
+        <p class="text-gray-600 text-sm mb-4">
+          Enter your reference number to check report status and updates.
         </p>
-        <div class="bg-gray-50 rounded-xl p-4 mb-6">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
+        <div class="bg-gray-50 rounded-xl p-3 mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
             </div>
             <div>
-              <p class="text-xs text-gray-500">Reference Format</p>
-              <p class="text-sm font-mono font-medium text-gray-700">CMPL-2024-XXXXX</p>
+              <p class="text-xs text-gray-500">Reference</p>
+              <p class="text-xs font-mono font-medium text-gray-700">CMPL-2024-XXXXX</p>
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-2 text-blue-600 font-medium">
+        <div class="flex items-center gap-2 text-blue-600 font-medium text-sm">
           <span>Track Status</span>
-          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </div>
       </a>
       </div>
@@ -318,6 +337,7 @@
         </div>
         <div class="flex items-center gap-6 text-sm">
           <a href="/complaint" class="text-gray-400 hover:text-white transition-colors">Report Issue</a>
+          <a href="/resident-portal" class="text-gray-400 hover:text-white transition-colors">Resident Portal</a>
           <a href="/track.html" class="text-gray-400 hover:text-white transition-colors">Track Report</a>
           <a href="/login.html" class="text-gray-400 hover:text-white transition-colors">Staff Login</a>
         </div>

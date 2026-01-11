@@ -1065,6 +1065,22 @@ if (complaintsBtn) {
   });
 }
 
+// Special Pickups (Admin only)
+const specialPickupsBtn = document.getElementById('specialPickupsBtn');
+if (specialPickupsBtn) {
+  specialPickupsBtn.addEventListener('click', () => {
+    showSpecialPickupsAdmin();
+  });
+}
+
+// Announcements Admin (Admin only)
+const announcementsAdminBtn = document.getElementById('announcementsAdminBtn');
+if (announcementsAdminBtn) {
+  announcementsAdminBtn.addEventListener('click', () => {
+    showAnnouncementsAdmin();
+  });
+}
+
 // Collection Schedules (Admin only)
 const schedulesBtn = document.getElementById('schedulesBtn');
 if (schedulesBtn) {
@@ -1497,7 +1513,7 @@ async function showDashboard() {
 
 // Helper function to set active sidebar button
 function setActiveSidebarButton(activeId) {
-  const buttons = ['dashboardBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'truckManagementBtn', 'schedulesBtn', 'completionHistoryBtn', 'userManagementBtn', 'complaintsBtn', 'fuelManagementBtn', 'reportsBtn', 'analyticsBtn'];
+  const buttons = ['dashboardBtn', 'routesManagementBtn', 'liveTruckTrackingBtn', 'truckManagementBtn', 'schedulesBtn', 'completionHistoryBtn', 'userManagementBtn', 'complaintsBtn', 'specialPickupsBtn', 'announcementsAdminBtn', 'fuelManagementBtn', 'reportsBtn', 'analyticsBtn'];
   buttons.forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
@@ -11366,6 +11382,648 @@ function renderSchedulesTable() {
   if (thead) {
     thead.innerHTML = createSortableHeader('schedules', schedulesColumns);
     lucide.createIcons();
+  }
+}
+
+// ===== SPECIAL PICKUPS ADMIN =====
+async function showSpecialPickupsAdmin() {
+  if (user.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+
+  setActiveSidebarButton('specialPickupsBtn');
+  showPageContent();
+  showPageLoading('Loading special pickup requests...');
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/resident/admin/special-pickups', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const pickups = await response.json();
+
+    const statusColors = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'completed': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-gray-100 text-gray-800'
+    };
+
+    const typeColors = {
+      'e-waste': 'bg-blue-100 text-blue-700',
+      'hazardous': 'bg-red-100 text-red-700'
+    };
+
+    let tableRows = '';
+    pickups.forEach(p => {
+      const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const items = p.items ? p.items.map(i => i.name).join(', ') : 'N/A';
+      tableRows += `
+        <tr class="hover:bg-gray-50 border-b">
+          <td class="px-4 py-3">
+            <div class="font-medium text-primary-600">${p.referenceNumber}</div>
+            <div class="text-xs text-gray-500">${date}</div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${typeColors[p.pickupType]}">
+              ${p.pickupType === 'e-waste' ? 'E-Waste' : 'Hazardous'}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="font-medium">${p.requesterName}</div>
+            <div class="text-xs text-gray-500">${p.phone}</div>
+          </td>
+          <td class="px-4 py-3 text-sm">${p.barangay}</td>
+          <td class="px-4 py-3 text-sm max-w-xs truncate" title="${items}">${items}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColors[p.status]}">
+              ${p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1">
+              <button onclick="viewPickupDetails('${p._id}')" class="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded" title="View Details">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+              ${p.status === 'pending' ? `
+                <button onclick="schedulePickup('${p._id}')" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Schedule">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                </button>
+              ` : ''}
+              ${p.status === 'scheduled' ? `
+                <button onclick="completePickup('${p._id}')" class="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded" title="Mark Complete">
+                  <i data-lucide="check-circle" class="w-4 h-4"></i>
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>`;
+    });
+
+    const pendingCount = pickups.filter(p => p.status === 'pending').length;
+    const scheduledCount = pickups.filter(p => p.status === 'scheduled').length;
+
+    const pageContent = document.getElementById('pageContent');
+    pageContent.innerHTML = `
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Special Pickup Requests</h1>
+            <p class="text-gray-500">E-Waste and Hazardous waste pickup requests from residents</p>
+          </div>
+          <div class="flex gap-3">
+            <div class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium">
+              ${pendingCount} Pending
+            </div>
+            <div class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
+              ${scheduledCount} Scheduled
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div class="p-4 border-b bg-gray-50 flex gap-4">
+            <select id="pickupStatusFilter" onchange="filterPickups()" class="px-3 py-2 border rounded-lg text-sm">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <select id="pickupTypeFilter" onchange="filterPickups()" class="px-3 py-2 border rounded-lg text-sm">
+              <option value="">All Types</option>
+              <option value="e-waste">E-Waste</option>
+              <option value="hazardous">Hazardous</option>
+            </select>
+          </div>
+          <table class="w-full">
+            <thead class="bg-gray-50 text-left text-sm text-gray-600">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Reference</th>
+                <th class="px-4 py-3 font-semibold">Type</th>
+                <th class="px-4 py-3 font-semibold">Requester</th>
+                <th class="px-4 py-3 font-semibold">Barangay</th>
+                <th class="px-4 py-3 font-semibold">Items</th>
+                <th class="px-4 py-3 font-semibold">Status</th>
+                <th class="px-4 py-3 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows || '<tr><td colspan="7" class="px-4 py-12 text-center text-gray-500">No pickup requests found</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    lucide.createIcons();
+  } catch (error) {
+    console.error('Error loading special pickups:', error);
+    showPageError('Failed to load special pickup requests');
+  }
+}
+
+async function viewPickupDetails(id) {
+  const token = localStorage.getItem('token');
+  try {
+    const response = await fetch(`/api/resident/admin/special-pickups/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const pickup = await response.json();
+
+    const itemsList = pickup.items ? pickup.items.map(i => `<li>${i.name} x${i.quantity}</li>`).join('') : '<li>No items listed</li>';
+
+    showModal(`
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-gray-800">Pickup Details</h2>
+          <span class="px-3 py-1 rounded-full text-sm font-medium ${pickup.pickupType === 'e-waste' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}">
+            ${pickup.pickupType === 'e-waste' ? 'E-Waste' : 'Hazardous'}
+          </span>
+        </div>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-500">Reference Number</p>
+              <p class="font-semibold">${pickup.referenceNumber}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Status</p>
+              <p class="font-semibold capitalize">${pickup.status}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-500">Requester</p>
+              <p class="font-semibold">${pickup.requesterName}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Phone</p>
+              <p class="font-semibold">${pickup.phone}</p>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Address</p>
+            <p class="font-semibold">${pickup.address}, ${pickup.barangay}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Items</p>
+            <ul class="list-disc list-inside text-sm">${itemsList}</ul>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-500">Preferred Date</p>
+              <p class="font-semibold">${new Date(pickup.preferredDate).toLocaleDateString()}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Time Slot</p>
+              <p class="font-semibold capitalize">${pickup.preferredTimeSlot || 'Morning'}</p>
+            </div>
+          </div>
+          ${pickup.photos && pickup.photos.length > 0 ? `
+            <div>
+              <p class="text-sm text-gray-500 mb-2">Photos</p>
+              <div class="flex gap-2 flex-wrap">
+                ${pickup.photos.map(p => `<img src="${p}" class="w-20 h-20 object-cover rounded-lg">`).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+        <div class="mt-6 flex gap-3 justify-end">
+          <button onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Close</button>
+          ${pickup.status === 'pending' ? `<button onclick="schedulePickup('${pickup._id}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Schedule Pickup</button>` : ''}
+        </div>
+      </div>
+    `);
+  } catch (error) {
+    showToast('Failed to load pickup details', 'error');
+  }
+}
+
+async function schedulePickup(id) {
+  const date = prompt('Enter scheduled pickup date (YYYY-MM-DD):');
+  if (!date) return;
+
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`/api/resident/admin/special-pickups/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: 'scheduled',
+        scheduledDate: date
+      })
+    });
+    showToast('Pickup scheduled successfully', 'success');
+    closeModal();
+    showSpecialPickupsAdmin();
+  } catch (error) {
+    showToast('Failed to schedule pickup', 'error');
+  }
+}
+
+async function completePickup(id) {
+  if (!confirm('Mark this pickup as completed?')) return;
+
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`/api/resident/admin/special-pickups/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'completed' })
+    });
+    showToast('Pickup marked as completed', 'success');
+    showSpecialPickupsAdmin();
+  } catch (error) {
+    showToast('Failed to complete pickup', 'error');
+  }
+}
+
+// ===== ANNOUNCEMENTS ADMIN =====
+async function showAnnouncementsAdmin() {
+  if (user.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    return;
+  }
+
+  setActiveSidebarButton('announcementsAdminBtn');
+  showPageContent();
+  showPageLoading('Loading announcements...');
+
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/resident/admin/announcements', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const announcements = await response.json();
+
+    const typeColors = {
+      'info': 'bg-blue-100 text-blue-700',
+      'warning': 'bg-amber-100 text-amber-700',
+      'alert': 'bg-red-100 text-red-700',
+      'schedule-change': 'bg-purple-100 text-purple-700'
+    };
+
+    let tableRows = '';
+    announcements.forEach(a => {
+      const startDate = new Date(a.startDate).toLocaleDateString();
+      const endDate = a.endDate ? new Date(a.endDate).toLocaleDateString() : 'Ongoing';
+      const scope = a.targetScope === 'city-wide' ? 'City-wide' :
+                   a.targetBarangays && a.targetBarangays.length > 0 ?
+                   a.targetBarangays.slice(0, 2).join(', ') + (a.targetBarangays.length > 2 ? '...' : '') :
+                   'City-wide';
+
+      tableRows += `
+        <tr class="hover:bg-gray-50 border-b">
+          <td class="px-4 py-3">
+            <div class="font-medium">${a.title}</div>
+            <div class="text-xs text-gray-500 max-w-xs truncate">${a.content}</div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${typeColors[a.type]}">
+              ${a.type.replace('-', ' ').toUpperCase()}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-sm">${scope}</td>
+          <td class="px-4 py-3 text-sm capitalize">${a.priority}</td>
+          <td class="px-4 py-3 text-sm">${startDate} - ${endDate}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-full text-xs font-medium ${a.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+              ${a.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1">
+              <button onclick="editAnnouncement('${a._id}')" class="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded" title="Edit">
+                <i data-lucide="edit" class="w-4 h-4"></i>
+              </button>
+              <button onclick="toggleAnnouncementStatus('${a._id}', ${!a.isActive})" class="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded" title="${a.isActive ? 'Deactivate' : 'Activate'}">
+                <i data-lucide="${a.isActive ? 'pause' : 'play'}" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteAnnouncement('${a._id}')" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    });
+
+    const activeCount = announcements.filter(a => a.isActive).length;
+
+    const pageContent = document.getElementById('pageContent');
+    pageContent.innerHTML = `
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Announcements</h1>
+            <p class="text-gray-500">Manage public announcements for the resident portal</p>
+          </div>
+          <button onclick="showCreateAnnouncementModal()" class="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            New Announcement
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div class="p-4 border-b bg-gray-50">
+            <span class="text-sm text-gray-600">${activeCount} active announcement${activeCount !== 1 ? 's' : ''}</span>
+          </div>
+          <table class="w-full">
+            <thead class="bg-gray-50 text-left text-sm text-gray-600">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Title / Content</th>
+                <th class="px-4 py-3 font-semibold">Type</th>
+                <th class="px-4 py-3 font-semibold">Scope</th>
+                <th class="px-4 py-3 font-semibold">Priority</th>
+                <th class="px-4 py-3 font-semibold">Dates</th>
+                <th class="px-4 py-3 font-semibold">Status</th>
+                <th class="px-4 py-3 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows || '<tr><td colspan="7" class="px-4 py-12 text-center text-gray-500">No announcements found</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    lucide.createIcons();
+  } catch (error) {
+    console.error('Error loading announcements:', error);
+    showPageError('Failed to load announcements');
+  }
+}
+
+async function showCreateAnnouncementModal() {
+  const barangaysResponse = await fetch('/api/resident/barangays');
+  const barangays = await barangaysResponse.json();
+
+  const barangayOptions = barangays.map(b => `<option value="${b}">${b}</option>`).join('');
+
+  showModal('Create Announcement', `
+      <form id="announcementForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input type="text" id="annTitle" required class="w-full px-3 py-2 border rounded-lg" placeholder="Announcement title">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Content *</label>
+          <textarea id="annContent" rows="3" required class="w-full px-3 py-2 border rounded-lg" placeholder="Announcement message"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select id="annType" class="w-full px-3 py-2 border rounded-lg">
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="alert">Alert</option>
+              <option value="schedule-change">Schedule Change</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <select id="annPriority" class="w-full px-3 py-2 border rounded-lg">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Target Scope</label>
+          <select id="annScope" onchange="toggleBarangaySelect()" class="w-full px-3 py-2 border rounded-lg">
+            <option value="city-wide">City-wide (All Barangays)</option>
+            <option value="barangay">Specific Barangays</option>
+          </select>
+        </div>
+        <div id="barangaySelectContainer" class="hidden">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Select Barangays</label>
+          <select id="annBarangays" multiple class="w-full px-3 py-2 border rounded-lg h-32">
+            ${barangayOptions}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input type="date" id="annStartDate" class="w-full px-3 py-2 border rounded-lg" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End Date (optional)</label>
+            <input type="date" id="annEndDate" class="w-full px-3 py-2 border rounded-lg">
+          </div>
+        </div>
+        <div class="flex gap-3 justify-end mt-6">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Create</button>
+        </div>
+      </form>
+  `);
+
+  // Wait for DOM to update before attaching event listener
+  setTimeout(() => {
+    const form = document.getElementById('announcementForm');
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        await createAnnouncement();
+      };
+    }
+  }, 100);
+}
+
+function toggleBarangaySelect() {
+  const scope = document.getElementById('annScope').value;
+  const container = document.getElementById('barangaySelectContainer');
+  if (scope === 'barangay') {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+async function createAnnouncement() {
+  const token = localStorage.getItem('token');
+  const scope = document.getElementById('annScope').value;
+  const barangaySelect = document.getElementById('annBarangays');
+  const targetBarangays = scope === 'barangay' ?
+    Array.from(barangaySelect.selectedOptions).map(o => o.value) : [];
+
+  try {
+    await fetch('/api/resident/admin/announcements', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: document.getElementById('annTitle').value,
+        content: document.getElementById('annContent').value,
+        type: document.getElementById('annType').value,
+        priority: document.getElementById('annPriority').value,
+        targetScope: scope,
+        targetBarangays: targetBarangays,
+        startDate: document.getElementById('annStartDate').value,
+        endDate: document.getElementById('annEndDate').value || null
+      })
+    });
+    showToast('Announcement created successfully', 'success');
+    closeModal();
+    showAnnouncementsAdmin();
+  } catch (error) {
+    showToast('Failed to create announcement', 'error');
+  }
+}
+
+async function toggleAnnouncementStatus(id, isActive) {
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`/api/resident/admin/announcements/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ isActive })
+    });
+    showToast(`Announcement ${isActive ? 'activated' : 'deactivated'}`, 'success');
+    showAnnouncementsAdmin();
+  } catch (error) {
+    showToast('Failed to update announcement', 'error');
+  }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Are you sure you want to delete this announcement?')) return;
+
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`/api/resident/admin/announcements/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    showToast('Announcement deleted', 'success');
+    showAnnouncementsAdmin();
+  } catch (error) {
+    showToast('Failed to delete announcement', 'error');
+  }
+}
+
+async function editAnnouncement(id) {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`/api/resident/admin/announcements`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const announcements = await response.json();
+  const a = announcements.find(ann => ann._id === id);
+  if (!a) return;
+
+  const barangaysResponse = await fetch('/api/resident/barangays');
+  const barangays = await barangaysResponse.json();
+  const barangayOptions = barangays.map(b =>
+    `<option value="${b}" ${a.targetBarangays && a.targetBarangays.includes(b) ? 'selected' : ''}>${b}</option>`
+  ).join('');
+
+  showModal(`
+    <div class="p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">Edit Announcement</h2>
+      <form id="editAnnouncementForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input type="text" id="editAnnTitle" value="${a.title}" required class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Content *</label>
+          <textarea id="editAnnContent" rows="3" required class="w-full px-3 py-2 border rounded-lg">${a.content}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select id="editAnnType" class="w-full px-3 py-2 border rounded-lg">
+              <option value="info" ${a.type === 'info' ? 'selected' : ''}>Info</option>
+              <option value="warning" ${a.type === 'warning' ? 'selected' : ''}>Warning</option>
+              <option value="alert" ${a.type === 'alert' ? 'selected' : ''}>Alert</option>
+              <option value="schedule-change" ${a.type === 'schedule-change' ? 'selected' : ''}>Schedule Change</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <select id="editAnnPriority" class="w-full px-3 py-2 border rounded-lg">
+              <option value="normal" ${a.priority === 'normal' ? 'selected' : ''}>Normal</option>
+              <option value="high" ${a.priority === 'high' ? 'selected' : ''}>High</option>
+              <option value="urgent" ${a.priority === 'urgent' ? 'selected' : ''}>Urgent</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Target Scope</label>
+          <select id="editAnnScope" onchange="toggleEditBarangaySelect()" class="w-full px-3 py-2 border rounded-lg">
+            <option value="city-wide" ${a.targetScope === 'city-wide' ? 'selected' : ''}>City-wide</option>
+            <option value="barangay" ${a.targetScope === 'barangay' ? 'selected' : ''}>Specific Barangays</option>
+          </select>
+        </div>
+        <div id="editBarangaySelectContainer" class="${a.targetScope === 'barangay' ? '' : 'hidden'}">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Select Barangays</label>
+          <select id="editAnnBarangays" multiple class="w-full px-3 py-2 border rounded-lg h-32">
+            ${barangayOptions}
+          </select>
+        </div>
+        <div class="flex gap-3 justify-end mt-6">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Update</button>
+        </div>
+      </form>
+    </div>
+  `);
+
+  document.getElementById('editAnnouncementForm').onsubmit = async (e) => {
+    e.preventDefault();
+    await updateAnnouncement(id);
+  };
+}
+
+function toggleEditBarangaySelect() {
+  const scope = document.getElementById('editAnnScope').value;
+  const container = document.getElementById('editBarangaySelectContainer');
+  if (scope === 'barangay') {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+async function updateAnnouncement(id) {
+  const token = localStorage.getItem('token');
+  const scope = document.getElementById('editAnnScope').value;
+  const barangaySelect = document.getElementById('editAnnBarangays');
+  const targetBarangays = scope === 'barangay' ?
+    Array.from(barangaySelect.selectedOptions).map(o => o.value) : [];
+
+  try {
+    await fetch(`/api/resident/admin/announcements/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: document.getElementById('editAnnTitle').value,
+        content: document.getElementById('editAnnContent').value,
+        type: document.getElementById('editAnnType').value,
+        priority: document.getElementById('editAnnPriority').value,
+        targetScope: scope,
+        targetBarangays: targetBarangays
+      })
+    });
+    showToast('Announcement updated successfully', 'success');
+    closeModal();
+    showAnnouncementsAdmin();
+  } catch (error) {
+    showToast('Failed to update announcement', 'error');
   }
 }
 

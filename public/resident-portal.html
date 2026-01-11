@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resident Portal - Kolek-Ta</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              300: '#86efac',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tab-btn.active {
+      background-color: #22c55e;
+      color: white;
+    }
+    .photo-preview {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    #mapPickerContainer {
+      height: 300px;
+      width: 100%;
+      border-radius: 8px;
+    }
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .accordion-content.open {
+      max-height: 2000px;
+    }
+    .pickup-type-card {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pickup-type-card:hover {
+      border-color: #22c55e;
+    }
+    .pickup-type-card.selected {
+      border-color: #22c55e;
+      background-color: #dcfce7;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-40">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+              <i data-lucide="recycle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+              <h1 class="text-lg font-bold text-gray-800">Kolek-Ta</h1>
+              <p class="text-xs text-gray-500">Resident Portal</p>
+            </div>
+          </a>
+        </div>
+
+        <!-- Barangay Selector -->
+        <div class="flex items-center gap-2">
+          <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
+          <select id="barangaySelector" onchange="onBarangayChange()"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            <option value="">Select Barangay</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Announcements Banner (for urgent/high priority) -->
+  <div id="announcementBanner" class="hidden">
+    <div class="bg-amber-50 border-b border-amber-200">
+      <div class="container mx-auto px-4 py-3">
+        <div class="flex items-start gap-3">
+          <i data-lucide="megaphone" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <div id="bannerContent" class="flex-1 text-sm text-amber-800"></div>
+          <button onclick="closeBanner()" class="text-amber-600 hover:text-amber-800">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="bg-white border-b sticky top-[72px] z-30">
+    <div class="container mx-auto px-4">
+      <div class="flex gap-1 overflow-x-auto py-2">
+        <button onclick="showTab('schedule')" id="tab-schedule" class="tab-btn active flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+          <i data-lucide="calendar" class="w-4 h-4"></i>
+          Schedule
+        </button>
+        <button onclick="showTab('pickup')" id="tab-pickup" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+          <i data-lucide="package" class="w-4 h-4"></i>
+          Special Pickup
+        </button>
+        <button onclick="showTab('education')" id="tab-education" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          Waste Education
+        </button>
+        <button onclick="showTab('announcements')" id="tab-announcements" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+          News
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-6">
+
+    <!-- Schedule Tab -->
+    <div id="content-schedule" class="tab-content">
+      <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Collection Schedule</h2>
+            <p class="text-sm text-gray-500" id="scheduleSubtitle">Select a barangay to view schedules</p>
+          </div>
+          <div id="nextCollectionBadge" class="hidden px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium">
+            <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
+            <span id="nextCollectionText">Loading...</span>
+          </div>
+        </div>
+
+        <div id="scheduleContent">
+          <div class="text-center py-12 text-gray-500">
+            <i data-lucide="calendar" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+            <p>Please select your barangay to view collection schedules</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Special Pickup Tab -->
+    <div id="content-pickup" class="tab-content hidden">
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Form Section -->
+        <div class="md:col-span-2">
+          <div class="bg-white rounded-xl shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Request Special Pickup</h2>
+            <p class="text-sm text-gray-500 mb-6">Request collection for e-waste or hazardous materials</p>
+
+            <form id="pickupForm" enctype="multipart/form-data">
+              <!-- Pickup Type -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">What type of waste? *</label>
+                <div class="grid grid-cols-2 gap-4">
+                  <div onclick="selectPickupType('e-waste')" class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <i data-lucide="monitor" class="w-6 h-6 text-blue-600"></i>
+                    </div>
+                    <h4 class="font-semibold text-gray-800">E-Waste</h4>
+                    <p class="text-xs text-gray-500 mt-1">Electronics, computers, phones</p>
+                  </div>
+                  <div onclick="selectPickupType('hazardous')" class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                    <h4 class="font-semibold text-gray-800">Hazardous</h4>
+                    <p class="text-xs text-gray-500 mt-1">Batteries, chemicals, paint</p>
+                  </div>
+                </div>
+                <input type="hidden" id="pickupType" name="pickupType" required>
+              </div>
+
+              <!-- Items -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Items for Pickup *</label>
+                <div id="itemsList" class="space-y-2 mb-3">
+                  <div class="flex gap-2 item-row">
+                    <input type="text" placeholder="Item name (e.g., Old TV)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                    <input type="number" placeholder="Qty" value="1" min="1" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  </div>
+                </div>
+                <button type="button" onclick="addItemRow()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  <i data-lucide="plus" class="w-4 h-4 inline"></i> Add another item
+                </button>
+              </div>
+
+              <!-- Contact Info -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Contact Information</label>
+                <div class="space-y-3">
+                  <input type="text" id="requesterName" name="requesterName" placeholder="Full Name *" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <div class="grid grid-cols-2 gap-3">
+                    <input type="tel" id="phone" name="phone" placeholder="Phone Number *" required
+                      class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="email" id="email" name="email" placeholder="Email (optional)"
+                      class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Location -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Pickup Location</label>
+                <div class="space-y-3">
+                  <input type="text" id="address" name="address" placeholder="Complete Address *" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <select id="pickupBarangay" name="barangay" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Select Barangay *</option>
+                  </select>
+                  <button type="button" onclick="openMapPicker()"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                    Pin on Map (Optional)
+                  </button>
+                  <div id="locationDisplay" class="hidden p-2 bg-primary-50 rounded-lg text-sm text-primary-700">
+                    <i data-lucide="check-circle" class="w-4 h-4 inline"></i>
+                    <span id="locationText">Location set</span>
+                  </div>
+                  <input type="hidden" id="latitude" name="latitude">
+                  <input type="hidden" id="longitude" name="longitude">
+                </div>
+              </div>
+
+              <!-- Preferred Date/Time -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Preferred Pickup Date</label>
+                <div class="grid grid-cols-2 gap-3">
+                  <input type="date" id="preferredDate" name="preferredDate" required
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <select id="preferredTimeSlot" name="preferredTimeSlot"
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="morning">Morning (7AM-12PM)</option>
+                    <option value="afternoon">Afternoon (1PM-5PM)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Photo Upload -->
+              <div class="mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Photos (Optional)</label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-500 cursor-pointer" id="dropZone">
+                  <input type="file" id="photos" name="photos" accept="image/*" multiple class="hidden">
+                  <i data-lucide="camera" class="w-8 h-8 text-gray-400 mx-auto mb-2"></i>
+                  <p class="text-sm text-gray-500">Click or drag photos here (max 3)</p>
+                </div>
+                <div id="photoPreview" class="flex gap-2 mt-3 flex-wrap"></div>
+              </div>
+
+              <!-- Submit -->
+              <button type="submit" id="submitPickupBtn"
+                class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-5 h-5"></i>
+                Submit Request
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Track Request Sidebar -->
+        <div>
+          <div class="bg-white rounded-xl shadow-sm p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">Track Your Request</h3>
+            <div class="space-y-3">
+              <input type="text" id="trackRefNumber" placeholder="Enter reference number"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <button onclick="trackRequest()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg text-sm transition">
+                Track Status
+              </button>
+            </div>
+            <div id="trackResult" class="mt-4 hidden"></div>
+          </div>
+
+          <!-- Info Cards -->
+          <div class="mt-4 space-y-4">
+            <div class="bg-blue-50 rounded-xl p-4">
+              <div class="flex items-start gap-3">
+                <i data-lucide="monitor" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+                <div>
+                  <h4 class="font-semibold text-blue-800 text-sm">E-Waste Items</h4>
+                  <p class="text-xs text-blue-700 mt-1">Computers, phones, TVs, printers, cables, appliances</p>
+                </div>
+              </div>
+            </div>
+            <div class="bg-red-50 rounded-xl p-4">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 mt-0.5"></i>
+                <div>
+                  <h4 class="font-semibold text-red-800 text-sm">Hazardous Waste</h4>
+                  <p class="text-xs text-red-700 mt-1">Batteries, paint, chemicals, fluorescent bulbs, pesticides</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Education Tab -->
+    <div id="content-education" class="tab-content hidden">
+      <div class="max-w-3xl mx-auto space-y-4">
+        <!-- Segregation Accordion -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+          <button onclick="toggleAccordion('segregation')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="layers" class="w-6 h-6 text-primary-600"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-800">Waste Segregation Guide</h3>
+                <p class="text-sm text-gray-500">Learn how to sort your waste properly</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-segregation"></i>
+          </button>
+          <div id="accordion-segregation" class="accordion-content">
+            <div class="px-6 pb-6" id="segregationContent">
+              <div class="text-center py-4 text-gray-400">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recycling Accordion -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+          <button onclick="toggleAccordion('recycling')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="recycle" class="w-6 h-6 text-blue-600"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-800">Recycling Tips</h3>
+                <p class="text-sm text-gray-500">Make the most of recyclable materials</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-recycling"></i>
+          </button>
+          <div id="accordion-recycling" class="accordion-content">
+            <div class="px-6 pb-6" id="recyclingContent">
+              <div class="text-center py-4 text-gray-400">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composting Accordion -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+          <button onclick="toggleAccordion('composting')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="sprout" class="w-6 h-6 text-amber-600"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-800">Composting Guide</h3>
+                <p class="text-sm text-gray-500">Turn waste into garden gold</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-composting"></i>
+          </button>
+          <div id="accordion-composting" class="accordion-content">
+            <div class="px-6 pb-6" id="compostingContent">
+              <div class="text-center py-4 text-gray-400">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Announcements Tab -->
+    <div id="content-announcements" class="tab-content hidden">
+      <div class="max-w-3xl mx-auto">
+        <h2 class="text-xl font-bold text-gray-800 mb-6">News & Announcements</h2>
+        <div id="announcementsList" class="space-y-4">
+          <div class="text-center py-12 text-gray-500">
+            <i data-lucide="bell-off" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+            <p>No announcements at this time</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Success Modal -->
+  <div id="successModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="check-circle" class="w-10 h-10 text-primary-600"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Request Submitted!</h3>
+        <p class="text-gray-600 mb-4">Your special pickup request has been received. Save your reference number to track the status.</p>
+        <div class="bg-gray-100 rounded-lg p-4 mb-4">
+          <p class="text-sm text-gray-500 mb-1">Reference Number</p>
+          <p id="referenceNumber" class="text-2xl font-bold text-primary-600">PICKUP-2026-00000</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="copyReference()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+            <i data-lucide="copy" class="w-4 h-4 inline mr-1"></i> Copy
+          </button>
+          <button onclick="closeSuccessModal()" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Picker Modal -->
+  <div id="mapPickerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+      <div class="p-4 border-b flex items-center justify-between">
+        <h3 class="font-bold text-gray-800">Pin Location on Map</h3>
+        <button onclick="closeMapPicker()" class="text-gray-500 hover:text-gray-700">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <div class="p-4">
+        <div id="mapPickerContainer"></div>
+        <p class="text-sm text-gray-500 mt-2 text-center" id="mapPickerCoords">Click on the map to set location</p>
+      </div>
+      <div class="p-4 border-t flex gap-3 justify-end">
+        <button onclick="closeMapPicker()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+        <button onclick="confirmMapLocation()" id="confirmLocationBtn" disabled
+          class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-8 mt-12">
+    <div class="container mx-auto px-4">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+            <i data-lucide="recycle" class="w-6 h-6 text-white"></i>
+          </div>
+          <div>
+            <h3 class="font-bold">Kolek-Ta</h3>
+            <p class="text-sm text-gray-400">Resident Portal</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+          <a href="/complaint" class="text-gray-400 hover:text-white">Report Issue</a>
+          <a href="/track.html" class="text-gray-400 hover:text-white">Track Report</a>
+          <a href="/" class="text-gray-400 hover:text-white">Home</a>
+        </div>
+        <p class="text-gray-400 text-sm">Mati City, Davao Oriental</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Initialize
+    let selectedBarangay = localStorage.getItem('selectedBarangay') || '';
+    let selectedPickupType = '';
+    let mapPicker = null;
+    let mapMarker = null;
+    let pickerLat = null;
+    let pickerLng = null;
+    let uploadedPhotos = [];
+
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Load barangays on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadBarangays();
+      await loadAnnouncements();
+      loadEducationContent();
+
+      // Set minimum date for pickup
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('preferredDate').min = today;
+      document.getElementById('preferredDate').value = today;
+
+      // Setup photo upload
+      setupPhotoUpload();
+    });
+
+    async function loadBarangays() {
+      try {
+        const response = await fetch('/api/resident/barangays');
+        const barangays = await response.json();
+
+        const selector = document.getElementById('barangaySelector');
+        const pickupSelector = document.getElementById('pickupBarangay');
+
+        barangays.forEach(brgy => {
+          selector.innerHTML += `<option value="${brgy}" ${brgy === selectedBarangay ? 'selected' : ''}>${brgy}</option>`;
+          pickupSelector.innerHTML += `<option value="${brgy}">${brgy}</option>`;
+        });
+
+        if (selectedBarangay) {
+          loadSchedules();
+        }
+      } catch (error) {
+        console.error('Error loading barangays:', error);
+      }
+    }
+
+    function onBarangayChange() {
+      selectedBarangay = document.getElementById('barangaySelector').value;
+      localStorage.setItem('selectedBarangay', selectedBarangay);
+      loadSchedules();
+      loadAnnouncements();
+    }
+
+    async function loadSchedules() {
+      const container = document.getElementById('scheduleContent');
+      const subtitle = document.getElementById('scheduleSubtitle');
+      const badge = document.getElementById('nextCollectionBadge');
+
+      if (!selectedBarangay) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-gray-500">
+            <i data-lucide="calendar" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+            <p>Please select your barangay to view collection schedules</p>
+          </div>`;
+        lucide.createIcons();
+        badge.classList.add('hidden');
+        return;
+      }
+
+      container.innerHTML = '<div class="text-center py-8"><div class="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div></div>';
+
+      try {
+        const response = await fetch(`/api/resident/schedules/${encodeURIComponent(selectedBarangay)}`);
+        const data = await response.json();
+
+        subtitle.textContent = `Barangay ${selectedBarangay}`;
+
+        if (!data.schedules || data.schedules.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+              <i data-lucide="calendar-x" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+              <p>No scheduled collections found for this barangay</p>
+              <p class="text-sm mt-2">Check back later or contact the city office for information</p>
+            </div>`;
+          badge.classList.add('hidden');
+          lucide.createIcons();
+          return;
+        }
+
+        // Show next collection badge
+        const next = data.schedules[0];
+        badge.classList.remove('hidden');
+        document.getElementById('nextCollectionText').textContent = `Next: ${next.dayName} ${next.time}`;
+
+        // Build schedule table
+        let html = `
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Date</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Time</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Type</th>
+                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Vehicle</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">`;
+
+        data.schedules.forEach((s, i) => {
+          const isToday = s.date === new Date().toISOString().split('T')[0];
+          const wasteColors = {
+            'Biodegradable': 'bg-green-100 text-green-700',
+            'Recyclable': 'bg-blue-100 text-blue-700',
+            'Mixed': 'bg-gray-100 text-gray-700'
+          };
+
+          html += `
+            <tr class="${isToday ? 'bg-primary-50' : ''}">
+              <td class="px-4 py-3">
+                <div class="font-medium ${isToday ? 'text-primary-700' : 'text-gray-800'}">${s.dayName}</div>
+                <div class="text-xs text-gray-500">${s.date}</div>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded text-xs font-medium ${s.timeSlot === 'morning' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}">
+                  ${s.time}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded text-xs font-medium ${wasteColors[s.wasteType] || wasteColors['Mixed']}">
+                  ${s.wasteType}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">${s.vehicle}</td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+
+      } catch (error) {
+        console.error('Error loading schedules:', error);
+        container.innerHTML = `
+          <div class="text-center py-12 text-red-500">
+            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-4"></i>
+            <p>Error loading schedules. Please try again.</p>
+          </div>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function loadAnnouncements() {
+      try {
+        const url = selectedBarangay
+          ? `/api/resident/announcements/${encodeURIComponent(selectedBarangay)}`
+          : '/api/resident/announcements';
+
+        const response = await fetch(url);
+        const announcements = await response.json();
+
+        // Show banner for urgent/high priority
+        const urgent = announcements.find(a => a.priority === 'urgent' || a.priority === 'high');
+        if (urgent) {
+          document.getElementById('bannerContent').innerHTML = `<strong>${urgent.title}:</strong> ${urgent.content}`;
+          document.getElementById('announcementBanner').classList.remove('hidden');
+        }
+
+        // Update announcements list
+        const container = document.getElementById('announcementsList');
+        if (announcements.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+              <i data-lucide="bell-off" class="w-12 h-12 mx-auto mb-4 text-gray-300"></i>
+              <p>No announcements at this time</p>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+
+        let html = '';
+        const typeStyles = {
+          'info': 'bg-blue-100 text-blue-700',
+          'warning': 'bg-amber-100 text-amber-700',
+          'alert': 'bg-red-100 text-red-700',
+          'schedule-change': 'bg-purple-100 text-purple-700'
+        };
+        const priorityStyles = {
+          'urgent': 'border-l-4 border-red-500',
+          'high': 'border-l-4 border-amber-500',
+          'normal': ''
+        };
+
+        announcements.forEach(a => {
+          const date = new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          html += `
+            <div class="bg-white rounded-xl shadow-sm p-6 ${priorityStyles[a.priority] || ''}">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 rounded text-xs font-medium ${typeStyles[a.type] || typeStyles.info}">
+                    ${a.type.replace('-', ' ').toUpperCase()}
+                  </span>
+                  ${a.targetScope === 'barangay' ? '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">Local</span>' : ''}
+                </div>
+                <span class="text-xs text-gray-400">${date}</span>
+              </div>
+              <h3 class="font-bold text-gray-800 mb-2">${a.title}</h3>
+              <p class="text-gray-600 text-sm">${a.content}</p>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+
+      } catch (error) {
+        console.error('Error loading announcements:', error);
+      }
+    }
+
+    async function loadEducationContent() {
+      const topics = ['segregation', 'recycling', 'composting'];
+
+      for (const topic of topics) {
+        try {
+          const response = await fetch(`/api/resident/education/${topic}`);
+          const data = await response.json();
+          renderEducationContent(topic, data);
+        } catch (error) {
+          console.error(`Error loading ${topic}:`, error);
+        }
+      }
+    }
+
+    function renderEducationContent(topic, data) {
+      const container = document.getElementById(`${topic}Content`);
+
+      if (topic === 'segregation') {
+        let html = '<div class="space-y-4">';
+        data.bins.forEach(bin => {
+          html += `
+            <div class="flex items-start gap-4 p-4 rounded-lg" style="background-color: ${bin.colorHex}15">
+              <div class="w-8 h-8 rounded-full flex-shrink-0" style="background-color: ${bin.colorHex}"></div>
+              <div>
+                <h4 class="font-semibold" style="color: ${bin.colorHex}">${bin.name}</h4>
+                <p class="text-sm text-gray-600 mb-2">${bin.description}</p>
+                <div class="flex flex-wrap gap-1">
+                  ${bin.examples.map(e => `<span class="px-2 py-0.5 bg-white rounded text-xs text-gray-600">${e}</span>`).join('')}
+                </div>
+              </div>
+            </div>`;
+        });
+        html += '</div>';
+        if (data.tips) {
+          html += '<div class="mt-6 p-4 bg-primary-50 rounded-lg"><h4 class="font-semibold text-primary-700 mb-2">Tips</h4><ul class="text-sm text-primary-800 space-y-1">';
+          data.tips.forEach(tip => { html += `<li>• ${tip}</li>`; });
+          html += '</ul></div>';
+        }
+        container.innerHTML = html;
+      }
+
+      if (topic === 'recycling') {
+        let html = '<div class="grid md:grid-cols-2 gap-4 mb-4">';
+        html += '<div class="p-4 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-700 mb-2">Do\'s</h4><ul class="text-sm text-green-800 space-y-1">';
+        data.dos.forEach(d => { html += `<li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 mt-0.5"></i>${d}</li>`; });
+        html += '</ul></div>';
+        html += '<div class="p-4 bg-red-50 rounded-lg"><h4 class="font-semibold text-red-700 mb-2">Don\'ts</h4><ul class="text-sm text-red-800 space-y-1">';
+        data.donts.forEach(d => { html += `<li class="flex items-start gap-2"><i data-lucide="x" class="w-4 h-4 mt-0.5"></i>${d}</li>`; });
+        html += '</ul></div></div>';
+        container.innerHTML = html;
+        lucide.createIcons();
+      }
+
+      if (topic === 'composting') {
+        let html = '<div class="space-y-3 mb-6">';
+        data.steps.forEach(step => {
+          html += `
+            <div class="flex items-start gap-4">
+              <div class="w-8 h-8 bg-amber-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">${step.step}</div>
+              <div>
+                <h4 class="font-semibold text-gray-800">${step.title}</h4>
+                <p class="text-sm text-gray-600">${step.description}</p>
+              </div>
+            </div>`;
+        });
+        html += '</div>';
+        html += '<div class="grid md:grid-cols-2 gap-4">';
+        html += '<div class="p-4 bg-green-50 rounded-lg"><h4 class="font-semibold text-green-700 mb-2">Can Compost</h4><div class="flex flex-wrap gap-1">';
+        data.canCompost.forEach(c => { html += `<span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">${c}</span>`; });
+        html += '</div></div>';
+        html += '<div class="p-4 bg-red-50 rounded-lg"><h4 class="font-semibold text-red-700 mb-2">Cannot Compost</h4><div class="flex flex-wrap gap-1">';
+        data.cannotCompost.forEach(c => { html += `<span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">${c}</span>`; });
+        html += '</div></div></div>';
+        container.innerHTML = html;
+      }
+    }
+
+    // Tab switching
+    function showTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(`content-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    // Accordion toggle
+    function toggleAccordion(id) {
+      const content = document.getElementById(`accordion-${id}`);
+      const icon = document.getElementById(`icon-${id}`);
+      content.classList.toggle('open');
+      icon.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : '';
+    }
+
+    // Pickup type selection
+    function selectPickupType(type) {
+      selectedPickupType = type;
+      document.getElementById('pickupType').value = type;
+      document.querySelectorAll('.pickup-type-card').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    // Add item row
+    function addItemRow() {
+      const list = document.getElementById('itemsList');
+      const row = document.createElement('div');
+      row.className = 'flex gap-2 item-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Item name" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <input type="number" placeholder="Qty" value="1" min="1" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <button type="button" onclick="this.parentElement.remove()" class="px-2 text-red-500 hover:text-red-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>`;
+      list.appendChild(row);
+      lucide.createIcons();
+    }
+
+    // Photo upload setup
+    function setupPhotoUpload() {
+      const dropZone = document.getElementById('dropZone');
+      const input = document.getElementById('photos');
+
+      dropZone.onclick = () => input.click();
+
+      dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('border-primary-500'); };
+      dropZone.ondragleave = () => dropZone.classList.remove('border-primary-500');
+      dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary-500');
+        handleFiles(e.dataTransfer.files);
+      };
+
+      input.onchange = (e) => handleFiles(e.target.files);
+    }
+
+    function handleFiles(files) {
+      const preview = document.getElementById('photoPreview');
+
+      Array.from(files).slice(0, 3 - uploadedPhotos.length).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          uploadedPhotos.push(e.target.result);
+          const div = document.createElement('div');
+          div.className = 'relative';
+          div.innerHTML = `
+            <img src="${e.target.result}" class="photo-preview">
+            <button type="button" onclick="removePhoto(${uploadedPhotos.length - 1})"
+              class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">x</button>`;
+          preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function removePhoto(index) {
+      uploadedPhotos.splice(index, 1);
+      renderPhotoPreviews();
+    }
+
+    function renderPhotoPreviews() {
+      const preview = document.getElementById('photoPreview');
+      preview.innerHTML = '';
+      uploadedPhotos.forEach((photo, i) => {
+        const div = document.createElement('div');
+        div.className = 'relative';
+        div.innerHTML = `
+          <img src="${photo}" class="photo-preview">
+          <button type="button" onclick="removePhoto(${i})"
+            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">x</button>`;
+        preview.appendChild(div);
+      });
+    }
+
+    // Map picker
+    function openMapPicker() {
+      document.getElementById('mapPickerModal').classList.remove('hidden');
+      document.getElementById('mapPickerModal').classList.add('flex');
+
+      if (!mapPicker) {
+        mapPicker = L.map('mapPickerContainer').setView([6.9549, 126.2185], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(mapPicker);
+
+        mapPicker.on('click', (e) => {
+          pickerLat = e.latlng.lat;
+          pickerLng = e.latlng.lng;
+
+          if (mapMarker) mapPicker.removeLayer(mapMarker);
+          mapMarker = L.marker([pickerLat, pickerLng]).addTo(mapPicker);
+
+          document.getElementById('mapPickerCoords').textContent = `${pickerLat.toFixed(6)}, ${pickerLng.toFixed(6)}`;
+          document.getElementById('confirmLocationBtn').disabled = false;
+        });
+      }
+
+      setTimeout(() => mapPicker.invalidateSize(), 100);
+    }
+
+    function closeMapPicker() {
+      document.getElementById('mapPickerModal').classList.add('hidden');
+      document.getElementById('mapPickerModal').classList.remove('flex');
+    }
+
+    function confirmMapLocation() {
+      document.getElementById('latitude').value = pickerLat;
+      document.getElementById('longitude').value = pickerLng;
+      document.getElementById('locationDisplay').classList.remove('hidden');
+      document.getElementById('locationText').textContent = `${pickerLat.toFixed(6)}, ${pickerLng.toFixed(6)}`;
+      closeMapPicker();
+    }
+
+    // Form submission
+    document.getElementById('pickupForm').onsubmit = async (e) => {
+      e.preventDefault();
+
+      if (!selectedPickupType) {
+        alert('Please select a pickup type (E-Waste or Hazardous)');
+        return;
+      }
+
+      const btn = document.getElementById('submitPickupBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div> Submitting...';
+
+      try {
+        // Collect items
+        const items = [];
+        document.querySelectorAll('.item-row').forEach(row => {
+          const inputs = row.querySelectorAll('input');
+          if (inputs[0].value) {
+            items.push({ name: inputs[0].value, quantity: parseInt(inputs[1].value) || 1 });
+          }
+        });
+
+        const formData = new FormData();
+        formData.append('pickupType', selectedPickupType);
+        formData.append('items', JSON.stringify(items));
+        formData.append('requesterName', document.getElementById('requesterName').value);
+        formData.append('phone', document.getElementById('phone').value);
+        formData.append('email', document.getElementById('email').value);
+        formData.append('barangay', document.getElementById('pickupBarangay').value);
+        formData.append('address', document.getElementById('address').value);
+        formData.append('preferredDate', document.getElementById('preferredDate').value);
+        formData.append('preferredTimeSlot', document.getElementById('preferredTimeSlot').value);
+
+        if (document.getElementById('latitude').value) {
+          formData.append('latitude', document.getElementById('latitude').value);
+          formData.append('longitude', document.getElementById('longitude').value);
+        }
+
+        // Add photos
+        uploadedPhotos.forEach((photo, i) => {
+          const blob = dataURLtoBlob(photo);
+          formData.append('photos', blob, `photo${i}.jpg`);
+        });
+
+        const response = await fetch('/api/resident/special-pickup', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          document.getElementById('referenceNumber').textContent = result.referenceNumber;
+          document.getElementById('successModal').classList.remove('hidden');
+          document.getElementById('successModal').classList.add('flex');
+          document.getElementById('pickupForm').reset();
+          uploadedPhotos = [];
+          document.getElementById('photoPreview').innerHTML = '';
+          document.querySelectorAll('.pickup-type-card').forEach(el => el.classList.remove('selected'));
+          selectedPickupType = '';
+        } else {
+          alert(result.error || 'Failed to submit request');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="send" class="w-5 h-5"></i> Submit Request';
+        lucide.createIcons();
+      }
+    };
+
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], {type: mime});
+    }
+
+    // Track request
+    async function trackRequest() {
+      const refNum = document.getElementById('trackRefNumber').value.trim();
+      if (!refNum) return;
+
+      const container = document.getElementById('trackResult');
+      container.classList.remove('hidden');
+      container.innerHTML = '<div class="text-center py-4 text-gray-400">Loading...</div>';
+
+      try {
+        const response = await fetch(`/api/resident/special-pickup/${encodeURIComponent(refNum)}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          const statusColors = {
+            'pending': 'bg-yellow-100 text-yellow-700',
+            'scheduled': 'bg-blue-100 text-blue-700',
+            'completed': 'bg-green-100 text-green-700',
+            'cancelled': 'bg-gray-100 text-gray-700'
+          };
+
+          container.innerHTML = `
+            <div class="p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs text-gray-500">${refNum}</span>
+                <span class="px-2 py-1 rounded text-xs font-medium ${statusColors[data.status]}">${data.status.toUpperCase()}</span>
+              </div>
+              <p class="font-medium text-gray-800">${data.pickupType === 'e-waste' ? 'E-Waste' : 'Hazardous'} Pickup</p>
+              <p class="text-sm text-gray-600 mt-1">${data.barangay}</p>
+              ${data.scheduledDate ? `<p class="text-sm text-blue-600 mt-2"><i data-lucide="calendar" class="w-4 h-4 inline"></i> Scheduled: ${new Date(data.scheduledDate).toLocaleDateString()}</p>` : ''}
+            </div>`;
+          lucide.createIcons();
+        } else {
+          container.innerHTML = `<div class="p-4 bg-red-50 text-red-700 rounded-lg text-sm">${data.error || 'Request not found'}</div>`;
+        }
+      } catch (error) {
+        container.innerHTML = '<div class="p-4 bg-red-50 text-red-700 rounded-lg text-sm">Error tracking request</div>';
+      }
+    }
+
+    // Modal functions
+    function closeSuccessModal() {
+      document.getElementById('successModal').classList.add('hidden');
+      document.getElementById('successModal').classList.remove('flex');
+    }
+
+    function copyReference() {
+      const ref = document.getElementById('referenceNumber').textContent;
+      navigator.clipboard.writeText(ref);
+      alert('Reference number copied!');
+    }
+
+    function closeBanner() {
+      document.getElementById('announcementBanner').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

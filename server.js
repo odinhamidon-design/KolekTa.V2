@@ -40,6 +40,11 @@ app.get('/track', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'track.html'));
 });
 
+// Resident Self-Service Portal (public - no auth required)
+app.get('/resident-portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'resident-portal.html'));
+});
+
 // Static file serving (after explicit routes)
 app.use(express.static('public'));
 
@@ -104,6 +109,7 @@ if (useMockAuth) {
 
 app.use('/api/fuel', require('./routes/fuel'));
 app.use('/api/complaints', require('./routes/complaints'));
+app.use('/api/resident', require('./routes/resident-portal'));
 
 // Schedules and Reports routes
 if (useMockAuth) {
