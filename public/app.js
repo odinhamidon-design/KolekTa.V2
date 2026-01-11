@@ -11941,18 +11941,30 @@ async function showReportsModule() {
       <!-- Report Type Tabs -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div class="border-b border-gray-200">
-          <nav class="flex -mb-px">
-            <button onclick="selectReportType('collection')" id="collectionTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-primary-500 text-primary-600 font-medium">
+          <nav class="grid grid-cols-3 md:grid-cols-6 -mb-px">
+            <button onclick="selectReportType('collection')" id="collectionTab" class="report-tab px-4 py-3 text-center border-b-2 border-primary-500 text-primary-600 font-medium text-sm">
               <i data-lucide="truck" class="w-5 h-5 mx-auto mb-1"></i>
-              Collection Summary
+              Collection
             </button>
-            <button onclick="selectReportType('driver')" id="driverTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+            <button onclick="selectReportType('driver')" id="driverTab" class="report-tab px-4 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
               <i data-lucide="users" class="w-5 h-5 mx-auto mb-1"></i>
-              Driver Performance
+              Drivers
             </button>
-            <button onclick="selectReportType('complaint')" id="complaintTab" class="report-tab flex-1 px-6 py-4 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium">
+            <button onclick="selectReportType('complaint')" id="complaintTab" class="report-tab px-4 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
               <i data-lucide="message-square-warning" class="w-5 h-5 mx-auto mb-1"></i>
-              Complaint Analytics
+              Complaints
+            </button>
+            <button onclick="selectReportType('fuel')" id="fuelTab" class="report-tab px-4 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+              <i data-lucide="fuel" class="w-5 h-5 mx-auto mb-1"></i>
+              Fuel
+            </button>
+            <button onclick="selectReportType('schedule')" id="scheduleTab" class="report-tab px-4 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+              <i data-lucide="calendar-check" class="w-5 h-5 mx-auto mb-1"></i>
+              Schedules
+            </button>
+            <button onclick="selectReportType('fleet')" id="fleetTab" class="report-tab px-4 py-3 text-center border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+              <i data-lucide="car" class="w-5 h-5 mx-auto mb-1"></i>
+              Fleet
             </button>
           </nav>
         </div>
@@ -12058,6 +12070,15 @@ window.generateReport = async function() {
       case 'complaint':
         endpoint = `/reports/complaint-analytics?startDate=${startDate}&endDate=${endDate}`;
         break;
+      case 'fuel':
+        endpoint = `/reports/fuel-consumption?startDate=${startDate}&endDate=${endDate}`;
+        break;
+      case 'schedule':
+        endpoint = `/reports/schedule-adherence?startDate=${startDate}&endDate=${endDate}`;
+        break;
+      case 'fleet':
+        endpoint = `/reports/fleet-utilization?startDate=${startDate}&endDate=${endDate}`;
+        break;
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -12080,6 +12101,15 @@ window.generateReport = async function() {
         break;
       case 'complaint':
         renderComplaintReport(currentReportData);
+        break;
+      case 'fuel':
+        renderFuelReport(currentReportData);
+        break;
+      case 'schedule':
+        renderScheduleReport(currentReportData);
+        break;
+      case 'fleet':
+        renderFleetReport(currentReportData);
         break;
     }
 
@@ -12314,6 +12344,448 @@ function renderComplaintReport(data) {
   lucide.createIcons();
 }
 
+// Chart management for reports
+let reportCharts = {};
+
+function destroyReportCharts() {
+  Object.values(reportCharts).forEach(chart => {
+    if (chart && typeof chart.destroy === 'function') {
+      chart.destroy();
+    }
+  });
+  reportCharts = {};
+}
+
+// Fuel Consumption Report
+function renderFuelReport(data) {
+  destroyReportCharts();
+  const reportContent = document.getElementById('reportContent');
+  const { summary, byTruck, byDriver, daily } = data;
+
+  const truckRows = (byTruck || []).slice(0, 10).map(t => `
+    <tr class="border-b border-gray-100 hover:bg-gray-50">
+      <td class="px-4 py-3 font-medium text-gray-800">${t.truckName}</td>
+      <td class="px-4 py-3 text-gray-600">${t.plateNumber}</td>
+      <td class="px-4 py-3 text-gray-600">${t.litersConsumed} L</td>
+      <td class="px-4 py-3 text-gray-600">${t.litersRefueled} L</td>
+      <td class="px-4 py-3 text-gray-600">₱${t.totalCost.toLocaleString()}</td>
+      <td class="px-4 py-3 text-gray-600">${t.distanceTraveled} km</td>
+      <td class="px-4 py-3 text-gray-600">${t.efficiency} km/L</td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No data available</td></tr>';
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Consumed</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.totalLitersConsumed || 0} L</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Total Refueled</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.totalLitersRefueled || 0} L</p>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+          <p class="text-sm text-yellow-600 font-medium">Total Cost</p>
+          <p class="text-2xl font-bold text-yellow-700">₱${(summary?.totalCost || 0).toLocaleString()}</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium">Avg Efficiency</p>
+          <p class="text-2xl font-bold text-purple-700">${summary?.avgEfficiency || 0} km/L</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Daily Trend Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Daily Fuel Trend</h3>
+          <div class="h-64">
+            <canvas id="fuelDailyChart"></canvas>
+          </div>
+        </div>
+        <!-- By Truck Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Consumption by Truck</h3>
+          <div class="h-64">
+            <canvas id="fuelTruckChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Truck Details Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">Fuel Usage by Truck</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Truck</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Plate</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Consumed</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Refueled</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cost</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Distance</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Efficiency</th>
+              </tr>
+            </thead>
+            <tbody>${truckRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+
+  // Create charts after DOM is ready
+  setTimeout(() => {
+    // Daily trend line chart
+    const dailyCtx = document.getElementById('fuelDailyChart');
+    if (dailyCtx && daily && daily.length > 0) {
+      reportCharts.dailyChart = new Chart(dailyCtx, {
+        type: 'line',
+        data: {
+          labels: daily.map(d => d.date),
+          datasets: [
+            {
+              label: 'Consumption (L)',
+              data: daily.map(d => d.consumption),
+              borderColor: '#3B82F6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Refuel (L)',
+              data: daily.map(d => d.refuel),
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // By truck bar chart
+    const truckCtx = document.getElementById('fuelTruckChart');
+    if (truckCtx && byTruck && byTruck.length > 0) {
+      const topTrucks = byTruck.slice(0, 8);
+      reportCharts.truckChart = new Chart(truckCtx, {
+        type: 'bar',
+        data: {
+          labels: topTrucks.map(t => t.plateNumber),
+          datasets: [{
+            label: 'Liters Consumed',
+            data: topTrucks.map(t => t.litersConsumed),
+            backgroundColor: '#3B82F6'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+  }, 100);
+}
+
+// Schedule Adherence Report
+function renderScheduleReport(data) {
+  destroyReportCharts();
+  const reportContent = document.getElementById('reportContent');
+  const { summary, bySchedule, byDriver, daily } = data;
+
+  const adherenceColor = (summary?.adherenceRate || 0) >= 80 ? 'green' : (summary?.adherenceRate || 0) >= 50 ? 'yellow' : 'red';
+
+  const scheduleRows = (bySchedule || []).map(s => `
+    <tr class="border-b border-gray-100 hover:bg-gray-50">
+      <td class="px-4 py-3 font-medium text-gray-800">${s.scheduleName}</td>
+      <td class="px-4 py-3 text-gray-600">${s.expectedCount}</td>
+      <td class="px-4 py-3 text-gray-600">${s.completedCount}</td>
+      <td class="px-4 py-3">
+        <span class="px-2 py-1 rounded-full text-xs font-medium ${s.adherenceRate >= 80 ? 'bg-green-100 text-green-700' : s.adherenceRate >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+          ${s.adherenceRate}%
+        </span>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">No data available</td></tr>';
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-${adherenceColor}-50 rounded-xl p-4 border border-${adherenceColor}-200">
+          <p class="text-sm text-${adherenceColor}-600 font-medium">Adherence Rate</p>
+          <p class="text-2xl font-bold text-${adherenceColor}-700">${summary?.adherenceRate || 0}%</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Scheduled</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.totalScheduled || 0}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Completed</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.totalCompleted || 0}</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200">
+          <p class="text-sm text-red-600 font-medium">Missed</p>
+          <p class="text-2xl font-bold text-red-700">${summary?.missedCollections || 0}</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Daily Trend Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Daily Adherence</h3>
+          <div class="h-64">
+            <canvas id="scheduleDailyChart"></canvas>
+          </div>
+        </div>
+        <!-- Completion Pie Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Completion Status</h3>
+          <div class="h-64">
+            <canvas id="scheduleCompletionChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule Details Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">Adherence by Schedule</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Schedule</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Expected</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Completed</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rate</th>
+              </tr>
+            </thead>
+            <tbody>${scheduleRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+
+  // Create charts
+  setTimeout(() => {
+    // Daily adherence chart
+    const dailyCtx = document.getElementById('scheduleDailyChart');
+    if (dailyCtx && daily && daily.length > 0) {
+      reportCharts.dailyChart = new Chart(dailyCtx, {
+        type: 'bar',
+        data: {
+          labels: daily.map(d => d.date),
+          datasets: [
+            {
+              label: 'Scheduled',
+              data: daily.map(d => d.scheduled),
+              backgroundColor: '#3B82F6'
+            },
+            {
+              label: 'Completed',
+              data: daily.map(d => d.completed),
+              backgroundColor: '#10B981'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Completion pie chart
+    const completionCtx = document.getElementById('scheduleCompletionChart');
+    if (completionCtx && summary) {
+      reportCharts.completionChart = new Chart(completionCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed', 'Missed'],
+          datasets: [{
+            data: [summary.totalCompleted, summary.missedCollections],
+            backgroundColor: ['#10B981', '#EF4444']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+  }, 100);
+}
+
+// Fleet Utilization Report
+function renderFleetReport(data) {
+  destroyReportCharts();
+  const reportContent = document.getElementById('reportContent');
+  const { summary, byTruck, byType, byStatus } = data;
+
+  const truckRows = (byTruck || []).map(t => `
+    <tr class="border-b border-gray-100 hover:bg-gray-50">
+      <td class="px-4 py-3 font-medium text-gray-800">${t.truckName}</td>
+      <td class="px-4 py-3 text-gray-600">${t.plateNumber}</td>
+      <td class="px-4 py-3">
+        <span class="px-2 py-1 rounded-full text-xs font-medium ${t.status === 'available' ? 'bg-green-100 text-green-700' : t.status === 'in-use' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
+          ${t.status}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-gray-600">${t.routesCompleted}</td>
+      <td class="px-4 py-3 text-gray-600">${t.distanceTraveled} km</td>
+      <td class="px-4 py-3 text-gray-600">${t.daysActive} days</td>
+      <td class="px-4 py-3">
+        <span class="px-2 py-1 rounded-full text-xs font-medium ${t.utilizationRate >= 50 ? 'bg-green-100 text-green-700' : t.utilizationRate >= 25 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+          ${t.utilizationRate}%
+        </span>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No data available</td></tr>';
+
+  reportContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p class="text-sm text-blue-600 font-medium">Total Trucks</p>
+          <p class="text-2xl font-bold text-blue-700">${summary?.totalTrucks || 0}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p class="text-sm text-green-600 font-medium">Active Trucks</p>
+          <p class="text-2xl font-bold text-green-700">${summary?.activeTrucks || 0}</p>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+          <p class="text-sm text-yellow-600 font-medium">Utilization Rate</p>
+          <p class="text-2xl font-bold text-yellow-700">${summary?.utilizationRate || 0}%</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-4 border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium">Total Distance</p>
+          <p class="text-2xl font-bold text-purple-700">${summary?.totalDistance || 0} km</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Routes by Truck Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Routes by Truck</h3>
+          <div class="h-64">
+            <canvas id="fleetRoutesChart"></canvas>
+          </div>
+        </div>
+        <!-- Status Distribution Chart -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="font-semibold text-gray-800 mb-4">Fleet Status Distribution</h3>
+          <div class="h-64">
+            <canvas id="fleetStatusChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Truck Details Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+          <h3 class="font-semibold text-gray-800">Fleet Details</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Truck</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Plate</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Routes</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Distance</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Active Days</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Utilization</th>
+              </tr>
+            </thead>
+            <tbody>${truckRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+
+  // Create charts
+  setTimeout(() => {
+    // Routes by truck chart
+    const routesCtx = document.getElementById('fleetRoutesChart');
+    if (routesCtx && byTruck && byTruck.length > 0) {
+      const topTrucks = byTruck.filter(t => t.routesCompleted > 0).slice(0, 10);
+      reportCharts.routesChart = new Chart(routesCtx, {
+        type: 'bar',
+        data: {
+          labels: topTrucks.map(t => t.plateNumber),
+          datasets: [{
+            label: 'Routes Completed',
+            data: topTrucks.map(t => t.routesCompleted),
+            backgroundColor: '#3B82F6'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Status distribution chart
+    const statusCtx = document.getElementById('fleetStatusChart');
+    if (statusCtx && byStatus && byStatus.length > 0) {
+      const statusColors = {
+        'available': '#10B981',
+        'in-use': '#3B82F6',
+        'maintenance': '#F59E0B',
+        'out-of-service': '#EF4444'
+      };
+      reportCharts.statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: byStatus.map(s => s.status),
+          datasets: [{
+            data: byStatus.map(s => s.count),
+            backgroundColor: byStatus.map(s => statusColors[s.status] || '#6B7280')
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+  }, 100);
+}
+
 window.exportReportPDF = function() {
   if (!currentReportData) {
     showToast('Please generate a report first', 'warning');
@@ -12346,6 +12818,15 @@ window.exportReportPDF = function() {
       case 'complaint':
         reportTitle = 'Complaint Analytics Report';
         break;
+      case 'fuel':
+        reportTitle = 'Fuel Consumption Report';
+        break;
+      case 'schedule':
+        reportTitle = 'Schedule Adherence Report';
+        break;
+      case 'fleet':
+        reportTitle = 'Fleet Utilization Report';
+        break;
     }
 
     doc.text(reportTitle, 14, 30);
@@ -12366,6 +12847,15 @@ window.exportReportPDF = function() {
         break;
       case 'complaint':
         generateComplaintPDF(doc, currentReportData, yPosition);
+        break;
+      case 'fuel':
+        generateFuelPDF(doc, currentReportData, yPosition);
+        break;
+      case 'schedule':
+        generateSchedulePDF(doc, currentReportData, yPosition);
+        break;
+      case 'fleet':
+        generateFleetPDF(doc, currentReportData, yPosition);
         break;
     }
 
@@ -12534,6 +13024,186 @@ function generateComplaintPDF(doc, data, y) {
       theme: 'striped',
       headStyles: { fillColor: [52, 73, 94] },
       styles: { fontSize: 10 }
+    });
+  }
+}
+
+// Fuel Consumption PDF
+function generateFuelPDF(doc, data, y) {
+  const { summary, byTruck } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Total Consumed: ${summary?.totalLitersConsumed || 0} L`, 14, y);
+  doc.text(`Total Refueled: ${summary?.totalLitersRefueled || 0} L`, 100, y);
+  y += 6;
+  doc.text(`Total Cost: PHP ${(summary?.totalCost || 0).toLocaleString()}`, 14, y);
+  doc.text(`Avg Efficiency: ${summary?.avgEfficiency || 0} km/L`, 100, y);
+  y += 6;
+  doc.text(`Total Distance: ${summary?.totalDistance || 0} km`, 14, y);
+  doc.text(`Cost per km: PHP ${summary?.avgCostPerKm || 0}`, 100, y);
+  y += 14;
+
+  // By Truck table
+  if (byTruck && byTruck.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Fuel Usage by Truck', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Truck', 'Plate', 'Consumed', 'Refueled', 'Cost', 'Distance', 'Efficiency']],
+      body: byTruck.map(t => [
+        t.truckName,
+        t.plateNumber,
+        `${t.litersConsumed} L`,
+        `${t.litersRefueled} L`,
+        `PHP ${t.totalCost.toLocaleString()}`,
+        `${t.distanceTraveled} km`,
+        `${t.efficiency} km/L`
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 9 }
+    });
+  }
+}
+
+// Schedule Adherence PDF
+function generateSchedulePDF(doc, data, y) {
+  const { summary, bySchedule, byDriver } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Adherence Rate: ${summary?.adherenceRate || 0}%`, 14, y);
+  doc.text(`Total Scheduled: ${summary?.totalScheduled || 0}`, 100, y);
+  y += 6;
+  doc.text(`Completed: ${summary?.totalCompleted || 0}`, 14, y);
+  doc.text(`Missed: ${summary?.missedCollections || 0}`, 100, y);
+  y += 14;
+
+  // By Schedule table
+  if (bySchedule && bySchedule.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Adherence by Schedule', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Schedule', 'Expected', 'Completed', 'Rate']],
+      body: bySchedule.map(s => [
+        s.scheduleName,
+        s.expectedCount,
+        s.completedCount,
+        `${s.adherenceRate}%`
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // By Driver table
+  if (byDriver && byDriver.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Adherence by Driver', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Driver', 'Assigned', 'Completed', 'Rate']],
+      body: byDriver.map(d => [
+        d.fullName,
+        d.assignedCount,
+        d.completedCount,
+        `${d.adherenceRate}%`
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+  }
+}
+
+// Fleet Utilization PDF
+function generateFleetPDF(doc, data, y) {
+  const { summary, byTruck, byStatus } = data;
+
+  // Summary section
+  doc.setFontSize(14);
+  doc.setTextColor(44, 62, 80);
+  doc.text('Summary', 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Total Trucks: ${summary?.totalTrucks || 0}`, 14, y);
+  doc.text(`Active Trucks: ${summary?.activeTrucks || 0}`, 100, y);
+  y += 6;
+  doc.text(`Utilization Rate: ${summary?.utilizationRate || 0}%`, 14, y);
+  doc.text(`Total Distance: ${summary?.totalDistance || 0} km`, 100, y);
+  y += 6;
+  doc.text(`Avg Distance/Truck: ${summary?.avgDistancePerTruck || 0} km`, 14, y);
+  y += 14;
+
+  // Status breakdown
+  if (byStatus && byStatus.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Fleet Status', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Status', 'Count']],
+      body: byStatus.map(s => [s.status, s.count]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 10 }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // By Truck table
+  if (byTruck && byTruck.length > 0) {
+    doc.setFontSize(14);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Fleet Details', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Truck', 'Plate', 'Status', 'Routes', 'Distance', 'Days Active', 'Utilization']],
+      body: byTruck.map(t => [
+        t.truckName,
+        t.plateNumber,
+        t.status,
+        t.routesCompleted,
+        `${t.distanceTraveled} km`,
+        t.daysActive,
+        `${t.utilizationRate}%`
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [52, 73, 94] },
+      styles: { fontSize: 9 }
     });
   }
 }
