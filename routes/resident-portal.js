@@ -416,7 +416,7 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
         preferredTimeSlot: preferredTimeSlot || 'morning',
         photos,
         status: 'pending',
-        isNew: true
+        isUnread: true
       };
 
       if (location) {
@@ -637,7 +637,7 @@ router.post('/admin/special-pickups/:id/mark-read', authenticateToken, async (re
     if (!useMockAuth && SpecialPickup) {
       await SpecialPickup.updateOne(
         { $or: [{ _id: id }, { referenceNumber: id }] },
-        { $set: { isNew: false } }
+        { $set: { isUnread: false } }
       );
     }
 
@@ -656,7 +656,7 @@ router.get('/admin/special-pickups-count', authenticateToken, async (req, res) =
     }
 
     if (!useMockAuth && SpecialPickup) {
-      const count = await SpecialPickup.countDocuments({ isNew: true });
+      const count = await SpecialPickup.countDocuments({ isUnread: true });
       res.json({ count });
     } else {
       res.json({ count: 0 });

@@ -51,8 +51,8 @@ const complaintSchema = new mongoose.Schema({
   resolvedAt: Date,
   resolvedBy: String,
 
-  // For notification badge
-  isNew: { type: Boolean, default: true }
+  // For notification badge (renamed from isNew - reserved Mongoose property)
+  isUnread: { type: Boolean, default: true }
 }, { timestamps: true });
 
 // Generate reference number
@@ -67,7 +67,7 @@ complaintSchema.index({ referenceNumber: 1 });
 complaintSchema.index({ status: 1 });
 complaintSchema.index({ barangay: 1 });
 complaintSchema.index({ reportType: 1 });
-complaintSchema.index({ isNew: 1 });
+complaintSchema.index({ isUnread: 1 });
 complaintSchema.index({ createdAt: -1 });
 complaintSchema.index({ location: '2dsphere' }, { sparse: true });
 

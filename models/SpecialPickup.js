@@ -70,8 +70,8 @@ const specialPickupSchema = new mongoose.Schema({
   completedAt: Date,
   completedBy: String,
 
-  // For notification badge
-  isNew: { type: Boolean, default: true }
+  // For notification badge (renamed from isNew - reserved Mongoose property)
+  isUnread: { type: Boolean, default: true }
 }, { timestamps: true });
 
 // Generate reference number
@@ -86,7 +86,7 @@ specialPickupSchema.index({ referenceNumber: 1 });
 specialPickupSchema.index({ status: 1 });
 specialPickupSchema.index({ barangay: 1 });
 specialPickupSchema.index({ pickupType: 1 });
-specialPickupSchema.index({ isNew: 1 });
+specialPickupSchema.index({ isUnread: 1 });
 specialPickupSchema.index({ createdAt: -1 });
 specialPickupSchema.index({ scheduledDate: 1 });
 specialPickupSchema.index({ location: '2dsphere' }, { sparse: true });

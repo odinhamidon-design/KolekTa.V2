@@ -131,7 +131,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
         description,
         photos,
         status: 'pending',
-        isNew: true
+        isUnread: true
       };
 
       // Add location if provided
@@ -175,7 +175,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
         missedCollectionDate: missedCollectionDate ? new Date(missedCollectionDate).toISOString() : null,
         photos,
         status: 'pending',
-        isNew: true,
+        isUnread: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -326,7 +326,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       const inProgress = await Complaint.countDocuments({ status: 'in-progress' });
       const resolved = await Complaint.countDocuments({ status: 'resolved' });
       const closed = await Complaint.countDocuments({ status: 'closed' });
-      const newCount = await Complaint.countDocuments({ isNew: true });
+      const newCount = await Complaint.countDocuments({ isUnread: true });
 
       // Get complaints by barangay
       const byBarangay = await Complaint.aggregate([
@@ -351,7 +351,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       const inProgress = complaints.filter(c => c.status === 'in-progress').length;
       const resolved = complaints.filter(c => c.status === 'resolved').length;
       const closed = complaints.filter(c => c.status === 'closed').length;
-      const newCount = complaints.filter(c => c.isNew).length;
+      const newCount = complaints.filter(c => c.isUnread).length;
 
       // Group by barangay
       const barangayCounts = {};
@@ -382,10 +382,10 @@ router.get('/new-count', authenticateToken, async (req, res) => {
     let count;
 
     if (!useMockAuth && Complaint) {
-      count = await Complaint.countDocuments({ isNew: true });
+      count = await Complaint.countDocuments({ isUnread: true });
     } else {
       const complaints = complaintsStorage.getAll();
-      count = complaints.filter(c => c.isNew).length;
+      count = complaints.filter(c => c.isUnread).length;
     }
 
     res.json({ count });
@@ -489,10 +489,10 @@ router.post('/:id/mark-read', authenticateToken, async (req, res) => {
     if (!useMockAuth && Complaint) {
       await Complaint.updateOne(
         { $or: [{ _id: id }, { referenceNumber: id }] },
-        { $set: { isNew: false } }
+        { $set: { isUnread: false } }
       );
     } else {
-      complaintsStorage.update(id, { isNew: false });
+      complaintsStorage.update(id, { isUnread: false });
     }
 
     console.log('Complaint marked as read:', id);
@@ -511,10 +511,10 @@ router.post('/mark-all-read', authenticateToken, async (req, res) => {
     }
 
     if (!useMockAuth && Complaint) {
-      await Complaint.updateMany({ isNew: true }, { $set: { isNew: false } });
+      await Complaint.updateMany({ isUnread: true }, { $set: { isUnread: false } });
     } else {
       const complaints = complaintsStorage.getAll();
-      const updated = complaints.map(c => ({ ...c, isNew: false }));
+      const updated = complaints.map(c => ({ ...c, isUnread: false }));
       complaintsStorage.save(updated);
     }
 

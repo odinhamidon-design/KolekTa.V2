@@ -12015,6 +12015,12 @@ async function showSpecialPickupsAdmin() {
     const response = await fetch('/api/resident/admin/special-pickups', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch special pickups');
+    }
+
     const pickups = await response.json();
 
     const statusColors = {
@@ -12274,6 +12280,12 @@ async function showAnnouncementsAdmin() {
     const response = await fetch('/api/resident/admin/announcements', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch announcements');
+    }
+
     const announcements = await response.json();
 
     const typeColors = {
