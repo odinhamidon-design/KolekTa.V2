@@ -1,19 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { authenticateToken: auth } = require('../middleware/auth');
 
 // Check if using mock mode
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
 
 // Models (only load if not mock mode)
 let VehicleInspection, StopCompletion, DriverNotification, Route, Truck;
-if (!useMockAuth) {
-  VehicleInspection = require('../models/VehicleInspection');
-  StopCompletion = require('../models/StopCompletion');
-  DriverNotification = require('../models/DriverNotification');
-  Route = require('../models/Route');
-  Truck = require('../models/Truck');
+let modelsLoaded = false;
+
+// Lazy load models to prevent Vercel crash
+function loadModels() {
+  if (modelsLoaded || useMockAuth) return;
+  try {
+    VehicleInspection = require('../models/VehicleInspection');
+    StopCompletion = require('../models/StopCompletion');
+    DriverNotification = require('../models/DriverNotification');
+    Route = require('../models/Route');
+    Truck = require('../models/Truck');
+    modelsLoaded = true;
+  } catch (error) {
+    console.error('Failed to load driver feature models:', error.message);
+  }
 }
+
+// Middleware to ensure models are loaded
+router.use((req, res, next) => {
+  loadModels();
+  next();
+});
 
 // In-memory storage for mock mode
 let mockInspections = [];
