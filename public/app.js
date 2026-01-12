@@ -12136,9 +12136,11 @@ async function showSpecialPickupsAdmin() {
     `;
 
     lucide.createIcons();
+    hidePageLoading();
   } catch (error) {
     console.error('Error loading special pickups:', error);
     showPageError('Failed to load special pickup requests');
+    hidePageLoading();
   }
 }
 
@@ -12378,9 +12380,11 @@ async function showAnnouncementsAdmin() {
     `;
 
     lucide.createIcons();
+    hidePageLoading();
   } catch (error) {
     console.error('Error loading announcements:', error);
     showPageError('Failed to load announcements');
+    hidePageLoading();
   }
 }
 
