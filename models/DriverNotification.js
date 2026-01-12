@@ -104,14 +104,20 @@ driverNotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // 
 driverNotificationSchema.statics.getUnread = async function(driverUsername) {
   const now = new Date();
   return this.find({
-    $or: [
-      { targetDriver: driverUsername },
-      { targetDriver: 'all' }
-    ],
-    isRead: false,
-    $or: [
-      { expiresAt: null },
-      { expiresAt: { $gt: now } }
+    $and: [
+      {
+        $or: [
+          { targetDriver: driverUsername },
+          { targetDriver: 'all' }
+        ]
+      },
+      { isRead: false },
+      {
+        $or: [
+          { expiresAt: null },
+          { expiresAt: { $gt: now } }
+        ]
+      }
     ]
   }).sort({ priority: -1, createdAt: -1 });
 };

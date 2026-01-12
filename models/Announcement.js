@@ -80,16 +80,22 @@ announcementSchema.statics.getActiveForBarangay = async function(barangay) {
   const now = new Date();
 
   const announcements = await this.find({
-    isActive: true,
-    startDate: { $lte: now },
-    $or: [
-      { endDate: null },
-      { endDate: { $gte: now } }
-    ],
-    $or: [
-      { targetScope: 'city-wide' },
-      { targetBarangays: { $size: 0 } },
-      { targetBarangays: barangay }
+    $and: [
+      { isActive: true },
+      { startDate: { $lte: now } },
+      {
+        $or: [
+          { endDate: null },
+          { endDate: { $gte: now } }
+        ]
+      },
+      {
+        $or: [
+          { targetScope: 'city-wide' },
+          { targetBarangays: { $size: 0 } },
+          { targetBarangays: barangay }
+        ]
+      }
     ]
   }).sort({ priority: -1, createdAt: -1 });
 

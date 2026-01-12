@@ -100,9 +100,9 @@ scheduleSchema.methods.isActiveOnDate = function(date) {
     case 'daily':
       return true;
     case 'weekly':
-      return this.weeklyDays.includes(dayOfWeek);
+      return Array.isArray(this.weeklyDays) && this.weeklyDays.includes(dayOfWeek);
     case 'monthly':
-      return this.monthlyDates.includes(dayOfMonth);
+      return Array.isArray(this.monthlyDates) && this.monthlyDates.includes(dayOfMonth);
     default:
       return false;
   }
