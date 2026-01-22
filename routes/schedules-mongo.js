@@ -1,8 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { authenticateToken } = require('../middleware/auth');
 const Schedule = require('../models/Schedule');
 const Route = require('../models/Route');
+
+// Helper function to build query for finding schedule by id or scheduleId
+function buildScheduleQuery(id) {
+  const query = { scheduleId: id };
+  // Only add _id to query if it's a valid ObjectId
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    return { $or: [{ _id: id }, { scheduleId: id }] };
+  }
+  return query;
+}
 
 // Get all schedules
 router.get('/', authenticateToken, async (req, res) => {
@@ -108,9 +119,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const schedule = await Schedule.findOne({
-      $or: [{ _id: req.params.id }, { scheduleId: req.params.id }]
-    }).lean();
+    const schedule = await Schedule.findOne(buildScheduleQuery(req.params.id)).lean();
 
     if (!schedule) {
       return res.status(404).json({ error: 'Schedule not found' });
@@ -220,7 +229,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 
     const schedule = await Schedule.findOneAndUpdate(
-      { $or: [{ _id: id }, { scheduleId: id }] },
+      buildScheduleQuery(id),
       { $set: updates },
       { new: true }
     );
@@ -246,9 +255,7 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
 
     const { id } = req.params;
 
-    const schedule = await Schedule.findOne({
-      $or: [{ _id: id }, { scheduleId: id }]
-    });
+    const schedule = await Schedule.findOne(buildScheduleQuery(id));
 
     if (!schedule) {
       return res.status(404).json({ error: 'Schedule not found' });
@@ -274,9 +281,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await Schedule.deleteOne({
-      $or: [{ _id: id }, { scheduleId: id }]
-    });
+    const result = await Schedule.deleteOne(buildScheduleQuery(id));
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Schedule not found' });

@@ -1,8 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
 const Truck = require('../models/Truck');
+
+// Helper function to build query for finding truck by id or truckId
+function buildTruckQuery(id) {
+  // Only add _id to query if it's a valid ObjectId
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    return { $or: [{ _id: id }, { truckId: id }] };
+  }
+  return { truckId: id };
+}
 
 // Get all trucks
 router.get('/', authenticateToken, async (req, res) => {
@@ -20,12 +30,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     await connectDB();
-    const truck = await Truck.findOne({
-      $or: [
-        { _id: req.params.id },
-        { truckId: req.params.id }
-      ]
-    });
+    const truck = await Truck.findOne(buildTruckQuery(req.params.id));
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
     }
@@ -78,13 +83,8 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
 router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     await connectDB();
-    const truck = await Truck.findOne({
-      $or: [
-        { _id: req.params.id },
-        { truckId: req.params.id }
-      ]
-    });
-    
+    const truck = await Truck.findOne(buildTruckQuery(req.params.id));
+
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
     }
@@ -126,13 +126,8 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
 router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     await connectDB();
-    const truck = await Truck.findOne({
-      $or: [
-        { _id: req.params.id },
-        { truckId: req.params.id }
-      ]
-    });
-    
+    const truck = await Truck.findOne(buildTruckQuery(req.params.id));
+
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
     }

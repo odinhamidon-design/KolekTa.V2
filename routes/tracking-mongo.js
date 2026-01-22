@@ -5,9 +5,9 @@ const connectDB = require('../lib/mongodb');
 const User = require('../models/User');
 const Truck = require('../models/Truck');
 const Route = require('../models/Route');
+const LiveLocation = require('../models/LiveLocation');
 
-// In-memory storage for live locations (shared across requests)
-const liveLocations = {};
+// In-memory storage for trip data (not critical to persist)
 const tripData = {};
 
 // Haversine distance calculation (in km)
@@ -40,17 +40,24 @@ router.post('/update', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid coordinates' });
     }
 
-    // Save to live locations
-    liveLocations[username] = {
-      username,
-      lat: parsedLat,
-      lng: parsedLng,
-      routeId: routeId || null,
-      speed: parsedSpeed,
-      heading: heading || 0,
-      timestamp: new Date(),
-      lastUpdate: Date.now()
-    };
+    // Connect to MongoDB
+    await connectDB();
+
+    // Save to MongoDB LiveLocation collection (upsert by username)
+    await LiveLocation.findOneAndUpdate(
+      { username },
+      {
+        username,
+        lat: parsedLat,
+        lng: parsedLng,
+        routeId: routeId || null,
+        speed: parsedSpeed,
+        heading: heading || 0,
+        timestamp: new Date(),
+        lastUpdate: new Date()
+      },
+      { upsert: true, new: true }
+    );
 
     // Update trip data
     let trip = tripData[username];
@@ -126,15 +133,15 @@ router.get('/active', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Clean stale locations (older than 5 minutes)
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    for (const username in liveLocations) {
-      if (liveLocations[username].lastUpdate < fiveMinutesAgo) {
-        delete liveLocations[username];
-      }
-    }
+    await connectDB();
 
-    res.json(Object.values(liveLocations));
+    // Get locations updated within last 5 minutes from MongoDB
+    const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
+    const locations = await LiveLocation.find({
+      lastUpdate: { $gte: fiveMinutesAgo }
+    }).lean();
+
+    res.json(locations);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -150,18 +157,18 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
     await connectDB();
 
     // Use lean() for faster read-only queries and run in parallel
-    const [users, trucks, routes] = await Promise.all([
+    const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
+    const [users, trucks, routes, liveLocations] = await Promise.all([
       User.find({ role: 'driver' }).select('username fullName').lean(),
       Truck.find({}).select('truckId plateNumber model assignedDriver').lean(),
-      Route.find({}).select('routeId name path assignedDriver').lean()
+      Route.find({}).select('routeId name path assignedDriver').lean(),
+      LiveLocation.find({ lastUpdate: { $gte: fiveMinutesAgo } }).lean()
     ]);
 
-    // Clean stale locations
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    for (const username in liveLocations) {
-      if (liveLocations[username].lastUpdate < fiveMinutesAgo) {
-        delete liveLocations[username];
-      }
+    // Create a map of live locations by username for quick lookup
+    const liveLocationMap = {};
+    for (const loc of liveLocations) {
+      liveLocationMap[loc.username] = loc;
     }
 
     const allTrucks = [];
@@ -171,7 +178,7 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
       const assignedRoute = routes.find(r => r.assignedDriver === driver.username);
 
       if (assignedTruck) {
-        const live = liveLocations[driver.username];
+        const live = liveLocationMap[driver.username];
 
         let location;
         if (live) {
@@ -228,14 +235,15 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const location = liveLocations[username];
+    await connectDB();
+
+    const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
+    const location = await LiveLocation.findOne({
+      username,
+      lastUpdate: { $gte: fiveMinutesAgo }
+    }).lean();
 
     if (!location) {
-      return res.status(404).json({ error: 'Location not found or stale' });
-    }
-
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    if (location.lastUpdate < fiveMinutesAgo) {
       return res.status(404).json({ error: 'Location not found or stale' });
     }
 
@@ -249,7 +257,8 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
 router.delete('/clear', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    delete liveLocations[username];
+    await connectDB();
+    await LiveLocation.deleteOne({ username });
     res.json({ message: 'Location cleared' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -348,10 +357,20 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
     }
 
     await connectDB();
-    const [trucks, users] = await Promise.all([
+
+    // Fetch live locations from MongoDB
+    const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
+    const [trucks, users, liveLocations] = await Promise.all([
       Truck.find({}).select('truckId plateNumber assignedDriver').lean(),
-      User.find({ role: 'driver' }).select('username fullName').lean()
+      User.find({ role: 'driver' }).select('username fullName').lean(),
+      LiveLocation.find({ lastUpdate: { $gte: fiveMinutesAgo } }).lean()
     ]);
+
+    // Create location map for quick lookup
+    const locationMap = {};
+    for (const loc of liveLocations) {
+      locationMap[loc.username] = loc;
+    }
 
     let totalDistance = 0;
     let totalFuel = 0;
@@ -362,7 +381,7 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
       const trip = tripData[username];
       const driver = users.find(u => u.username === username);
       const truck = trucks.find(t => t.assignedDriver === username);
-      const location = liveLocations[username];
+      const location = locationMap[username];
 
       totalDistance += trip.totalDistance;
       totalFuel += trip.fuelEstimate;
