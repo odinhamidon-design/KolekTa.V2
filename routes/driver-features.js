@@ -592,7 +592,7 @@ router.get('/performance', auth, async (req, res) => {
           completed: mockStops.filter(s => s.status === 'completed').length,
           skipped: mockStops.filter(s => s.status === 'skipped').length,
           totalBins: mockStops.reduce((sum, s) => sum + (s.binsCollected || 0), 0),
-          totalWeight: 0
+          totalVolume: 0 // cubic meters (m³)
         },
         routes: {
           completed: 0,

@@ -4,7 +4,7 @@ const truckSchema = new mongoose.Schema({
   truckId: { type: String, required: true, unique: true },
   plateNumber: { type: String, required: true, unique: true },
   model: String,
-  capacity: { type: Number, default: 1000 }, // in kg
+  capacity: { type: Number, default: 10 }, // in cubic meters (m³)
   status: {
     type: String,
     enum: ['available', 'in-use', 'maintenance', 'out-of-service'],

@@ -6,9 +6,7 @@ const User = require('../models/User');
 const Truck = require('../models/Truck');
 const Route = require('../models/Route');
 const LiveLocation = require('../models/LiveLocation');
-
-// In-memory storage for trip data (not critical to persist)
-const tripData = {};
+const TripData = require('../models/TripData');
 
 // Haversine distance calculation (in km)
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -59,39 +57,32 @@ router.post('/update', authenticateToken, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Update trip data
-    let trip = tripData[username];
+    // Get or create trip data from MongoDB
+    let trip = await TripData.findOne({ username, isActive: true });
     if (!trip) {
-      trip = {
+      trip = new TripData({
         username,
-        startTime: Date.now(),
-        totalDistance: 0,
-        stopCount: 0,
-        idleTimeMs: 0,
-        lastLocation: null,
-        lastUpdateTime: null,
-        lastSpeed: 0,
-        speedSamples: [],
-        fuelEstimate: 0
-      };
-      tripData[username] = trip;
+        startTime: new Date(),
+        isActive: true,
+        routeId: routeId || null
+      });
     }
 
     // Calculate distance
-    if (trip.lastLocation) {
+    if (trip.lastLocation && trip.lastLocation.lat && trip.lastLocation.lng) {
       const distance = haversineDistance(
         trip.lastLocation.lat, trip.lastLocation.lng,
         parsedLat, parsedLng
       );
       if (distance < 1) trip.totalDistance += distance;
 
-      const timeDiff = Date.now() - trip.lastUpdateTime;
+      const timeDiff = Date.now() - (trip.lastUpdateTime ? trip.lastUpdateTime.getTime() : Date.now());
       if (parsedSpeed < 3 && trip.lastSpeed >= 3) trip.stopCount++;
       if (parsedSpeed < 5) trip.idleTimeMs += timeDiff;
     }
 
     trip.lastLocation = { lat: parsedLat, lng: parsedLng };
-    trip.lastUpdateTime = Date.now();
+    trip.lastUpdateTime = new Date();
     trip.lastSpeed = parsedSpeed;
     if (parsedSpeed > 0) {
       trip.speedSamples.push(parsedSpeed);
@@ -107,6 +98,9 @@ router.post('/update', authenticateToken, async (req, res) => {
     const stopFuel = trip.stopCount * 0.05;
     const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
     trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+
+    // Save trip data to MongoDB
+    await trip.save();
 
     console.log(`📍 GPS Update from ${username}: ${parsedLat}, ${parsedLng} | Distance: ${trip.totalDistance.toFixed(2)}km`);
 
@@ -269,7 +263,9 @@ router.delete('/clear', authenticateToken, async (req, res) => {
 router.get('/my-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    const trip = tripData[username];
+    await connectDB();
+
+    const trip = await TripData.findOne({ username, isActive: true });
 
     if (!trip) {
       return res.json({
@@ -278,10 +274,10 @@ router.get('/my-trip', authenticateToken, async (req, res) => {
       });
     }
 
-    const avgSpeed = trip.speedSamples.length > 0
+    const avgSpeed = trip.speedSamples && trip.speedSamples.length > 0
       ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
       : 0;
-    const durationMinutes = Math.round((Date.now() - trip.startTime) / 60000);
+    const durationMinutes = Math.round((Date.now() - trip.startTime.getTime()) / 60000);
 
     res.json({
       hasActiveTrip: true,
@@ -302,23 +298,29 @@ router.get('/my-trip', authenticateToken, async (req, res) => {
 router.post('/start-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    delete tripData[username];
-    tripData[username] = {
+    const { routeId } = req.body;
+    await connectDB();
+
+    // End any existing active trip
+    await TripData.updateMany({ username, isActive: true }, { isActive: false });
+
+    // Create new trip
+    const trip = new TripData({
       username,
-      startTime: Date.now(),
+      startTime: new Date(),
+      isActive: true,
+      routeId: routeId || null,
       totalDistance: 0,
       stopCount: 0,
       idleTimeMs: 0,
-      lastLocation: null,
-      lastUpdateTime: null,
-      lastSpeed: 0,
-      speedSamples: [],
-      fuelEstimate: 0
-    };
+      fuelEstimate: 0,
+      speedSamples: []
+    });
+    await trip.save();
 
     res.json({
       message: 'Trip started',
-      trip: { username, startTime: new Date().toISOString() }
+      trip: { username, startTime: trip.startTime.toISOString() }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -329,7 +331,9 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
 router.post('/end-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    const trip = tripData[username];
+    await connectDB();
+
+    const trip = await TripData.findOne({ username, isActive: true });
 
     if (!trip) {
       return res.status(404).json({ error: 'No active trip found' });
@@ -341,7 +345,9 @@ router.post('/end-trip', authenticateToken, async (req, res) => {
       stops: trip.stopCount
     };
 
-    delete tripData[username];
+    // Mark trip as inactive instead of deleting (for historical records)
+    trip.isActive = false;
+    await trip.save();
 
     res.json({ message: 'Trip ended', summary });
   } catch (error) {
@@ -358,12 +364,13 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
 
     await connectDB();
 
-    // Fetch live locations from MongoDB
+    // Fetch live locations and active trips from MongoDB
     const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
-    const [trucks, users, liveLocations] = await Promise.all([
+    const [trucks, users, liveLocations, activeTrips] = await Promise.all([
       Truck.find({}).select('truckId plateNumber assignedDriver').lean(),
       User.find({ role: 'driver' }).select('username fullName').lean(),
-      LiveLocation.find({ lastUpdate: { $gte: fiveMinutesAgo } }).lean()
+      LiveLocation.find({ lastUpdate: { $gte: fiveMinutesAgo } }).lean(),
+      TripData.find({ isActive: true }).lean()
     ]);
 
     // Create location map for quick lookup
@@ -377,23 +384,22 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
 
     const truckFuelData = [];
 
-    for (const username in tripData) {
-      const trip = tripData[username];
-      const driver = users.find(u => u.username === username);
-      const truck = trucks.find(t => t.assignedDriver === username);
-      const location = locationMap[username];
+    for (const trip of activeTrips) {
+      const driver = users.find(u => u.username === trip.username);
+      const truck = trucks.find(t => t.assignedDriver === trip.username);
+      const location = locationMap[trip.username];
 
-      totalDistance += trip.totalDistance;
-      totalFuel += trip.fuelEstimate;
+      totalDistance += trip.totalDistance || 0;
+      totalFuel += trip.fuelEstimate || 0;
 
       truckFuelData.push({
-        username,
-        driverName: driver ? driver.fullName : username,
+        username: trip.username,
+        driverName: driver ? driver.fullName : trip.username,
         truckId: truck ? truck.truckId : 'N/A',
         plateNumber: truck ? truck.plateNumber : 'N/A',
-        distance: Math.round(trip.totalDistance * 100) / 100,
-        fuelUsed: trip.fuelEstimate,
-        stops: trip.stopCount,
+        distance: Math.round((trip.totalDistance || 0) * 100) / 100,
+        fuelUsed: trip.fuelEstimate || 0,
+        stops: trip.stopCount || 0,
         isActive: true,
         lastLocation: location ? { lat: location.lat, lng: location.lng } : null
       });
@@ -420,11 +426,15 @@ router.get('/all-trips', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    const trips = Object.values(tripData).map(trip => ({
+    await connectDB();
+
+    const activeTrips = await TripData.find({ isActive: true }).lean();
+
+    const trips = activeTrips.map(trip => ({
       username: trip.username,
-      distance: { km: Math.round(trip.totalDistance * 100) / 100 },
-      fuel: { liters: trip.fuelEstimate },
-      stops: trip.stopCount
+      distance: { km: Math.round((trip.totalDistance || 0) * 100) / 100 },
+      fuel: { liters: trip.fuelEstimate || 0 },
+      stops: trip.stopCount || 0
     }));
 
     res.json({ count: trips.length, trips });
@@ -442,7 +452,9 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const trip = tripData[username];
+    await connectDB();
+
+    const trip = await TripData.findOne({ username, isActive: true });
 
     if (!trip) {
       return res.json({ username, hasData: false, message: 'No trip data available' });
@@ -451,9 +463,9 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
     res.json({
       username,
       hasData: true,
-      distance: { km: Math.round(trip.totalDistance * 100) / 100 },
-      fuel: { liters: trip.fuelEstimate },
-      stops: trip.stopCount
+      distance: { km: Math.round((trip.totalDistance || 0) * 100) / 100 },
+      fuel: { liters: trip.fuelEstimate || 0 },
+      stops: trip.stopCount || 0
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

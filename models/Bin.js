@@ -1,12 +1,5 @@
 const mongoose = require('mongoose');
 
-// Waste density by bin type (kg per liter)
-const WASTE_DENSITY = {
-  general: 0.25,    // Mixed municipal waste: ~200-300 kg/m³
-  recyclable: 0.15, // Paper, plastic, etc: lighter
-  organic: 0.35     // Food waste: heavier, more dense
-};
-
 const binSchema = new mongoose.Schema({
   binId: { type: String, required: true, unique: true },
   location: {
@@ -19,20 +12,26 @@ const binSchema = new mongoose.Schema({
   status: { type: String, enum: ['empty', 'low', 'medium', 'high', 'full'], default: 'empty' },
   lastCollection: Date,
   binType: { type: String, enum: ['general', 'recyclable', 'organic'], default: 'general' },
-  // Manual weight override (if available from sensors)
-  manualWeight: { type: Number, default: null }
+  // Manual volume override (if available from sensors)
+  manualVolume: { type: Number, default: null }
 }, { timestamps: true });
 
-// Virtual field for estimated weight in kg
-binSchema.virtual('estimatedWeight').get(function() {
-  // Use manual weight if available
-  if (this.manualWeight !== null && this.manualWeight !== undefined) {
-    return this.manualWeight;
+// Virtual field for estimated volume in cubic meters (m³)
+binSchema.virtual('estimatedVolume').get(function() {
+  // Use manual volume if available
+  if (this.manualVolume !== null && this.manualVolume !== undefined) {
+    return this.manualVolume;
   }
-  // Calculate based on capacity, fill level, and waste density
-  const density = WASTE_DENSITY[this.binType] || WASTE_DENSITY.general;
+  // Calculate based on capacity (liters) and fill level
+  // Convert liters to cubic meters: 1000 liters = 1 m³
   const fillLevel = (this.currentLevel || 0) / 100;
-  return Math.round(this.capacity * fillLevel * density * 10) / 10;
+  const volumeLiters = this.capacity * fillLevel;
+  return Math.round((volumeLiters / 1000) * 1000) / 1000; // Round to 3 decimal places
+});
+
+// Virtual field for capacity in cubic meters
+binSchema.virtual('capacityM3').get(function() {
+  return Math.round((this.capacity / 1000) * 1000) / 1000; // Convert liters to m³
 });
 
 // Ensure virtuals are included in JSON output

@@ -161,8 +161,8 @@ router.post('/:id/optimize', async (req, res) => {
       // New parameters
       useRoadDistance = true,
       considerCapacity = false,
-      truckCapacity = 1000,
-      binWeights = null,
+      truckCapacity = 10, // Default 10 cubic meters (m³)
+      binVolumes = null,
       scheduledTime = null,
       speedProfile = 'urban_collection',
       includeGeometry = false
@@ -170,15 +170,15 @@ router.post('/:id/optimize', async (req, res) => {
 
     // Get coordinates from route
     let coordinates = [];
-    let weights = binWeights;
+    let volumes = binVolumes;
 
     if (route.path && route.path.coordinates) {
       coordinates = route.path.coordinates;
     } else if (route.locations && Array.isArray(route.locations)) {
       coordinates = route.locations.map(loc => [loc.lng, loc.lat]);
-      // Extract weights from locations if available
-      if (!weights) {
-        weights = route.locations.map(loc => loc.weight || loc.estimatedWeight || 20);
+      // Extract volumes from locations if available (default 0.02 m³ = 20 liters per bin)
+      if (!volumes) {
+        volumes = route.locations.map(loc => loc.volume || loc.estimatedVolume || 0.02);
       }
     }
 
@@ -197,7 +197,7 @@ router.post('/:id/optimize', async (req, res) => {
         useRoadDistance,
         considerCapacity,
         truckCapacity,
-        binWeights: weights,
+        binVolumes: volumes,
         scheduledTime,
         speedProfile,
         includeGeometry

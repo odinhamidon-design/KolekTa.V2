@@ -103,8 +103,8 @@ const stopCompletionSchema = new mongoose.Schema({
     enum: ['biodegradable', 'recyclable', 'residual', 'mixed', 'hazardous'],
     default: 'mixed'
   },
-  estimatedWeight: {
-    type: Number, // kg
+  estimatedVolume: {
+    type: Number, // cubic meters (m³)
     default: null
   },
 
@@ -163,7 +163,7 @@ stopCompletionSchema.statics.getDriverStats = async function(driverUsername, sta
         _id: '$status',
         count: { $sum: 1 },
         totalBins: { $sum: '$binsCollected' },
-        totalWeight: { $sum: { $ifNull: ['$estimatedWeight', 0] } }
+        totalVolume: { $sum: { $ifNull: ['$estimatedVolume', 0] } }
       }
     }
   ]);
@@ -172,14 +172,14 @@ stopCompletionSchema.statics.getDriverStats = async function(driverUsername, sta
     completed: 0,
     skipped: 0,
     totalBins: 0,
-    totalWeight: 0
+    totalVolume: 0
   };
 
   stats.forEach(s => {
     if (s._id === 'completed') {
       result.completed = s.count;
       result.totalBins += s.totalBins;
-      result.totalWeight += s.totalWeight;
+      result.totalVolume += s.totalVolume;
     } else if (s._id === 'skipped') {
       result.skipped = s.count;
     }

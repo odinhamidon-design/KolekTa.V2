@@ -2,6 +2,176 @@
 const API_URL = '/api';
 
 // ============================================
+// OFFLINE QUEUE SYSTEM
+// ============================================
+
+/**
+ * Offline queue for storing actions when internet is unavailable
+ * Actions are synced when connection is restored
+ */
+const offlineQueue = {
+  QUEUE_KEY: 'kolekta_offline_queue',
+
+  getQueue: function() {
+    try {
+      return JSON.parse(localStorage.getItem(this.QUEUE_KEY) || '[]');
+    } catch (e) {
+      console.error('Error reading offline queue:', e);
+      return [];
+    }
+  },
+
+  addAction: function(action) {
+    const queue = this.getQueue();
+    queue.push({
+      ...action,
+      queuedAt: new Date().toISOString(),
+      id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    });
+    localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
+    this.updateSyncIndicator();
+    console.log(`📦 Queued offline action: ${action.type}`);
+  },
+
+  removeAction: function(actionId) {
+    const queue = this.getQueue().filter(a => a.id !== actionId);
+    localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
+    this.updateSyncIndicator();
+  },
+
+  clear: function() {
+    localStorage.removeItem(this.QUEUE_KEY);
+    this.updateSyncIndicator();
+  },
+
+  getPendingCount: function() {
+    return this.getQueue().length;
+  },
+
+  updateSyncIndicator: function() {
+    const count = this.getPendingCount();
+    const indicator = document.getElementById('offlineSyncIndicator');
+    const countBadge = document.getElementById('offlinePendingCount');
+
+    if (indicator) {
+      if (count > 0) {
+        indicator.classList.remove('hidden');
+        if (countBadge) countBadge.textContent = count;
+      } else {
+        indicator.classList.add('hidden');
+      }
+    }
+  },
+
+  processQueue: async function() {
+    const queue = this.getQueue();
+    if (queue.length === 0) return;
+
+    console.log(`🔄 Processing ${queue.length} offline actions...`);
+    showToast(`Syncing ${queue.length} offline action(s)...`, 'info');
+
+    const token = localStorage.getItem('token');
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const action of queue) {
+      try {
+        let endpoint = '';
+        let body = {};
+
+        switch (action.type) {
+          case 'STOP_COMPLETE':
+            endpoint = `${API_URL}/driver/stops/complete`;
+            body = {
+              routeId: action.routeId,
+              stopIndex: action.stopIndex,
+              stopName: action.stopName,
+              location: action.location,
+              gpsLocation: action.gpsLocation,
+              binsCollected: action.binsCollected || 1,
+              wasteType: action.wasteType || 'mixed'
+            };
+            break;
+
+          case 'STOP_SKIP':
+            endpoint = `${API_URL}/driver/stops/skip`;
+            body = {
+              routeId: action.routeId,
+              stopIndex: action.stopIndex,
+              stopName: action.stopName,
+              location: action.location,
+              gpsLocation: action.gpsLocation,
+              skipReason: action.skipReason,
+              skipNotes: action.skipNotes,
+              skipPhoto: action.skipPhoto
+            };
+            break;
+
+          case 'ROUTE_COMPLETE':
+            endpoint = `${API_URL}/completions`;
+            body = action.completionData;
+            break;
+
+          default:
+            console.warn(`Unknown action type: ${action.type}`);
+            continue;
+        }
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (response.ok) {
+          this.removeAction(action.id);
+          successCount++;
+          console.log(`✅ Synced: ${action.type} - ${action.id}`);
+        } else {
+          failCount++;
+          console.error(`❌ Failed to sync: ${action.type}`, await response.text());
+        }
+      } catch (e) {
+        failCount++;
+        console.error(`❌ Error syncing action:`, e);
+      }
+    }
+
+    if (successCount > 0) {
+      showToast(`Synced ${successCount} action(s) successfully!`, 'success');
+    }
+    if (failCount > 0) {
+      showToast(`${failCount} action(s) failed to sync. Will retry later.`, 'warning');
+    }
+
+    this.updateSyncIndicator();
+  }
+};
+
+// Online/offline event listeners
+window.addEventListener('online', () => {
+  console.log('🌐 Back online!');
+  showToast('Back online! Syncing data...', 'info');
+  offlineQueue.processQueue();
+});
+
+window.addEventListener('offline', () => {
+  console.log('📴 Gone offline');
+  showToast('You are offline. Actions will be saved locally.', 'warning');
+});
+
+// Check for pending offline actions on page load
+document.addEventListener('DOMContentLoaded', () => {
+  if (navigator.onLine && offlineQueue.getPendingCount() > 0) {
+    setTimeout(() => offlineQueue.processQueue(), 2000);
+  }
+  offlineQueue.updateSyncIndicator();
+});
+
+// ============================================
 // PAGE LOADING OVERLAY
 // ============================================
 
@@ -2029,7 +2199,7 @@ function renderTruckTable() {
             </div>
           </td>
           <td class="px-4 py-4 text-gray-600">${t.model || '-'}</td>
-          <td class="px-4 py-4 text-gray-600">${t.capacity} kg</td>
+          <td class="px-4 py-4 text-gray-600">${t.capacity} m³</td>
           <td class="px-4 py-4">
             <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[t.status] || 'bg-gray-100 text-gray-700'}">
               ${t.status}
@@ -2179,8 +2349,8 @@ window.showAddTruckForm = function() {
           class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (kg) *</label>
-        <input type="number" id="newCapacity" value="1000" min="100" required
+        <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (m³) *</label>
+        <input type="number" id="newCapacity" value="10" min="1" step="0.5" required
           class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
       </div>
       <div>
@@ -2267,8 +2437,8 @@ window.editTruck = async function(truckId) {
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (kg)</label>
-            <input type="number" id="editCapacity" value="${truck.capacity}" min="100"
+            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity (m³)</label>
+            <input type="number" id="editCapacity" value="${truck.capacity}" min="1"
               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
           </div>
           <div>
@@ -4759,7 +4929,7 @@ function showNavigationPanel(route, stops, completedStops) {
   }
 }
 
-// Mark stop as completed - syncs to server
+// Mark stop as completed - syncs to server or queues offline
 window.markStopCompleted = async function(stopIndex) {
   const activeRouteId = localStorage.getItem('activeRouteId');
   if (!activeRouteId) return;
@@ -4786,32 +4956,61 @@ window.markStopCompleted = async function(stopIndex) {
   const activeRoute = window.currentActiveRoute;
   const stopLocation = activeRoute?.path?.coordinates?.[stopIndex] || [0, 0];
 
-  try {
-    await fetch(`${API_URL}/driver/stops/complete`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        routeId: activeRouteId,
-        stopIndex,
-        stopName: `Stop ${stopIndex + 1}`,
-        location: { type: 'Point', coordinates: stopLocation },
-        gpsLocation,
-        binsCollected: 1,
-        wasteType: 'mixed'
-      })
-    });
-  } catch (e) {
-    console.error('Failed to sync stop completion:', e);
+  const completionData = {
+    type: 'STOP_COMPLETE',
+    routeId: activeRouteId,
+    stopIndex,
+    stopName: `Stop ${stopIndex + 1}`,
+    location: { type: 'Point', coordinates: stopLocation },
+    gpsLocation,
+    binsCollected: 1,
+    wasteType: 'mixed',
+    timestamp: new Date().toISOString()
+  };
+
+  // Try to sync online, or queue for later
+  if (navigator.onLine) {
+    try {
+      const response = await fetch(`${API_URL}/driver/stops/complete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          routeId: activeRouteId,
+          stopIndex,
+          stopName: `Stop ${stopIndex + 1}`,
+          location: { type: 'Point', coordinates: stopLocation },
+          gpsLocation,
+          binsCollected: 1,
+          wasteType: 'mixed'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Server returned error');
+      }
+    } catch (e) {
+      console.error('Failed to sync stop completion, queuing offline:', e);
+      offlineQueue.addAction(completionData);
+      showToast('Saved offline. Will sync when connected.', 'warning');
+    }
+  } else {
+    // Offline - queue the action
+    offlineQueue.addAction(completionData);
+    showToast('Offline: Saved locally', 'warning');
   }
 
-  // Always update local storage
+  // Always update local storage for UI
   localStorage.setItem(`route_${activeRouteId}_completed`, stopIndex + 1);
 
   showToast(`Stop ${stopIndex + 1} completed!`, 'success');
   showActiveRouteNavigation();
+
+  // Update stats after stop completion
+  if (typeof updateDriverQuickStats === 'function') updateDriverQuickStats();
+  if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
 };
 
 // Skip a stop - requires justification
@@ -4947,27 +5146,51 @@ window.submitSkipStop = async function(stopIndex) {
     }
   }
 
-  try {
-    await fetch(`${API_URL}/driver/stops/skip`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        routeId: activeRouteId,
-        stopIndex,
-        stopName: `Stop ${stopIndex + 1}`,
-        skipReason: reason,
-        skipNotes: notes,
-        skipPhoto,
-        gpsLocation
-      })
-    });
+  const skipData = {
+    type: 'STOP_SKIP',
+    routeId: activeRouteId,
+    stopIndex,
+    stopName: `Stop ${stopIndex + 1}`,
+    skipReason: reason,
+    skipNotes: notes,
+    skipPhoto,
+    gpsLocation,
+    timestamp: new Date().toISOString()
+  };
 
-    showToast('Admin notified about skipped stop', 'info');
-  } catch (e) {
-    console.error('Failed to sync skip:', e);
+  // Try to sync online, or queue for later
+  if (navigator.onLine) {
+    try {
+      const response = await fetch(`${API_URL}/driver/stops/skip`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          routeId: activeRouteId,
+          stopIndex,
+          stopName: `Stop ${stopIndex + 1}`,
+          skipReason: reason,
+          skipNotes: notes,
+          skipPhoto,
+          gpsLocation
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Server returned error');
+      }
+      showToast('Admin notified about skipped stop', 'info');
+    } catch (e) {
+      console.error('Failed to sync skip, queuing offline:', e);
+      offlineQueue.addAction(skipData);
+      showToast('Saved offline. Admin will be notified when connected.', 'warning');
+    }
+  } else {
+    // Offline - queue the action
+    offlineQueue.addAction(skipData);
+    showToast('Offline: Skip saved locally', 'warning');
   }
 
   // Always update local storage
@@ -6122,6 +6345,7 @@ window.markRouteComplete = async function(routeId) {
           localStorage.removeItem('activeRouteId');
           loadDriverAssignments();
           if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
+          if (typeof updateDriverQuickStats === 'function') updateDriverQuickStats();
           if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
           stopGPSTracking();
           if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
