@@ -22,6 +22,7 @@ const routeSchema = new mongoose.Schema({
   completedBy: String,
   completionNotes: String,
   completionPhotos: [String],
+  photoCount: { type: Number, default: 0 }, // Track photo count separately for performance
   notificationSent: { type: Boolean, default: false },
   // Auto-calculated trip stats from GPS tracking
   tripStats: {

@@ -6798,7 +6798,7 @@ window.showNotificationHistory = async function() {
     // Stats
     const acknowledgedCount = completedRoutes.filter(r => r.notificationSent).length;
     const pendingCount = completedRoutes.filter(r => !r.notificationSent).length;
-    const withPhotosCount = completedRoutes.filter(r => r.completionPhotos && r.completionPhotos.length > 0).length;
+    const withPhotosCount = completedRoutes.filter(r => (r.photoCount && r.photoCount > 0) || (r.completionPhotos && r.completionPhotos.length > 0)).length;
 
     const historyCards = completedRoutes.map(route => {
       const completedDate = new Date(route.completedAt).toLocaleDateString('en-US', {
@@ -6808,7 +6808,7 @@ window.showNotificationHistory = async function() {
         hour: '2-digit', minute: '2-digit'
       });
       const isAcknowledged = route.notificationSent;
-      const photoCount = route.completionPhotos ? route.completionPhotos.length : 0;
+      const photoCount = route.photoCount || (route.completionPhotos ? route.completionPhotos.length : 0);
 
       return `
         <div class="bg-white rounded-xl shadow-sm border ${isAcknowledged ? 'border-gray-100' : 'border-green-200'} overflow-hidden">

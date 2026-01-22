@@ -101,6 +101,7 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
       route.completedBy = req.user.username;
       route.completionNotes = notes || '';
       route.completionPhotos = photos;
+      route.photoCount = photos.length; // Track photo count for performance
       route.notificationSent = false;
       route.tripStats = tripStats;
 
@@ -189,6 +190,7 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
         completedBy: req.user.username,
         completionNotes: notes || '',
         completionPhotos: photos,
+        photoCount: photos.length, // Track photo count for performance
         notificationSent: false,
         tripStats: tripStats
       };
