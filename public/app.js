@@ -652,7 +652,10 @@ function initializeApp() {
       const driverAssignmentsOverlay = document.getElementById('driverAssignmentsOverlay');
       const driverStatsOverlay = document.getElementById('driverStatsOverlay');
 
-      if (driverWebOverlay) driverWebOverlay.classList.remove('hidden');
+      if (driverWebOverlay) {
+        driverWebOverlay.classList.remove('hidden');
+        driverWebOverlay.classList.add('block');
+      }
       if (driverAssignmentsOverlay) driverAssignmentsOverlay.classList.remove('hidden');
       if (driverStatsOverlay) driverStatsOverlay.classList.remove('hidden');
 
@@ -8343,11 +8346,11 @@ function showLiveTruckLocations() {
   // Fetch and display active locations
   updateLiveTruckLocations();
   
-  // Update every 15 seconds
+  // Update every 5 seconds for real-time tracking
   if (trackingUpdateInterval) {
     clearInterval(trackingUpdateInterval);
   }
-  trackingUpdateInterval = setInterval(updateLiveTruckLocations, 15000);
+  trackingUpdateInterval = setInterval(updateLiveTruckLocations, 5000);
 }
 
 async function updateLiveTruckLocations() {
@@ -8803,7 +8806,8 @@ function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
     <!-- Truck List -->
     <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
       ${trucks.length > 0 ? trucks.map((truck, index) => {
-        const { truckId, fullName, username, isLive, speed, lat, lng, routeName, routeId } = truck;
+        const { truckId, fullName, username, isLive, speed, lat, lng, routeName, routeId, timestamp } = truck;
+        const lastSeen = timestamp ? getTimeAgo(timestamp) : 'Unknown';
         // Store truck data in a global array for onclick access
         window._truckDataCache = window._truckDataCache || [];
         window._truckDataCache[index] = truck;
@@ -8824,7 +8828,7 @@ function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
               <div class="text-right flex-shrink-0">
                 ${isLive ? `
                   <p class="text-sm font-bold text-green-600">${Math.round((speed || 0) * 3.6)} km/h</p>
-                  <p class="text-xs text-green-500">Live</p>
+                  <p class="text-xs text-green-500">Last seen: ${lastSeen}</p>
                 ` : `
                   <p class="text-xs text-gray-400">Offline</p>
                 `}
