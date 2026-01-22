@@ -6,6 +6,13 @@ const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
 const { usersStorage } = require('../data/storage');
 
+// MongoDB support
+const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
+let User;
+if (!useMockAuth) {
+  User = require('../models/User');
+}
+
 // Configure multer for profile picture upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -40,7 +47,15 @@ const upload = multer({
 // Get current user profile
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = usersStorage.findByUsername(req.user.username);
+    let user;
+
+    if (!useMockAuth && User) {
+      // MongoDB mode
+      user = await User.findOne({ username: req.user.username });
+    } else {
+      // JSON storage mode
+      user = usersStorage.findByUsername(req.user.username);
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -67,20 +82,42 @@ router.put('/me', authenticateToken, async (req, res) => {
     const { fullName, email, phoneNumber, password } = req.body;
     const username = req.user.username;
 
-    const user = usersStorage.findByUsername(username);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
     const updates = {};
     if (fullName) updates.fullName = fullName;
     if (email) updates.email = email;
     if (phoneNumber) updates.phoneNumber = phoneNumber;
     if (password) updates.password = password;
 
-    usersStorage.update(username, updates);
+    let updatedUser;
 
-    const updatedUser = usersStorage.findByUsername(username);
+    if (!useMockAuth && User) {
+      // MongoDB mode
+      const user = await User.findOne({ username });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Hash password if provided
+      if (password) {
+        const bcrypt = require('bcryptjs');
+        updates.password = await bcrypt.hash(password, 10);
+      }
+
+      updatedUser = await User.findOneAndUpdate(
+        { username },
+        { $set: updates },
+        { new: true }
+      );
+    } else {
+      // JSON storage mode
+      const user = usersStorage.findByUsername(username);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      usersStorage.update(username, updates);
+      updatedUser = usersStorage.findByUsername(username);
+    }
 
     res.json({
       message: 'Profile updated successfully',
@@ -107,7 +144,13 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
     }
 
     const username = req.user.username;
-    const user = usersStorage.findByUsername(username);
+    let user;
+
+    if (!useMockAuth && User) {
+      user = await User.findOne({ username });
+    } else {
+      user = usersStorage.findByUsername(username);
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -123,7 +166,12 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
 
     // Update user with new profile picture path
     const profilePicturePath = `/uploads/profiles/${req.file.filename}`;
-    usersStorage.update(username, { profilePicture: profilePicturePath });
+
+    if (!useMockAuth && User) {
+      await User.updateOne({ username }, { $set: { profilePicture: profilePicturePath } });
+    } else {
+      usersStorage.update(username, { profilePicture: profilePicturePath });
+    }
 
     res.json({
       message: 'Profile picture updated successfully',
@@ -138,7 +186,13 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
 router.delete('/picture', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    const user = usersStorage.findByUsername(username);
+    let user;
+
+    if (!useMockAuth && User) {
+      user = await User.findOne({ username });
+    } else {
+      user = usersStorage.findByUsername(username);
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -150,7 +204,11 @@ router.delete('/picture', authenticateToken, async (req, res) => {
         fs.unlinkSync(filePath);
       }
 
-      usersStorage.update(username, { profilePicture: null });
+      if (!useMockAuth && User) {
+        await User.updateOne({ username }, { $set: { profilePicture: null } });
+      } else {
+        usersStorage.update(username, { profilePicture: null });
+      }
     }
 
     res.json({ message: 'Profile picture removed' });
