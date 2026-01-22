@@ -6786,8 +6786,8 @@ window.showNotificationHistory = async function() {
   try {
     const token = localStorage.getItem('token');
 
-    // Don't load photos initially - load them lazily
-    const response = await fetch(`${API_URL}/routes`, {
+    // Include photos to get accurate photo count for completion history
+    const response = await fetch(`${API_URL}/routes?includePhotos=true`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
