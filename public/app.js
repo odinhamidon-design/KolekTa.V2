@@ -1760,6 +1760,7 @@ function renderUserTable() {
 
   const admins = users.filter(u => u.role === 'admin');
   const drivers = users.filter(u => u.role === 'driver');
+  const availableDrivers = drivers.filter(d => d.availability !== 'unavailable');
   const activeCount = users.filter(u => u.isActive).length;
 
   // Define sortable columns
@@ -1768,6 +1769,7 @@ function renderUserTable() {
     { key: 'fullName', label: 'Full Name', sortable: true },
     { key: 'phoneNumber', label: 'Phone', sortable: true },
     { key: 'role', label: 'Role', sortable: true },
+    { key: 'availability', label: 'Availability', sortable: true },
     { key: 'isActive', label: 'Status', sortable: true },
     { key: 'actions', label: 'Actions', sortable: false }
   ];
@@ -1796,6 +1798,18 @@ function renderUserTable() {
           <span class="px-3 py-1 rounded-full text-xs font-medium ${roleColor}">
             ${u.role === 'admin' ? 'Admin' : 'Driver'}
           </span>
+        </td>
+        <td class="px-4 py-4">
+          ${u.role === 'driver' ? `
+            <span class="px-3 py-1 rounded-full text-xs font-medium ${
+              u.availability === 'unavailable' ? 'bg-red-100 text-red-700' :
+              u.availability === 'on-break' ? 'bg-yellow-100 text-yellow-700' :
+              'bg-green-100 text-green-700'
+            }">
+              ${u.availability === 'unavailable' ? 'Driving' :
+                u.availability === 'on-break' ? 'On Break' : 'Available'}
+            </span>
+          ` : `<span class="text-gray-400">-</span>`}
         </td>
         <td class="px-4 py-4">
           <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">
@@ -1856,6 +1870,7 @@ function renderUserTable() {
             <div>
               <p class="text-sm text-gray-500">Drivers</p>
               <p class="text-2xl font-bold text-gray-800">${drivers.length}</p>
+              <p class="text-xs text-gray-400">${availableDrivers.length} available, ${drivers.length - availableDrivers.length} driving</p>
             </div>
           </div>
         </div>
@@ -2550,11 +2565,16 @@ window.assignDriver = async function(truckId) {
     const truck = await truckRes.json();
     const users = await usersRes.json();
     const drivers = users.filter(u => u.role === 'driver');
-    
-    const driverOptions = drivers.map(d => 
-      `<option value="${d.username}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${d.fullName} (${d.username})</option>`
-    ).join('');
-    
+    // Filter to show only available drivers (or currently assigned driver)
+    const availableDrivers = drivers.filter(d =>
+      d.availability !== 'unavailable' || d.username === truck.assignedDriver
+    );
+
+    const driverOptions = availableDrivers.map(d => {
+      const statusBadge = d.availability === 'unavailable' ? ' (Driving)' : '';
+      return `<option value="${d.username}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${d.fullName} (${d.username})${statusBadge}</option>`;
+    }).join('');
+
     showModal('Assign Driver', `
       <form id="assignDriverForm" class="space-y-4">
         <div>
@@ -2803,8 +2823,8 @@ function renderRoutesTable() {
                 <i data-lucide="route" class="w-5 h-5 text-indigo-600 group-hover:text-primary-700"></i>
               </div>
               <div>
-                <div class="font-semibold text-gray-800 group-hover:text-primary-700">${r.routeId}</div>
-                <div class="text-sm text-gray-500">${r.name || 'Unnamed Route'}</div>
+                <div class="font-semibold text-gray-800 group-hover:text-primary-700">${r.name || r.routeId}</div>
+                <div class="text-sm text-gray-500">${r.areas?.length ? r.areas.join(', ') : r.routeId}</div>
               </div>
             </div>
           </td>
@@ -2974,10 +2994,27 @@ window.showAddRouteForm = function() {
         <input
           type="text"
           id="newRouteName"
-          placeholder="e.g., Downtown Collection Route"
+          placeholder="e.g., C-1"
           required
           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-gray-700 placeholder-gray-400"
         >
+      </div>
+
+      <!-- Areas/Barangays Input -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          <span class="flex items-center gap-2">
+            <i data-lucide="map" class="w-4 h-4 text-primary-500"></i>
+            Areas/Barangays
+          </span>
+        </label>
+        <input
+          type="text"
+          id="newRouteAreas"
+          placeholder="e.g., Matio, Dahican, Poblacion"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-gray-700 placeholder-gray-400"
+        >
+        <p class="text-xs text-gray-500 mt-1">Separate multiple areas with commas</p>
       </div>
 
       <!-- Locations Section -->
@@ -3096,9 +3133,11 @@ window.showAddRouteForm = function() {
     }
     
     const expiresAtValue = document.getElementById('newRouteExpiresAt').value;
+    const areasInput = document.getElementById('newRouteAreas').value;
     const routeData = {
       routeId: 'ROUTE-' + Date.now(), // Auto-generate route ID
       name: document.getElementById('newRouteName').value,
+      areas: areasInput ? areasInput.split(',').map(a => a.trim()).filter(Boolean) : [],
       path: {
         coordinates: routeLocations
       },
@@ -4098,9 +4137,12 @@ window.assignRouteToDriver = async function(routeId) {
       return;
     }
     
-    const driverOptions = drivers.map(d => 
-      `<option value="${d.username}">${d.fullName} (${d.username})</option>`
-    ).join('');
+    // Filter out unavailable drivers
+    const availableDrivers = drivers.filter(d => d.availability !== 'unavailable');
+    const driverOptions = availableDrivers.map(d => {
+      const statusBadge = d.availability === 'on-break' ? ' [On Break]' : '';
+      return `<option value="${d.username}">${d.fullName} (${d.username})${statusBadge}</option>`;
+    }).join('');
     
     showModal('Assign Route to Driver', `
       <form id="assignRouteForm" class="space-y-4">

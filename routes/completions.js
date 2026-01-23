@@ -6,10 +6,11 @@ const { routesStorage, trucksStorage } = require('../data/storage');
 
 // MongoDB support
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
-let Route, Truck;
+let Route, Truck, User;
 if (!useMockAuth) {
   Route = require('../models/Route');
   Truck = require('../models/Truck');
+  User = require('../models/User');
 }
 
 
@@ -106,6 +107,15 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
       route.tripStats = tripStats;
 
       await route.save();
+
+      // Set driver back to available
+      if (User) {
+        await User.updateOne(
+          { username: req.user.username },
+          { availability: 'available', currentRouteId: null }
+        );
+        console.log(`✅ Driver ${req.user.username} set to available (completed route)`);
+      }
 
       // Auto-deduct fuel from truck and log consumption
       let fuelLogResult = null;

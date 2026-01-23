@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const routeSchema = new mongoose.Schema({
   routeId: { type: String, required: true, unique: true },
   name: String,
+  areas: [{ type: String, trim: true }], // Array of area/barangay names covered by this route
   bins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Bin' }],
   path: {
     type: { type: String, enum: ['LineString'], default: 'LineString' },

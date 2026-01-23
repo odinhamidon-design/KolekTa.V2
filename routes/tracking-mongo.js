@@ -66,6 +66,13 @@ router.post('/update', authenticateToken, async (req, res) => {
         isActive: true,
         routeId: routeId || null
       });
+
+      // Set driver as unavailable when starting a new trip
+      await User.updateOne(
+        { username },
+        { availability: 'unavailable', currentRouteId: routeId || null }
+      );
+      console.log(`🚗 Driver ${username} set to unavailable (started tracking)`);
     }
 
     // Calculate distance

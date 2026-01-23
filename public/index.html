@@ -447,62 +447,90 @@
 
           <!-- Admin Controls -->
           <div id="adminControls" class="hidden">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Admin Controls</h3>
-            <div class="space-y-2">
+            <!-- Dashboard -->
+            <div class="space-y-1 mb-4">
               <button id="dashboardBtn" class="w-full flex items-center gap-3 px-4 py-3 bg-primary-50 text-primary-700 rounded-lg transition-colors text-left">
                 <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
                 <span class="font-medium">Dashboard</span>
               </button>
-              <button id="routesManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="map-pin" class="w-5 h-5"></i>
-                <span class="font-medium">Routes Management</span>
-              </button>
-              <button id="liveTruckTrackingBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="radio" class="w-5 h-5"></i>
-                <span class="font-medium">Live Truck Tracking</span>
-              </button>
-              <button id="truckManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="truck" class="w-5 h-5"></i>
-                <span class="font-medium">Truck Management</span>
-              </button>
-              <button id="schedulesBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="calendar-clock" class="w-5 h-5"></i>
-                <span class="font-medium">Collection Schedules</span>
-              </button>
-              <button id="completionHistoryBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="file-text" class="w-5 h-5"></i>
-                <span class="font-medium">Completion History</span>
-              </button>
-              <button id="userManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="users" class="w-5 h-5"></i>
-                <span class="font-medium">User Management</span>
-              </button>
-              <button id="complaintsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
-                <i data-lucide="message-square-warning" class="w-5 h-5"></i>
-                <span class="font-medium">Public Complaints</span>
-                <span id="complaintsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
-              </button>
-              <button id="specialPickupsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
-                <i data-lucide="package" class="w-5 h-5"></i>
-                <span class="font-medium">Special Pickups</span>
-                <span id="specialPickupsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
-              </button>
-              <button id="announcementsAdminBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="megaphone" class="w-5 h-5"></i>
-                <span class="font-medium">Announcements</span>
-              </button>
-              <button id="fuelManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="fuel" class="w-5 h-5"></i>
-                <span class="font-medium">Fuel Management</span>
-              </button>
-              <button id="reportsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="file-bar-chart" class="w-5 h-5"></i>
-                <span class="font-medium">Reports</span>
-              </button>
-              <button id="analyticsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
-                <i data-lucide="map-pin" class="w-5 h-5"></i>
-                <span class="font-medium">Analytics</span>
-              </button>
+            </div>
+
+            <!-- Operations Group -->
+            <div class="mb-4">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Operations</h3>
+              <div class="space-y-1">
+                <button id="routesManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="map-pin" class="w-5 h-5"></i>
+                  <span class="font-medium">Routes Management</span>
+                </button>
+                <button id="liveTruckTrackingBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="radio" class="w-5 h-5"></i>
+                  <span class="font-medium">Live Truck Tracking</span>
+                </button>
+                <button id="schedulesBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+                  <span class="font-medium">Collection Schedules</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Fleet & Drivers Group -->
+            <div class="mb-4">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Fleet & Drivers</h3>
+              <div class="space-y-1">
+                <button id="truckManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="truck" class="w-5 h-5"></i>
+                  <span class="font-medium">Truck Management</span>
+                </button>
+                <button id="userManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="users" class="w-5 h-5"></i>
+                  <span class="font-medium">User Management</span>
+                </button>
+                <button id="fuelManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="fuel" class="w-5 h-5"></i>
+                  <span class="font-medium">Fuel Management</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- History & Reports Group -->
+            <div class="mb-4">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">History & Reports</h3>
+              <div class="space-y-1">
+                <button id="completionHistoryBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="file-text" class="w-5 h-5"></i>
+                  <span class="font-medium">Completion History</span>
+                </button>
+                <button id="reportsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="file-bar-chart" class="w-5 h-5"></i>
+                  <span class="font-medium">Reports</span>
+                </button>
+                <button id="analyticsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="chart-pie" class="w-5 h-5"></i>
+                  <span class="font-medium">Analytics</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Public Services Group -->
+            <div class="mb-4">
+              <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Public Services</h3>
+              <div class="space-y-1">
+                <button id="complaintsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
+                  <i data-lucide="message-square-warning" class="w-5 h-5"></i>
+                  <span class="font-medium">Public Complaints</span>
+                  <span id="complaintsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+                </button>
+                <button id="specialPickupsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
+                  <i data-lucide="package" class="w-5 h-5"></i>
+                  <span class="font-medium">Special Pickups</span>
+                  <span id="specialPickupsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+                </button>
+                <button id="announcementsAdminBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                  <i data-lucide="megaphone" class="w-5 h-5"></i>
+                  <span class="font-medium">Announcements</span>
+                </button>
+              </div>
             </div>
           </div>
 

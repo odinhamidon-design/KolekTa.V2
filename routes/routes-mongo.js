@@ -89,7 +89,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     await connectDB();
-    const { routeId, name, path, status, notes, expiresAt } = req.body;
+    const { routeId, name, areas, path, status, notes, expiresAt } = req.body;
 
     // Check if routeId exists
     const existingRoute = await Route.findOne({ routeId });
@@ -100,6 +100,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const newRoute = new Route({
       routeId: routeId || `ROUTE-${Date.now()}`,
       name,
+      areas: areas || [],
       path,
       distance: calculateDistance(path?.coordinates || []),
       status: status || 'planned',
@@ -132,11 +133,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Route not found' });
     }
 
-    const { assignedDriver, status, name, notes, completedAt, completedBy, completionNotes, completionPhotos, notificationSent, expiresAt, isExpired } = req.body;
+    const { assignedDriver, status, name, areas, notes, completedAt, completedBy, completionNotes, completionPhotos, notificationSent, expiresAt, isExpired } = req.body;
 
     if (assignedDriver !== undefined) route.assignedDriver = assignedDriver;
     if (status) route.status = status;
     if (name) route.name = name;
+    if (areas !== undefined) route.areas = areas;
     if (notes !== undefined) route.notes = notes;
     if (completedAt !== undefined) route.completedAt = completedAt;
     if (completedBy !== undefined) route.completedBy = completedBy;

@@ -14,7 +14,14 @@ const userSchema = new mongoose.Schema({
   securityAnswer: String,
   resetToken: String,
   resetTokenExpiry: Date,
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  // Driver availability tracking
+  availability: {
+    type: String,
+    enum: ['available', 'unavailable', 'on-break'],
+    default: 'available'
+  },
+  currentRouteId: String // Track which route driver is on
 }, { timestamps: true });
 
 // Add indexes for faster queries
