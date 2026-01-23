@@ -654,11 +654,93 @@ const searchState = {
   trucks: '',
   routes: '',
   complaints: '',
-  schedules: ''
+  schedules: '',
+  fuel: ''
 };
 
 // Expiration filter state for routes
 let routeExpirationFilter = 'all'; // 'all', 'active', 'expiring-soon', 'expired'
+
+// Fuel level filter state
+let fuelLevelFilter = 'all'; // 'all', 'low', 'medium', 'good'
+
+// Filter trucks by fuel level
+function filterTrucksByFuelLevel(trucks, filter) {
+  if (filter === 'all') return trucks;
+
+  return trucks.filter(t => {
+    switch (filter) {
+      case 'low': return t.fuelLevel < 25;
+      case 'medium': return t.fuelLevel >= 25 && t.fuelLevel <= 50;
+      case 'good': return t.fuelLevel > 50;
+      default: return true;
+    }
+  });
+}
+
+// Handle fuel level filter change
+function handleFuelLevelFilter(value) {
+  fuelLevelFilter = value;
+  if (sortHandlers.fuel) {
+    sortHandlers.fuel();
+  }
+}
+
+// User filters
+let userRoleFilter = 'all'; // 'all', 'admin', 'driver'
+let userStatusFilter = 'all'; // 'all', 'active', 'inactive'
+
+function handleUserRoleFilter(value) {
+  userRoleFilter = value;
+  if (sortHandlers.users) {
+    sortHandlers.users();
+  }
+}
+
+function handleUserStatusFilter(value) {
+  userStatusFilter = value;
+  if (sortHandlers.users) {
+    sortHandlers.users();
+  }
+}
+
+// Truck status filter
+let truckStatusFilter = 'all'; // 'all', 'available', 'in-use', 'maintenance', 'out-of-service'
+
+function handleTruckStatusFilter(value) {
+  truckStatusFilter = value;
+  if (sortHandlers.trucks) {
+    sortHandlers.trucks();
+  }
+}
+
+// Complaint filters
+let complaintStatusFilter = 'all'; // 'all', 'pending', 'in-progress', 'resolved', 'closed'
+let complaintTypeFilter = 'all'; // 'all', 'missed_collection', 'illegal_dumping', etc.
+
+function handleComplaintStatusFilter(value) {
+  complaintStatusFilter = value;
+  if (sortHandlers.complaints) {
+    sortHandlers.complaints();
+  }
+}
+
+function handleComplaintTypeFilter(value) {
+  complaintTypeFilter = value;
+  if (sortHandlers.complaints) {
+    sortHandlers.complaints();
+  }
+}
+
+// Schedule status filter
+let scheduleStatusFilter = 'all'; // 'all', 'active', 'inactive'
+
+function handleScheduleStatusFilter(value) {
+  scheduleStatusFilter = value;
+  if (sortHandlers.schedules) {
+    sortHandlers.schedules();
+  }
+}
 
 // Filter routes by expiration
 function filterRoutesByExpiration(routes, filter) {
@@ -1751,12 +1833,24 @@ function renderUserTable() {
   // Define searchable fields
   const searchFields = ['username', 'fullName', 'email', 'phoneNumber', 'role'];
 
-  // Apply search filter first
-  const filteredUsers = filterData(users, searchState.users, searchFields);
+  // Apply role filter
+  let filtered = users;
+  if (userRoleFilter !== 'all') {
+    filtered = filtered.filter(u => u.role === userRoleFilter);
+  }
+
+  // Apply status filter
+  if (userStatusFilter !== 'all') {
+    filtered = filtered.filter(u => userStatusFilter === 'active' ? u.isActive : !u.isActive);
+  }
+
+  // Apply search filter
+  filtered = filterData(filtered, searchState.users, searchFields);
 
   // Apply sorting
   const { column, direction } = sortState.users;
-  const sortedUsers = sortData(filteredUsers, column, direction);
+  const sortedUsers = sortData(filtered, column, direction);
+  const isFiltered = searchState.users || userRoleFilter !== 'all' || userStatusFilter !== 'all';
 
   const admins = users.filter(u => u.role === 'admin');
   const drivers = users.filter(u => u.role === 'driver');
@@ -1882,9 +1976,21 @@ function renderUserTable() {
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Users</h2>
-            <p class="text-sm text-gray-500">${sortedUsers.length} of ${users.length} users${searchState.users ? ' (filtered)' : ''}</p>
+            <p class="text-sm text-gray-500">${sortedUsers.length} of ${users.length} users${isFiltered ? ' (filtered)' : ''}</p>
           </div>
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="userRoleFilter" onchange="handleUserRoleFilter(this.value)"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="all" ${userRoleFilter === 'all' ? 'selected' : ''}>All Roles</option>
+              <option value="admin" ${userRoleFilter === 'admin' ? 'selected' : ''}>Admin</option>
+              <option value="driver" ${userRoleFilter === 'driver' ? 'selected' : ''}>Driver</option>
+            </select>
+            <select id="userStatusFilter" onchange="handleUserStatusFilter(this.value)"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="all" ${userStatusFilter === 'all' ? 'selected' : ''}>All Status</option>
+              <option value="active" ${userStatusFilter === 'active' ? 'selected' : ''}>Active</option>
+              <option value="inactive" ${userStatusFilter === 'inactive' ? 'selected' : ''}>Inactive</option>
+            </select>
             ${createSearchInput('users', 'Search users...')}
             <button onclick="showAddUserForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
               <i data-lucide="plus" class="w-4 h-4"></i>
@@ -2165,12 +2271,19 @@ function renderTruckTable() {
   // Define searchable fields
   const searchFields = ['truckId', 'plateNumber', 'model', 'status', 'assignedDriver'];
 
-  // Apply search filter first
-  const filteredTrucks = filterData(trucks, searchState.trucks, searchFields);
+  // Apply status filter
+  let filtered = trucks;
+  if (truckStatusFilter !== 'all') {
+    filtered = filtered.filter(t => t.status === truckStatusFilter);
+  }
+
+  // Apply search filter
+  filtered = filterData(filtered, searchState.trucks, searchFields);
 
   // Apply sorting
   const { column, direction } = sortState.trucks;
-  const sortedTrucks = sortData(filteredTrucks, column, direction);
+  const sortedTrucks = sortData(filtered, column, direction);
+  const isFiltered = searchState.trucks || truckStatusFilter !== 'all';
 
   // Stats (from all trucks)
   const availableCount = trucks.filter(t => t.status === 'available').length;
@@ -2317,9 +2430,17 @@ function renderTruckTable() {
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-semibold text-gray-800">All Trucks</h2>
-            <p class="text-sm text-gray-500">${sortedTrucks.length} of ${trucks.length} trucks${searchState.trucks ? ' (filtered)' : ''}</p>
+            <p class="text-sm text-gray-500">${sortedTrucks.length} of ${trucks.length} trucks${isFiltered ? ' (filtered)' : ''}</p>
           </div>
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="truckStatusFilter" onchange="handleTruckStatusFilter(this.value)"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="all" ${truckStatusFilter === 'all' ? 'selected' : ''}>All Status</option>
+              <option value="available" ${truckStatusFilter === 'available' ? 'selected' : ''}>Available</option>
+              <option value="in-use" ${truckStatusFilter === 'in-use' ? 'selected' : ''}>In Use</option>
+              <option value="maintenance" ${truckStatusFilter === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+              <option value="out-of-service" ${truckStatusFilter === 'out-of-service' ? 'selected' : ''}>Out of Service</option>
+            </select>
             ${createSearchInput('trucks', 'Search trucks...')}
             <button onclick="showAddTruckForm()" class="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors">
               <i data-lucide="plus" class="w-4 h-4"></i>
@@ -9922,14 +10043,49 @@ window.removeProfilePicture = async function() {
 // FUEL MANAGEMENT SYSTEM
 // ============================================
 
+// Cache for fuel data
+let cachedFuelData = { trucks: [], fleet: {} };
+
 async function showFuelManagement() {
+  showPageLoading('Loading fuel data...');
   try {
     const response = await fetch(`${API_URL}/fuel/all-stats`);
     const data = await response.json();
 
-    const { trucks, fleet } = data;
+    cachedFuelData = data;
 
-    const truckCards = trucks.map(t => {
+    // Register sort handler
+    sortHandlers.fuel = () => renderFuelCards();
+
+    renderFuelCards();
+  } catch (error) {
+    console.error('Error loading fuel data:', error);
+    hidePageLoading();
+    showPage('Fuel Management', `
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
+        <p class="text-red-700">Error loading fuel data: ${error.message}</p>
+        <button onclick="showFuelManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+          Try Again
+        </button>
+      </div>
+    `);
+  }
+}
+
+function renderFuelCards() {
+  const { trucks, fleet } = cachedFuelData;
+
+  // Define search fields
+  const searchFields = ['truckId', 'plateNumber', 'assignedDriver'];
+
+  // Apply fuel level filter first
+  let filtered = filterTrucksByFuelLevel(trucks, fuelLevelFilter);
+
+  // Apply search filter
+  filtered = filterData(filtered, searchState.fuel, searchFields);
+
+  const truckCards = filtered.map(t => {
       const fuelColor = t.fuelLevel > 50 ? 'text-green-600' : t.fuelLevel > 25 ? 'text-yellow-600' : 'text-red-600';
       const fuelBg = t.fuelLevel > 50 ? 'bg-green-500' : t.fuelLevel > 25 ? 'bg-yellow-500' : 'bg-red-500';
       const borderColor = t.fuelLevel < 25 ? 'border-red-200' : 'border-gray-100';
@@ -10063,8 +10219,29 @@ async function showFuelManagement() {
         </div>
       ` : ''}
 
+      <!-- Search and Filter Controls -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="font-semibold text-gray-800">All Trucks</h2>
+            <p class="text-sm text-gray-500" id="fuelTruckCount">${filtered.length} of ${trucks.length} trucks${searchState.fuel || fuelLevelFilter !== 'all' ? ' (filtered)' : ''}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="fuelLevelFilter" onchange="handleFuelLevelFilter(this.value)"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="all" ${fuelLevelFilter === 'all' ? 'selected' : ''}>All Levels</option>
+              <option value="low" ${fuelLevelFilter === 'low' ? 'selected' : ''}>Low (&lt; 25%)</option>
+              <option value="medium" ${fuelLevelFilter === 'medium' ? 'selected' : ''}>Medium (25-50%)</option>
+              <option value="good" ${fuelLevelFilter === 'good' ? 'selected' : ''}>Good (&gt; 50%)</option>
+            </select>
+            ${createSearchInput('fuel', 'Search trucks...')}
+          </div>
+        </div>
+      </div>
+
       <!-- Trucks Grid -->
-      ${trucks.length > 0 ? `
+      <div id="fuelTrucksGrid">
+      ${filtered.length > 0 ? `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           ${truckCards}
         </div>
@@ -10073,23 +10250,15 @@ async function showFuelManagement() {
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <i data-lucide="truck" class="w-8 h-8 text-gray-400"></i>
           </div>
-          <h3 class="text-lg font-semibold text-gray-700 mb-2">No Trucks Found</h3>
-          <p class="text-gray-500">Add trucks to manage their fuel</p>
+          <h3 class="text-lg font-semibold text-gray-700 mb-2">${searchState.fuel || fuelLevelFilter !== 'all' ? 'No Matching Trucks' : 'No Trucks Found'}</h3>
+          <p class="text-gray-500">${searchState.fuel || fuelLevelFilter !== 'all' ? 'Try adjusting your search or filter' : 'Add trucks to manage their fuel'}</p>
         </div>
       `}
-    `);
-  } catch (error) {
-    console.error('Error loading fuel data:', error);
-    showPage('Fuel Management', `
-      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
-        <p class="text-red-700">Error loading fuel data: ${error.message}</p>
-        <button onclick="showFuelManagement()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-          Try Again
-        </button>
       </div>
     `);
-  }
+
+    hidePageLoading();
+    lucide.createIcons();
 }
 
 function showRefuelForm(truckId) {
@@ -10901,19 +11070,37 @@ function renderComplaintsTable() {
   // Define searchable fields
   const searchFields = ['referenceNumber', 'name', 'barangay', 'description', 'status', 'reportType'];
 
-  // Apply search filter first
-  const filteredComplaints = filterData(cachedComplaintsData, searchState.complaints, searchFields);
+  // Apply status filter
+  let filtered = cachedComplaintsData;
+  if (complaintStatusFilter !== 'all') {
+    filtered = filtered.filter(c => c.status === complaintStatusFilter);
+  }
+
+  // Apply type filter
+  if (complaintTypeFilter !== 'all') {
+    filtered = filtered.filter(c => c.reportType === complaintTypeFilter);
+  }
+
+  // Apply search filter
+  filtered = filterData(filtered, searchState.complaints, searchFields);
 
   // Apply sorting
   const { column, direction } = sortState.complaints;
-  const sortedComplaints = sortData(filteredComplaints, column, direction);
+  const sortedComplaints = sortData(filtered, column, direction);
   const stats = cachedComplaintsStats;
+  const isFiltered = searchState.complaints || complaintStatusFilter !== 'all' || complaintTypeFilter !== 'all';
 
   // Update search results count display
   const countDisplay = document.querySelector('#complaintsCountDisplay');
   if (countDisplay) {
-    countDisplay.textContent = `${sortedComplaints.length} of ${cachedComplaintsData.length} reports${searchState.complaints ? ' (filtered)' : ''}`;
+    countDisplay.textContent = `${sortedComplaints.length} of ${cachedComplaintsData.length} reports${isFiltered ? ' (filtered)' : ''}`;
   }
+
+  // Update filter dropdowns if they exist
+  const statusFilterEl = document.getElementById('complaintStatusFilter');
+  if (statusFilterEl) statusFilterEl.value = complaintStatusFilter;
+  const typeFilterEl = document.getElementById('complaintTypeFilter');
+  if (typeFilterEl) typeFilterEl.value = complaintTypeFilter;
 
   const complaintRows = sortedComplaints.map(c => {
     const createdDate = new Date(c.createdAt).toLocaleDateString('en-US', {
@@ -11148,24 +11335,24 @@ async function showComplaints() {
           </div>
           <div>
             <label class="block text-xs text-gray-500 mb-1">Report Type</label>
-            <select id="filterReportType" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-              <option value="">All Types</option>
-              <option value="missed_collection">Missed Collection</option>
-              <option value="illegal_dumping">Illegal Dumping</option>
-              <option value="overflowing_bin">Overflowing Bin</option>
-              <option value="damaged_bin">Damaged Bin</option>
-              <option value="odor_complaint">Odor Complaint</option>
-              <option value="other">Other</option>
+            <select id="complaintTypeFilter" onchange="handleComplaintTypeFilter(this.value)" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+              <option value="all" ${complaintTypeFilter === 'all' ? 'selected' : ''}>All Types</option>
+              <option value="missed_collection" ${complaintTypeFilter === 'missed_collection' ? 'selected' : ''}>Missed Collection</option>
+              <option value="illegal_dumping" ${complaintTypeFilter === 'illegal_dumping' ? 'selected' : ''}>Illegal Dumping</option>
+              <option value="overflowing_bin" ${complaintTypeFilter === 'overflowing_bin' ? 'selected' : ''}>Overflowing Bin</option>
+              <option value="damaged_bin" ${complaintTypeFilter === 'damaged_bin' ? 'selected' : ''}>Damaged Bin</option>
+              <option value="odor_complaint" ${complaintTypeFilter === 'odor_complaint' ? 'selected' : ''}>Odor Complaint</option>
+              <option value="other" ${complaintTypeFilter === 'other' ? 'selected' : ''}>Other</option>
             </select>
           </div>
           <div>
             <label class="block text-xs text-gray-500 mb-1">Status</label>
-            <select id="filterStatus" onchange="filterComplaints()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
+            <select id="complaintStatusFilter" onchange="handleComplaintStatusFilter(this.value)" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+              <option value="all" ${complaintStatusFilter === 'all' ? 'selected' : ''}>All Status</option>
+              <option value="pending" ${complaintStatusFilter === 'pending' ? 'selected' : ''}>Pending</option>
+              <option value="in-progress" ${complaintStatusFilter === 'in-progress' ? 'selected' : ''}>In Progress</option>
+              <option value="resolved" ${complaintStatusFilter === 'resolved' ? 'selected' : ''}>Resolved</option>
+              <option value="closed" ${complaintStatusFilter === 'closed' ? 'selected' : ''}>Closed</option>
             </select>
           </div>
           <div>
@@ -11911,18 +12098,29 @@ function renderSchedulesTable() {
   // Define searchable fields
   const searchFields = ['name', 'scheduleId', 'routeName', 'recurrenceType', 'assignedDriver', 'assignedVehicle'];
 
-  // Apply search filter first
-  const filteredSchedules = filterData(cachedSchedulesData, searchState.schedules, searchFields);
+  // Apply status filter
+  let filtered = cachedSchedulesData;
+  if (scheduleStatusFilter !== 'all') {
+    filtered = filtered.filter(s => scheduleStatusFilter === 'active' ? s.isActive : !s.isActive);
+  }
+
+  // Apply search filter
+  filtered = filterData(filtered, searchState.schedules, searchFields);
 
   // Apply sorting
   const { column, direction } = sortState.schedules;
-  const sortedSchedules = sortData(filteredSchedules, column, direction);
+  const sortedSchedules = sortData(filtered, column, direction);
+  const isFiltered = searchState.schedules || scheduleStatusFilter !== 'all';
 
   // Update search results count display
   const countDisplay = document.querySelector('#schedulesCountDisplay');
   if (countDisplay) {
-    countDisplay.textContent = `${sortedSchedules.length} of ${cachedSchedulesData.length} schedules${searchState.schedules ? ' (filtered)' : ''}`;
+    countDisplay.textContent = `${sortedSchedules.length} of ${cachedSchedulesData.length} schedules${isFiltered ? ' (filtered)' : ''}`;
   }
+
+  // Update filter dropdown if it exists
+  const statusFilterEl = document.getElementById('scheduleStatusFilter');
+  if (statusFilterEl) statusFilterEl.value = scheduleStatusFilter;
 
   const scheduleRows = sortedSchedules.map(s => {
     // Format recurrence pattern
@@ -12754,7 +12952,13 @@ async function showScheduleManagement() {
             <h1 class="text-2xl font-bold text-gray-800">Collection Schedules</h1>
             <p id="schedulesCountDisplay" class="text-gray-500 mt-1">${sortedSchedules.length} of ${schedules.length} schedules</p>
           </div>
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="scheduleStatusFilter" onchange="handleScheduleStatusFilter(this.value)"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="all" ${scheduleStatusFilter === 'all' ? 'selected' : ''}>All Status</option>
+              <option value="active" ${scheduleStatusFilter === 'active' ? 'selected' : ''}>Active</option>
+              <option value="inactive" ${scheduleStatusFilter === 'inactive' ? 'selected' : ''}>Inactive</option>
+            </select>
             ${createSearchInput('schedules', 'Search schedules...')}
             <button onclick="showAddScheduleForm()" class="inline-flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-xl transition-colors">
               <i data-lucide="plus" class="w-5 h-5"></i>
