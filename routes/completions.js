@@ -50,6 +50,10 @@ const upload = multer({
 // Complete route with photos
 router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10), async (req, res) => {
   try {
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Driver access required' });
+    }
+
     const { routeId } = req.params;
     const { notes, distanceTraveled, fuelConsumed, stopsCompleted, averageSpeed } = req.body;
 
@@ -68,10 +72,10 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
 
     // Trip stats from GPS tracking
     const tripStats = {
-      distanceTraveled: parseFloat(distanceTraveled) || 0,
-      fuelConsumed: parseFloat(fuelConsumed) || 0,
-      stopsCompleted: parseInt(stopsCompleted) || 0,
-      averageSpeed: parseFloat(averageSpeed) || 0
+      distanceTraveled: Math.max(parseFloat(distanceTraveled) || 0, 0),
+      fuelConsumed: Math.max(parseFloat(fuelConsumed) || 0, 0),
+      stopsCompleted: Math.max(parseInt(stopsCompleted) || 0, 0),
+      averageSpeed: Math.max(parseFloat(averageSpeed) || 0, 0)
     };
 
     if (!useMockAuth && Route) {
@@ -266,7 +270,8 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
     }
   } catch (error) {
     console.error('Error completing route:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -299,7 +304,8 @@ router.get('/:routeId/completion', authenticateToken, async (req, res) => {
       tripStats: route.tripStats || null
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -335,7 +341,8 @@ router.get('/notifications/pending', authenticateToken, async (req, res) => {
     res.json(pendingNotifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -358,7 +365,8 @@ router.get('/:routeId', authenticateToken, async (req, res) => {
 
     res.json(route);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -389,7 +397,8 @@ router.post('/notifications/:routeId/read', authenticateToken, async (req, res) 
     console.log('Notification marked as read:', routeId);
     res.json({ message: 'Notification marked as read' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

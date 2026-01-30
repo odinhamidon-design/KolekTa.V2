@@ -93,7 +93,8 @@ router.get('/collection-summary', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating collection summary:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -207,7 +208,8 @@ router.get('/driver-performance', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating driver performance report:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -319,7 +321,8 @@ router.get('/complaint-analytics', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating complaint analytics:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

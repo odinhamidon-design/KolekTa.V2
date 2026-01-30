@@ -20,9 +20,141 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+// Batch update for syncing offline GPS points
+router.post('/batch-update', authenticateToken, async (req, res) => {
+  try {
+    // Only drivers can submit GPS batch updates
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Driver access required' });
+    }
+
+    const { points } = req.body;
+    const username = req.user.username;
+
+    if (!points || !Array.isArray(points) || points.length === 0) {
+      return res.status(400).json({ error: 'Points array required' });
+    }
+
+    // Limit batch size to prevent DoS
+    const MAX_BATCH_SIZE = 1000;
+    if (points.length > MAX_BATCH_SIZE) {
+      return res.status(400).json({ error: `Batch size exceeds maximum of ${MAX_BATCH_SIZE} points` });
+    }
+
+    console.log(`📍 Batch GPS Update from ${username}: ${points.length} points`);
+
+    await connectDB();
+
+    let processed = 0;
+    let failed = 0;
+
+    // Sort by timestamp to process in order
+    const sortedPoints = [...points].sort((a, b) =>
+      new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    for (const point of sortedPoints) {
+      try {
+        const lat = parseFloat(point.lat);
+        const lng = parseFloat(point.lng);
+        let speed = parseFloat(point.speed) || 0;
+        if (speed < 0) speed = 0;
+
+        if (isNaN(lat) || isNaN(lng)) {
+          console.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
+          failed++;
+          continue;
+        }
+
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          console.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
+          failed++;
+          continue;
+        }
+
+        // Update live location in MongoDB
+        await LiveLocation.findOneAndUpdate(
+          { username },
+          {
+            username,
+            lat,
+            lng,
+            routeId: point.routeId || null,
+            speed,
+            heading: point.heading || 0,
+            timestamp: new Date(point.timestamp || Date.now()),
+            lastUpdate: new Date()
+          },
+          { upsert: true, new: true }
+        );
+
+        // Update trip data
+        let trip = await TripData.findOne({ username, isActive: true });
+        if (trip) {
+          if (trip.lastLocation && trip.lastLocation.lat && trip.lastLocation.lng) {
+            const distance = haversineDistance(
+              trip.lastLocation.lat, trip.lastLocation.lng,
+              lat, lng
+            );
+            if (distance < 1) trip.totalDistance += distance;
+
+            const timeDiff = Date.now() - (trip.lastUpdateTime ? trip.lastUpdateTime.getTime() : Date.now());
+            if (speed < 3 && trip.lastSpeed >= 3) trip.stopCount++;
+            if (speed < 5) trip.idleTimeMs += timeDiff;
+          }
+
+          trip.lastLocation = { lat, lng };
+          trip.lastUpdateTime = new Date();
+          trip.lastSpeed = speed;
+          if (speed > 0) {
+            trip.speedSamples.push(speed);
+            if (trip.speedSamples.length > 100) trip.speedSamples.shift();
+          }
+
+          // Calculate fuel estimate
+          const avgSpeed = trip.speedSamples.length > 0
+            ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
+            : 30;
+          let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
+          const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
+          const stopFuel = trip.stopCount * 0.05;
+          const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
+          trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+
+          await trip.save();
+        }
+
+        processed++;
+      } catch (pointError) {
+        console.error(`Error processing point:`, pointError);
+        failed++;
+      }
+    }
+
+    console.log(`✅ Batch update complete: ${processed} processed, ${failed} failed`);
+
+    res.json({
+      message: 'Batch update complete',
+      processed,
+      failed,
+      total: points.length,
+      processedCount: processed,
+      failedCount: failed
+    });
+  } catch (error) {
+    console.error('❌ Error in batch update:', error.message);
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
+  }
+});
+
 // Update driver location
 router.post('/update', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Driver access required' });
+    }
+
     const { lat, lng, routeId, speed, heading } = req.body;
     const username = req.user.username;
 
@@ -32,10 +164,15 @@ router.post('/update', authenticateToken, async (req, res) => {
 
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
-    const parsedSpeed = parseFloat(speed) || 0;
+    let parsedSpeed = parseFloat(speed) || 0;
+    if (parsedSpeed < 0) parsedSpeed = 0;
 
     if (isNaN(parsedLat) || isNaN(parsedLng)) {
       return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+      return res.status(400).json({ error: 'Coordinates out of range' });
     }
 
     // Connect to MongoDB
@@ -123,7 +260,8 @@ router.post('/update', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error updating location:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -144,7 +282,8 @@ router.get('/active', authenticateToken, async (req, res) => {
 
     res.json(locations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -223,7 +362,8 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
     res.json(allTrucks);
   } catch (error) {
     console.error('❌ Error getting all trucks:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -250,7 +390,8 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
 
     res.json(location);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -262,7 +403,8 @@ router.delete('/clear', authenticateToken, async (req, res) => {
     await LiveLocation.deleteOne({ username });
     res.json({ message: 'Location cleared' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -297,7 +439,8 @@ router.get('/my-trip', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -330,7 +473,8 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
       trip: { username, startTime: trip.startTime.toISOString() }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -358,7 +502,8 @@ router.post('/end-trip', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Trip ended', summary });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -422,7 +567,8 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
       trucks: truckFuelData
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -446,7 +592,8 @@ router.get('/all-trips', authenticateToken, async (req, res) => {
 
     res.json({ count: trips.length, trips });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -475,7 +622,8 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
       stops: trip.stopCount || 0
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

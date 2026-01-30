@@ -44,7 +44,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const trucks = trucksStorage.getAll();
     res.json(trucks);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -57,7 +58,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     res.json(truck);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -65,8 +67,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const { truckId, plateNumber, model, capacity, notes } = req.body;
+
+    if (!truckId || !plateNumber) {
+      return res.status(400).json({ error: 'Truck ID and plate number are required' });
+    }
+
     const allTrucks = trucksStorage.getAll();
-    
+
     // Check if truckId exists
     if (allTrucks.find(t => t.truckId === truckId)) {
       return res.status(400).json({ error: 'Truck ID already exists' });
@@ -95,7 +102,8 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     trucksStorage.add(newTruck);
     res.status(201).json(newTruck);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Truck operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
@@ -131,7 +139,8 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     const updatedTruck = trucksStorage.findById(truck._id);
     res.json(updatedTruck);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Truck operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
@@ -151,7 +160,8 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     trucksStorage.delete(truck._id);
     res.json({ message: 'Truck deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -162,7 +172,8 @@ router.get('/status/available', authenticateToken, async (req, res) => {
     const available = allTrucks.filter(t => t.status === 'available');
     res.json(available);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

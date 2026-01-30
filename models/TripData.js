@@ -4,7 +4,6 @@ const tripDataSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    unique: true,
     index: true
   },
   startTime: {
@@ -57,6 +56,12 @@ const tripDataSchema = new mongoose.Schema({
 
 // Index for finding active trips
 tripDataSchema.index({ isActive: 1 });
+
+// Compound index to prevent duplicate active trips per driver
+tripDataSchema.index({ username: 1, isActive: 1 }, {
+  unique: true,
+  partialFilterExpression: { isActive: true }
+});
 
 // Static method to get or create trip for a user
 tripDataSchema.statics.getOrCreateTrip = async function(username) {

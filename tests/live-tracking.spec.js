@@ -4,7 +4,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Live Tracking', () => {
   test.beforeEach(async ({ page }) => {
     // Login as admin
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
 
     // Click Admin role

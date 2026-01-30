@@ -4,7 +4,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Driver Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     // Login as driver
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
 
     // Click Driver role

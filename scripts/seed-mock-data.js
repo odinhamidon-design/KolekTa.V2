@@ -87,13 +87,29 @@ function generateRoutePath(center, routeName) {
 }
 
 async function seedData() {
+  // Prevent running in production without explicit confirmation
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_SEED_SCRIPTS) {
+    console.error('❌ Cannot run seed scripts in production.');
+    console.error('   Set ALLOW_SEED_SCRIPTS=true to override.');
+    process.exit(1);
+  }
+
+  // Accept driver password from CLI argument or env var
+  const driverPassword = process.argv[2] || process.env.SEED_PASSWORD || 'driver123';
+  if (driverPassword === 'driver123' && process.env.NODE_ENV === 'production') {
+    console.error('❌ Cannot use default password in production. Provide a password:');
+    console.error('   node scripts/seed-mock-data.js <password>');
+    console.error('   or set SEED_PASSWORD env var.');
+    process.exit(1);
+  }
+
   console.log('🌱 Seeding mock data to MongoDB...\n');
 
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
 
-    const hashedPassword = await bcrypt.hash('driver123', 10);
+    const hashedPassword = await bcrypt.hash(driverPassword, 10);
 
     for (let i = 0; i < driversData.length; i++) {
       const driver = driversData[i];
@@ -174,7 +190,7 @@ async function seedData() {
     console.log(`   🗺️  Total Routes: ${routeCount}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('\n✅ Mock data seeding complete!');
-    console.log('\n📝 All new drivers use password: driver123');
+    console.log(`\n📝 All new drivers use password: ${driverPassword === 'driver123' ? 'driver123 (default - change in production!)' : '(custom password set)'}`);
 
   } catch (error) {
     console.error('❌ Error:', error.message);

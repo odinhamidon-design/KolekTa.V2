@@ -11,3 +11,4 @@ public/uploads/*
 .env*.local
 test-results/
 nul
+playwright-report/

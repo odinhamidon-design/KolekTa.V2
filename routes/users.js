@@ -22,7 +22,8 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     }));
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -45,7 +46,8 @@ router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       isActive: user.isActive
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -74,7 +76,12 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     if (!fullName || !phoneNumber) {
       return res.status(400).json({ error: 'Full name and phone number are required' });
     }
-    
+
+    // Validate password
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -101,7 +108,8 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
       isActive: newUser.isActive
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error creating user:', error);
+    res.status(400).json({ error: 'Failed to create user' });
   }
 });
 
@@ -133,7 +141,12 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     
     const updates = {};
     if (email) updates.email = email;
-    if (password) updates.password = await bcrypt.hash(password, 10);
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      updates.password = await bcrypt.hash(password, 10);
+    }
     if (fullName !== undefined) updates.fullName = fullName;
     if (phoneNumber !== undefined) updates.phoneNumber = phoneNumber;
     
@@ -155,7 +168,8 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       isActive: updatedUser.isActive
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error updating user:', error);
+    res.status(400).json({ error: 'Failed to update user' });
   }
 });
 
@@ -181,7 +195,8 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     usersStorage.delete(user.username);
     res.json({ message: 'Driver deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

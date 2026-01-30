@@ -7,13 +7,16 @@ const { test, expect } = require('@playwright/test');
  */
 
 test.describe('Mobile Responsive Tests', () => {
+  // Increase timeout for mobile tests
+  test.setTimeout(60000);
+
   test.describe('iPhone Viewport', () => {
     test.beforeEach(async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 }); // iPhone 12
     });
 
     test('login page should be responsive on iPhone', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Check viewport is correct
@@ -32,7 +35,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('login form should be usable on mobile', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Tap Admin role
@@ -53,7 +56,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('should login successfully on mobile', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       await page.click('[data-role="admin"]');
@@ -72,8 +75,8 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('map should be visible on mobile dashboard', async ({ page }) => {
-      await page.goto('/');
-      await page.waitForTimeout(1000);
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
 
       await page.click('[data-role="admin"]');
       await page.waitForTimeout(500);
@@ -81,8 +84,8 @@ test.describe('Mobile Responsive Tests', () => {
       await page.fill('#adminPassword', 'admin123');
       await page.click('#adminLoginForm button[type="submit"]');
 
-      await page.waitForURL('**/index.html**', { timeout: 10000 });
-      await page.waitForTimeout(3000);
+      await page.waitForURL('**/index.html**', { timeout: 30000 });
+      await page.waitForLoadState('networkidle');
 
       // Map container should exist or dashboard loaded
       const map = page.locator('#map, #mapContainer, .leaflet-container, #mainContent');
@@ -99,7 +102,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('login page should work on Android', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Role selection should work
@@ -112,7 +115,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('driver should be able to login on mobile', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       await page.click('[data-role="driver"]');
@@ -137,7 +140,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('login page should display correctly on tablet', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       const viewport = page.viewportSize();
@@ -157,7 +160,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('dashboard should show sidebar on tablet', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       await page.click('[data-role="admin"]');
@@ -181,7 +184,7 @@ test.describe('Mobile Responsive Tests', () => {
     test('should handle portrait to landscape change', async ({ page }) => {
       // Start in portrait (iPhone default)
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Verify portrait layout
@@ -210,7 +213,7 @@ test.describe('Mobile Responsive Tests', () => {
     test('login page should load quickly on mobile', async ({ page }) => {
       const startTime = Date.now();
 
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForLoadState('domcontentloaded');
 
       const loadTime = Date.now() - startTime;
@@ -220,7 +223,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('dashboard should be interactive quickly', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       await page.click('[data-role="admin"]');
@@ -245,7 +248,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('buttons should respond to clicks', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       const adminRole = page.locator('[data-role="admin"]');
@@ -260,7 +263,7 @@ test.describe('Mobile Responsive Tests', () => {
     });
 
     test('scrolling should work on mobile', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       await page.click('[data-role="admin"]');

@@ -22,7 +22,8 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(trucks);
   } catch (error) {
     console.error('Error getting trucks:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -36,7 +37,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     res.json(truck);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -45,7 +47,11 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
   try {
     await connectDB();
     const { truckId, plateNumber, model, capacity, notes } = req.body;
-    
+
+    if (!truckId || !plateNumber) {
+      return res.status(400).json({ error: 'Truck ID and plate number are required' });
+    }
+
     // Check if truckId exists
     const existingTruck = await Truck.findOne({ truckId });
     if (existingTruck) {
@@ -75,7 +81,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     res.status(201).json(newTruck);
   } catch (error) {
     console.error('Error creating truck:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to create truck' });
   }
 });
 
@@ -88,12 +94,12 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
     }
-    
+
     const { plateNumber, model, capacity, status, assignedDriver, lastMaintenance, nextMaintenance, fuelLevel, mileage, notes } = req.body;
-    
+
     // Check if plate number is taken by another truck
     if (plateNumber) {
-      const existingPlate = await Truck.findOne({ 
+      const existingPlate = await Truck.findOne({
         plateNumber: plateNumber.toUpperCase(),
         _id: { $ne: truck._id }
       });
@@ -102,7 +108,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       }
       truck.plateNumber = plateNumber.toUpperCase();
     }
-    
+
     if (model !== undefined) truck.model = model;
     if (capacity !== undefined) truck.capacity = capacity;
     if (status) truck.status = status;
@@ -112,13 +118,13 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     if (fuelLevel !== undefined) truck.fuelLevel = fuelLevel;
     if (mileage !== undefined) truck.mileage = mileage;
     if (notes !== undefined) truck.notes = notes;
-    
+
     await truck.save();
     console.log('✅ Truck updated in MongoDB:', truck.truckId);
     res.json(truck);
   } catch (error) {
     console.error('Error updating truck:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to update truck' });
   }
 });
 
@@ -142,7 +148,8 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     res.json({ message: 'Truck deleted successfully' });
   } catch (error) {
     console.error('Error deleting truck:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -153,7 +160,8 @@ router.get('/status/available', authenticateToken, async (req, res) => {
     const available = await Truck.find({ status: 'available' });
     res.json(available);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

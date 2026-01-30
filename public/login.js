@@ -1,6 +1,17 @@
 // Use relative URL so it works on any device
 const API_URL = '/api';
 
+// Escape HTML to prevent XSS
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Role card selection
 document.querySelectorAll('.role-card').forEach(card => {
   card.addEventListener('click', () => {
@@ -237,10 +248,10 @@ document.getElementById('forgotUsernameForm').addEventListener('submit', async (
       updateStepIndicator(2);
       document.getElementById('forgotMessage').innerHTML = '';
     } else {
-      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${data.error}</p>`;
+      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${escapeHtml(data.error)}</p>`;
     }
   } catch (error) {
-    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${error.message}</p>`;
+    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${escapeHtml(error.message)}</p>`;
   }
 
   submitBtn.disabled = false;
@@ -283,10 +294,10 @@ document.getElementById('forgotSecurityForm').addEventListener('submit', async (
         lucide.createIcons();
       }
     } else {
-      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${data.error}</p>`;
+      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${escapeHtml(data.error)}</p>`;
     }
   } catch (error) {
-    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${error.message}</p>`;
+    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${escapeHtml(error.message)}</p>`;
   }
 
   submitBtn.disabled = false;
@@ -340,7 +351,7 @@ document.getElementById('forgotNewPasswordForm').addEventListener('submit', asyn
         showRoleSelection();
       }, 2000);
     } else {
-      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${data.error}</p>`;
+      document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">${escapeHtml(data.error)}</p>`;
       submitBtn.disabled = false;
       submitBtn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i> Reset Password';
       if (typeof lucide !== 'undefined') {
@@ -348,7 +359,7 @@ document.getElementById('forgotNewPasswordForm').addEventListener('submit', asyn
       }
     }
   } catch (error) {
-    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${error.message}</p>`;
+    document.getElementById('forgotMessage').innerHTML = `<p class="text-red-500 text-sm text-center">Error: ${escapeHtml(error.message)}</p>`;
     submitBtn.disabled = false;
     submitBtn.innerHTML = '<i data-lucide="check" class="w-5 h-5"></i> Reset Password';
     if (typeof lucide !== 'undefined') {

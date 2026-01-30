@@ -205,7 +205,19 @@ function calculateFuelConsumption(params) {
 // POST /api/fuel/estimate
 router.post('/estimate', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const { truckId, distance, averageSpeed, stopCount, idleTimeMinutes, loadPercentage } = req.body;
+
+    if (distance !== undefined && distance < 0) {
+      return res.status(400).json({ error: 'Distance cannot be negative' });
+    }
+
+    if (averageSpeed !== undefined && averageSpeed < 0) {
+      return res.status(400).json({ error: 'Average speed cannot be negative' });
+    }
 
     let baseConsumption = 25;
     if (truckId) {
@@ -230,17 +242,26 @@ router.post('/estimate', auth, async (req, res) => {
       input: { distance, averageSpeed, stopCount, idleTimeMinutes, loadPercentage }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // POST /api/fuel/refuel
 router.post('/refuel', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
     const { truckId, litersAdded, pricePerLiter, gasStation, odometerReading, notes } = req.body;
 
     if (!truckId || !litersAdded) {
       return res.status(400).json({ error: 'Truck ID and liters added are required' });
+    }
+
+    if (litersAdded <= 0) {
+      return res.status(400).json({ error: 'Liters added must be greater than 0' });
     }
 
     const truck = trucksStorage.findById(truckId);
@@ -293,17 +314,30 @@ router.post('/refuel', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // POST /api/fuel/consumption
 router.post('/consumption', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin' && req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const { truckId, routeId, routeName, distance, averageSpeed, stopCount, idleTimeMinutes, loadPercentage, notes } = req.body;
 
     if (!truckId || !distance) {
       return res.status(400).json({ error: 'Truck ID and distance are required' });
+    }
+
+    if (distance <= 0) {
+      return res.status(400).json({ error: 'Distance must be greater than 0' });
+    }
+
+    if (averageSpeed !== undefined && averageSpeed < 0) {
+      return res.status(400).json({ error: 'Average speed cannot be negative' });
     }
 
     const truck = trucksStorage.findById(truckId);
@@ -365,7 +399,8 @@ router.post('/consumption', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -383,7 +418,8 @@ router.get('/logs/:truckId', auth, async (req, res) => {
 
     res.json(logs);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -438,7 +474,8 @@ router.get('/stats/:truckId', auth, async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -466,7 +503,8 @@ router.get('/all-logs', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -565,7 +603,8 @@ router.get('/all-stats', auth, async (req, res) => {
     res.json({ trucks: stats, fleet: fleetStats });
   } catch (error) {
     console.error('Fuel stats error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

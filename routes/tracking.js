@@ -3,6 +3,94 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { usersStorage, trucksStorage, routesStorage, liveLocationsStorage, tripDataStorage } = require('../data/storage');
 
+// Batch update for syncing offline GPS points
+router.post('/batch-update', authenticateToken, async (req, res) => {
+  try {
+    // Only drivers can submit GPS batch updates
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({ error: 'Driver access required' });
+    }
+
+    const { points } = req.body;
+    const username = req.user.username;
+
+    if (!points || !Array.isArray(points) || points.length === 0) {
+      return res.status(400).json({ error: 'Points array required' });
+    }
+
+    // Limit batch size to prevent DoS
+    const MAX_BATCH_SIZE = 1000;
+    if (points.length > MAX_BATCH_SIZE) {
+      return res.status(400).json({ error: `Batch size exceeds maximum of ${MAX_BATCH_SIZE} points` });
+    }
+
+    console.log(`📍 Batch GPS Update from ${username}: ${points.length} points`);
+
+    let processed = 0;
+    let failed = 0;
+
+    // Sort by timestamp to process in order
+    const sortedPoints = [...points].sort((a, b) =>
+      new Date(a.timestamp) - new Date(b.timestamp)
+    );
+
+    for (const point of sortedPoints) {
+      try {
+        const lat = parseFloat(point.lat);
+        const lng = parseFloat(point.lng);
+        let speed = parseFloat(point.speed) || 0;
+        if (speed < 0) speed = 0;
+
+        if (isNaN(lat) || isNaN(lng)) {
+          console.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
+          failed++;
+          continue;
+        }
+
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          console.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
+          failed++;
+          continue;
+        }
+
+        // Save to live locations storage (update to latest)
+        liveLocationsStorage.set(username, {
+          username,
+          lat,
+          lng,
+          routeId: point.routeId || null,
+          speed,
+          heading: point.heading || 0,
+          timestamp: new Date(point.timestamp || Date.now())
+        });
+
+        // Update trip data
+        tripDataStorage.updateTrip(username, lat, lng, speed);
+
+        processed++;
+      } catch (pointError) {
+        console.error(`Error processing point:`, pointError);
+        failed++;
+      }
+    }
+
+    console.log(`✅ Batch update complete: ${processed} processed, ${failed} failed`);
+
+    res.json({
+      message: 'Batch update complete',
+      processed,
+      failed,
+      total: points.length,
+      processedCount: processed,
+      failedCount: failed
+    });
+  } catch (error) {
+    console.error('❌ Error in batch update:', error.message);
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
+  }
+});
+
 // Update driver location - saves to local storage and tracks trip data
 router.post('/update', authenticateToken, async (req, res) => {
   try {
@@ -17,10 +105,15 @@ router.post('/update', authenticateToken, async (req, res) => {
 
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
-    const parsedSpeed = parseFloat(speed) || 0;
+    let parsedSpeed = parseFloat(speed) || 0;
+    if (parsedSpeed < 0) parsedSpeed = 0;
 
     if (isNaN(parsedLat) || isNaN(parsedLng)) {
       return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+      return res.status(400).json({ error: 'Coordinates out of range' });
     }
 
     // Save to live locations storage
@@ -51,7 +144,8 @@ router.post('/update', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error updating location:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -73,7 +167,8 @@ router.get('/active', authenticateToken, async (req, res) => {
     res.json(activeLocations);
   } catch (error) {
     console.error('❌ Error getting active locations:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -143,7 +238,8 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
     res.json(allTrucks);
   } catch (error) {
     console.error('❌ Error getting all trucks:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -170,7 +266,8 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
 
     res.json(location);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -181,7 +278,8 @@ router.delete('/clear', authenticateToken, async (req, res) => {
     liveLocationsStorage.delete(username);
     res.json({ message: 'Location cleared' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -213,7 +311,8 @@ router.get('/debug', authenticateToken, async (req, res) => {
       }))
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -246,7 +345,8 @@ router.get('/test-my-location', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -272,7 +372,8 @@ router.get('/my-trip', authenticateToken, async (req, res) => {
       trip: tripSummary
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -308,7 +409,8 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
       isActive: tripSummary.isActive
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -343,7 +445,8 @@ router.get('/all-trips', authenticateToken, async (req, res) => {
       trips: enrichedTrips
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -371,7 +474,8 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -392,7 +496,8 @@ router.post('/end-trip', authenticateToken, async (req, res) => {
       summary: tripSummary
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -450,7 +555,8 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
       trucks: truckFuelData
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

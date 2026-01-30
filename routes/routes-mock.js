@@ -32,7 +32,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const routes = routesStorage.getAll();
     res.json(routes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -52,12 +53,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     res.json(route);
   } catch (error) {
     console.error('Error getting route:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new route
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const newRoute = {
       _id: String(Date.now()),
@@ -72,30 +74,32 @@ router.post('/', async (req, res) => {
     routesStorage.add(newRoute);
     res.status(201).json(newRoute);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error creating route:', error);
+    res.status(400).json({ error: 'Failed to create route' });
   }
 });
 
 // Update route
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const route = routesStorage.findById(req.params.id);
     if (!route) {
       return res.status(404).json({ error: 'Route not found' });
     }
-    
+
     // Update fields
     const updates = {};
     if (req.body.assignedDriver !== undefined) updates.assignedDriver = req.body.assignedDriver;
     if (req.body.status) updates.status = req.body.status;
     if (req.body.name) updates.name = req.body.name;
     if (req.body.notes !== undefined) updates.notes = req.body.notes;
-    
+
     routesStorage.update(route._id, updates);
     const updatedRoute = routesStorage.findById(route._id);
     res.json(updatedRoute);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error updating route:', error);
+    res.status(400).json({ error: 'Failed to update route' });
   }
 });
 
@@ -114,7 +118,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
     console.error('Error deleting route:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

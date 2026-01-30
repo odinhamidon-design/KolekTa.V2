@@ -35,25 +35,41 @@ async function migrate() {
       for (const user of users) {
         const existing = await User.findOne({ username: user.username });
         if (!existing) {
-          // Hash password if not already hashed
-          let password = user.password;
-          if (!password.startsWith('$2a') && !password.startsWith('$2b')) {
-            password = await bcrypt.hash(password, 10);
+          // Check if password is already hashed (starts with bcrypt prefix)
+          const isAlreadyHashed = user.password.startsWith('$2a') || user.password.startsWith('$2b');
+
+          if (isAlreadyHashed) {
+            // Use insertOne to bypass the pre-save hook which would double-hash
+            await User.collection.insertOne({
+              username: user.username,
+              email: user.email,
+              password: user.password, // Already hashed, don't hash again
+              role: user.role,
+              fullName: user.fullName,
+              phoneNumber: user.phoneNumber,
+              profilePicture: user.profilePicture,
+              securityQuestion: user.securityQuestion,
+              securityAnswer: user.securityAnswer,
+              isActive: user.isActive !== false,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+          } else {
+            // Plain text password - use create() to trigger pre-save hook for hashing
+            await User.create({
+              username: user.username,
+              email: user.email,
+              password: user.password, // Will be hashed by pre-save hook
+              role: user.role,
+              fullName: user.fullName,
+              phoneNumber: user.phoneNumber,
+              profilePicture: user.profilePicture,
+              securityQuestion: user.securityQuestion,
+              securityAnswer: user.securityAnswer,
+              isActive: user.isActive !== false
+            });
           }
-          
-          await User.create({
-            username: user.username,
-            email: user.email,
-            password: password,
-            role: user.role,
-            fullName: user.fullName,
-            phoneNumber: user.phoneNumber,
-            profilePicture: user.profilePicture,
-            securityQuestion: user.securityQuestion,
-            securityAnswer: user.securityAnswer,
-            isActive: user.isActive !== false
-          });
-          console.log(`  ✅ Created user: ${user.username}`);
+          console.log(`  ✅ Created user: ${user.username}${isAlreadyHashed ? ' (pre-hashed)' : ''}`);
         } else {
           console.log(`  ⏭️ User already exists: ${user.username}`);
         }

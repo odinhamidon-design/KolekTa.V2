@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
   });
 

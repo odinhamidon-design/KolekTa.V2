@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { usersStorage } = require('../data/storage');
+const { authenticateToken } = require('../middleware/auth');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable must be set');
+}
 
 // Mock face data storage
 const faceData = {};
@@ -24,8 +29,22 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check password (plain text comparison for mock)
-    if (user.password !== password) {
+    // Check password using bcrypt (supports both hashed and plain-text passwords)
+    let passwordValid = false;
+    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+      // Password is bcrypt-hashed
+      passwordValid = await bcrypt.compare(password, user.password);
+    } else {
+      // Legacy plain-text password — compare and upgrade to hashed
+      passwordValid = (user.password === password);
+      if (passwordValid) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        usersStorage.update(user.username, { password: hashedPassword });
+        console.log(`🔒 Upgraded password hash for user: ${username}`);
+      }
+    }
+
+    if (!passwordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -50,7 +69,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -96,14 +115,20 @@ router.post('/login/face', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error during face login:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
-// Register face data
-router.post('/register-face', async (req, res) => {
+// Register face data (requires authentication)
+router.post('/register-face', authenticateToken, async (req, res) => {
   try {
     const { username, faceDescriptor } = req.body;
+
+    // Only allow users to register their own face, or admin to register any
+    if (req.user.role !== 'admin' && req.user.username !== username) {
+      return res.status(403).json({ error: 'You can only register your own face data' });
+    }
 
     const users = usersStorage.getAll();
     const user = users.find(u => u.username === username && u.role === 'driver');
@@ -112,11 +137,22 @@ router.post('/register-face', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Validate face descriptor
+    if (!faceDescriptor || !Array.isArray(faceDescriptor) || faceDescriptor.length === 0) {
+      return res.status(400).json({ error: 'Valid face descriptor is required' });
+    }
+
+    // Validate descriptor values are numbers
+    if (!faceDescriptor.every(val => typeof val === 'number' && !isNaN(val))) {
+      return res.status(400).json({ error: 'Invalid face descriptor format' });
+    }
+
     faceData[username] = faceDescriptor;
 
     res.json({ message: 'Face data registered successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error registering face:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -141,7 +177,7 @@ router.post('/forgot-password/question', async (req, res) => {
       securityQuestion: user.securityQuestion
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -172,7 +208,7 @@ router.post('/forgot-password/verify', async (req, res) => {
       resetToken
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -191,21 +227,25 @@ router.post('/forgot-password/reset', async (req, res) => {
       return res.status(403).json({ error: 'Reset token expired or invalid' });
     }
 
-    // Update password in local storage
-    usersStorage.update(decoded.username, { password: newPassword });
+    // Hash and update password in local storage
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    usersStorage.update(decoded.username, { password: hashedPassword });
 
     res.json({
       message: 'Password reset successfully'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Helper function
 function calculateDistance(desc1, desc2) {
+  if (!Array.isArray(desc1) || !Array.isArray(desc2) || desc1.length !== desc2.length) {
+    return Infinity;
+  }
   let sum = 0;
-  for (let i = 0; i < Math.min(desc1.length, desc2.length); i++) {
+  for (let i = 0; i < desc1.length; i++) {
     sum += Math.pow(desc1[i] - desc2[i], 2);
   }
   return Math.sqrt(sum);

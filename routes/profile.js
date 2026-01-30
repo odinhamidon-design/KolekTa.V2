@@ -72,7 +72,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       isActive: user.isActive
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -86,7 +87,6 @@ router.put('/me', authenticateToken, async (req, res) => {
     if (fullName) updates.fullName = fullName;
     if (email) updates.email = email;
     if (phoneNumber) updates.phoneNumber = phoneNumber;
-    if (password) updates.password = password;
 
     let updatedUser;
 
@@ -97,9 +97,17 @@ router.put('/me', authenticateToken, async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      // Hash password if provided
+      // Require current password verification when changing password
       if (password) {
+        const { currentPassword } = req.body;
+        if (!currentPassword) {
+          return res.status(400).json({ error: 'Current password is required to change password' });
+        }
         const bcrypt = require('bcryptjs');
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+          return res.status(401).json({ error: 'Current password is incorrect' });
+        }
         updates.password = await bcrypt.hash(password, 10);
       }
 
@@ -113,6 +121,18 @@ router.put('/me', authenticateToken, async (req, res) => {
       const user = usersStorage.findByUsername(username);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Require current password verification when changing password
+      if (password) {
+        const { currentPassword } = req.body;
+        if (!currentPassword) {
+          return res.status(400).json({ error: 'Current password is required to change password' });
+        }
+        if (user.password !== currentPassword) {
+          return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+        updates.password = password;
       }
 
       usersStorage.update(username, updates);
@@ -132,7 +152,8 @@ router.put('/me', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -156,11 +177,12 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete old profile picture if exists
+    // Delete old profile picture if exists (with path traversal check)
     if (user.profilePicture) {
-      const oldPath = path.join(__dirname, '../public', user.profilePicture);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
+      const resolved = path.resolve(path.join(__dirname, '../public', user.profilePicture));
+      const allowed = path.resolve(path.join(__dirname, '../public/uploads/profiles'));
+      if (resolved.startsWith(allowed) && fs.existsSync(resolved)) {
+        fs.unlinkSync(resolved);
       }
     }
 
@@ -178,7 +200,8 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
       profilePicture: profilePicturePath
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -199,9 +222,10 @@ router.delete('/picture', authenticateToken, async (req, res) => {
     }
 
     if (user.profilePicture) {
-      const filePath = path.join(__dirname, '../public', user.profilePicture);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      const resolved = path.resolve(path.join(__dirname, '../public', user.profilePicture));
+      const allowed = path.resolve(path.join(__dirname, '../public/uploads/profiles'));
+      if (resolved.startsWith(allowed) && fs.existsSync(resolved)) {
+        fs.unlinkSync(resolved);
       }
 
       if (!useMockAuth && User) {
@@ -213,7 +237,8 @@ router.delete('/picture', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Profile picture removed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

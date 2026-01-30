@@ -22,9 +22,14 @@ module.exports = defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run start',
+    command: 'node server.js',
     url: 'http://localhost:3004',
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120000,
+    env: {
+      USE_MOCK_AUTH: 'true',
+      PORT: '3004',
+      NODE_ENV: 'test',
+    },
   },
 });

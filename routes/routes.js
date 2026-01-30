@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth');
 const { routesStorage } = require('../data/storage');
 const routeOptimizer = require('../lib/routeOptimizer');
 
@@ -23,7 +24,8 @@ router.get('/', async (req, res) => {
     routes = routes.map(checkRouteExpiration);
     res.json(routes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -38,7 +40,8 @@ router.get('/:id', async (req, res) => {
     route = checkRouteExpiration(route);
     res.json(route);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -54,7 +57,8 @@ router.post('/', async (req, res) => {
     routesStorage.add(route);
     res.status(201).json(route);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Route operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
@@ -68,7 +72,8 @@ router.put('/:id', async (req, res) => {
     const route = routesStorage.findById(req.params.id);
     res.json(route);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Route operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
@@ -81,12 +86,13 @@ router.delete('/:id', async (req, res) => {
     }
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Optimize coordinates (without saving) - Enhanced with OSRM support
-router.post('/optimize', async (req, res) => {
+router.post('/optimize', authenticateToken, async (req, res) => {
   try {
     const {
       coordinates,
@@ -142,12 +148,13 @@ router.post('/optimize', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Route operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
 // Optimize existing route by ID - Enhanced with OSRM support
-router.post('/:id/optimize', async (req, res) => {
+router.post('/:id/optimize', authenticateToken, async (req, res) => {
   try {
     const route = routesStorage.findById(req.params.id);
     if (!route) {
@@ -285,7 +292,8 @@ router.post('/:id/optimize', async (req, res) => {
       optimization: result
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Route operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
@@ -309,12 +317,13 @@ router.get('/:id/suggestions', async (req, res) => {
     const result = routeOptimizer.getRouteSuggestions(route);
     res.json(result);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Route operation error:', error);
+    res.status(400).json({ error: 'Operation failed' });
   }
 });
 
 // Get depot info
-router.get('/config/depot', async (req, res) => {
+router.get('/config/depot', authenticateToken, async (req, res) => {
   res.json({
     depot: routeOptimizer.DEFAULT_DEPOT,
     description: 'Central depot location for route optimization'
@@ -322,7 +331,7 @@ router.get('/config/depot', async (req, res) => {
 });
 
 // Get available speed profiles
-router.get('/config/speed-profiles', async (req, res) => {
+router.get('/config/speed-profiles', authenticateToken, async (req, res) => {
   res.json({
     profiles: routeOptimizer.speedProfiles.getProfiles(),
     description: 'Available speed profiles for time estimation'
@@ -330,7 +339,7 @@ router.get('/config/speed-profiles', async (req, res) => {
 });
 
 // Get optimization options/capabilities
-router.get('/config/options', async (req, res) => {
+router.get('/config/options', authenticateToken, async (req, res) => {
   res.json({
     defaultOptions: routeOptimizer.DEFAULT_OPTIONS,
     algorithms: ['nearest-neighbor', '2-opt'],

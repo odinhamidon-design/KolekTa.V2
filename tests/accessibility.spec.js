@@ -5,7 +5,7 @@ const AxeBuilder = require('@axe-core/playwright').default;
 test.describe('Accessibility Tests', () => {
   test.describe('Login Page Accessibility', () => {
     test('login page should pass accessibility checks', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       const accessibilityScanResults = await new AxeBuilder({ page })
@@ -26,7 +26,7 @@ test.describe('Accessibility Tests', () => {
     });
 
     test('admin login form should have proper labels', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Click Admin role
@@ -58,7 +58,7 @@ test.describe('Accessibility Tests', () => {
     });
 
     test('role selection buttons should be keyboard accessible', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       // Test keyboard navigation
@@ -75,7 +75,7 @@ test.describe('Accessibility Tests', () => {
   test.describe('Dashboard Accessibility', () => {
     test.beforeEach(async ({ page }) => {
       // Login as admin
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
       await page.click('[data-role="admin"]');
       await page.waitForTimeout(500);
@@ -152,7 +152,7 @@ test.describe('Accessibility Tests', () => {
 
   test.describe('Color Contrast', () => {
     test('login page should have sufficient color contrast', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       const accessibilityScanResults = await new AxeBuilder({ page })
@@ -176,7 +176,7 @@ test.describe('Accessibility Tests', () => {
 
   test.describe('Images and Media', () => {
     test('images should have alt text', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
 
       const images = page.locator('img');
@@ -195,7 +195,7 @@ test.describe('Accessibility Tests', () => {
 
   test.describe('Forms Accessibility', () => {
     test('form submit buttons should be accessible', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
       await page.click('[data-role="admin"]');
       await page.waitForTimeout(500);
@@ -210,7 +210,7 @@ test.describe('Accessibility Tests', () => {
     });
 
     test('form inputs should have autocomplete attributes', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/login');
       await page.waitForTimeout(1000);
       await page.click('[data-role="admin"]');
       await page.waitForTimeout(500);

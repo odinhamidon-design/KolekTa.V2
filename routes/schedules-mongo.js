@@ -29,7 +29,7 @@ router.get('/', authenticateToken, async (req, res) => {
       query.isActive = isActive === 'true';
     }
 
-    if (routeId) {
+    if (routeId && typeof routeId === 'string') {
       query.routeId = routeId;
     }
 
@@ -53,7 +53,8 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(enriched);
   } catch (error) {
     console.error('Error fetching schedules:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -79,7 +80,8 @@ router.get('/upcoming', authenticateToken, async (req, res) => {
     res.json(enriched);
   } catch (error) {
     console.error('Error fetching upcoming collections:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -108,7 +110,8 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('Error fetching schedule stats:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -134,7 +137,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching schedule:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -209,7 +213,8 @@ router.post('/', authenticateToken, async (req, res) => {
     res.status(201).json({ message: 'Schedule created successfully', schedule });
   } catch (error) {
     console.error('Error creating schedule:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -242,7 +247,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Schedule updated successfully', schedule });
   } catch (error) {
     console.error('Error updating schedule:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -268,7 +274,8 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     res.json({ message: `Schedule ${schedule.isActive ? 'activated' : 'deactivated'}`, schedule });
   } catch (error) {
     console.error('Error toggling schedule:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -291,7 +298,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Schedule deleted successfully' });
   } catch (error) {
     console.error('Error deleting schedule:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

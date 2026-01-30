@@ -273,8 +273,8 @@ router.post('/stops/skip', auth, async (req, res) => {
 
     // Require photo for certain reasons
     const photoRequiredReasons = ['road-blocked', 'no-access', 'safety-concern', 'vehicle-issue'];
-    if (photoRequiredReasons.includes(skipReason) && !skipPhoto) {
-      return res.status(400).json({ error: 'Photo required for this skip reason' });
+    if (photoRequiredReasons.includes(skipReason) && (!skipPhoto || !skipPhoto.startsWith('data:image/'))) {
+      return res.status(400).json({ error: 'Valid photo required for this skip reason' });
     }
 
     const skipData = {

@@ -2,12 +2,28 @@
 const API_URL = '/api';
 
 // ============================================
-// OFFLINE QUEUE SYSTEM
+// SECURITY: HTML ESCAPING UTILITY
+// ============================================
+
+/**
+ * Escapes HTML special characters to prevent XSS attacks
+ * @param {string} str - The string to escape
+ * @returns {string} - The escaped string safe for innerHTML
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============================================
+// OFFLINE QUEUE SYSTEM (with IndexedDB integration)
 // ============================================
 
 /**
  * Offline queue for storing actions when internet is unavailable
- * Actions are synced when connection is restored
+ * Uses IndexedDB (via OfflineDB) with localStorage fallback
  */
 const offlineQueue = {
   QUEUE_KEY: 'kolekta_offline_queue',
@@ -21,16 +37,32 @@ const offlineQueue = {
     }
   },
 
-  addAction: function(action) {
-    const queue = this.getQueue();
-    queue.push({
+  // Enhanced addAction - uses IndexedDB when available
+  addAction: async function(action) {
+    const actionWithMeta = {
       ...action,
       queuedAt: new Date().toISOString(),
       id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    });
+    };
+
+    // Try IndexedDB first
+    if (typeof OfflineDB !== 'undefined') {
+      try {
+        await OfflineDB.queueCompletion(actionWithMeta);
+        console.log(`📦 Queued offline action to IndexedDB: ${action.type}`);
+        this.updateSyncIndicator();
+        return;
+      } catch (e) {
+        console.warn('IndexedDB queue failed, falling back to localStorage:', e);
+      }
+    }
+
+    // Fallback to localStorage
+    const queue = this.getQueue();
+    queue.push(actionWithMeta);
     localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
     this.updateSyncIndicator();
-    console.log(`📦 Queued offline action: ${action.type}`);
+    console.log(`📦 Queued offline action to localStorage: ${action.type}`);
   },
 
   removeAction: function(actionId) {
@@ -44,12 +76,24 @@ const offlineQueue = {
     this.updateSyncIndicator();
   },
 
-  getPendingCount: function() {
-    return this.getQueue().length;
+  getPendingCount: async function() {
+    let count = this.getQueue().length;
+
+    // Also count IndexedDB items
+    if (typeof OfflineDB !== 'undefined') {
+      try {
+        const idbCount = await OfflineDB.getTotalPendingCount();
+        count += idbCount;
+      } catch (e) {
+        console.warn('Could not get IndexedDB count:', e);
+      }
+    }
+
+    return count;
   },
 
-  updateSyncIndicator: function() {
-    const count = this.getPendingCount();
+  updateSyncIndicator: async function() {
+    const count = await this.getPendingCount();
     const indicator = document.getElementById('offlineSyncIndicator');
     const countBadge = document.getElementById('offlinePendingCount');
 
@@ -64,87 +108,93 @@ const offlineQueue = {
   },
 
   processQueue: async function() {
+    // Process localStorage queue (legacy)
     const queue = this.getQueue();
-    if (queue.length === 0) return;
+    if (queue.length > 0) {
+      console.log(`🔄 Processing ${queue.length} offline actions from localStorage...`);
+      showToast(`Syncing ${queue.length} offline action(s)...`, 'info');
 
-    console.log(`🔄 Processing ${queue.length} offline actions...`);
-    showToast(`Syncing ${queue.length} offline action(s)...`, 'info');
+      const token = localStorage.getItem('token');
+      let successCount = 0;
+      let failCount = 0;
 
-    const token = localStorage.getItem('token');
-    let successCount = 0;
-    let failCount = 0;
+      for (const action of queue) {
+        try {
+          let endpoint = '';
+          let body = {};
 
-    for (const action of queue) {
-      try {
-        let endpoint = '';
-        let body = {};
+          switch (action.type) {
+            case 'STOP_COMPLETE':
+              endpoint = `${API_URL}/driver/stops/complete`;
+              body = {
+                routeId: action.routeId,
+                stopIndex: action.stopIndex,
+                stopName: action.stopName,
+                location: action.location,
+                gpsLocation: action.gpsLocation,
+                binsCollected: action.binsCollected || 1,
+                wasteType: action.wasteType || 'mixed'
+              };
+              break;
 
-        switch (action.type) {
-          case 'STOP_COMPLETE':
-            endpoint = `${API_URL}/driver/stops/complete`;
-            body = {
-              routeId: action.routeId,
-              stopIndex: action.stopIndex,
-              stopName: action.stopName,
-              location: action.location,
-              gpsLocation: action.gpsLocation,
-              binsCollected: action.binsCollected || 1,
-              wasteType: action.wasteType || 'mixed'
-            };
-            break;
+            case 'STOP_SKIP':
+              endpoint = `${API_URL}/driver/stops/skip`;
+              body = {
+                routeId: action.routeId,
+                stopIndex: action.stopIndex,
+                stopName: action.stopName,
+                location: action.location,
+                gpsLocation: action.gpsLocation,
+                skipReason: action.skipReason,
+                skipNotes: action.skipNotes,
+                skipPhoto: action.skipPhoto
+              };
+              break;
 
-          case 'STOP_SKIP':
-            endpoint = `${API_URL}/driver/stops/skip`;
-            body = {
-              routeId: action.routeId,
-              stopIndex: action.stopIndex,
-              stopName: action.stopName,
-              location: action.location,
-              gpsLocation: action.gpsLocation,
-              skipReason: action.skipReason,
-              skipNotes: action.skipNotes,
-              skipPhoto: action.skipPhoto
-            };
-            break;
+            case 'ROUTE_COMPLETE':
+              endpoint = `${API_URL}/completions`;
+              body = action.completionData;
+              break;
 
-          case 'ROUTE_COMPLETE':
-            endpoint = `${API_URL}/completions`;
-            body = action.completionData;
-            break;
+            default:
+              console.warn(`Unknown action type: ${action.type}`);
+              continue;
+          }
 
-          default:
-            console.warn(`Unknown action type: ${action.type}`);
-            continue;
-        }
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
 
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(body)
-        });
-
-        if (response.ok) {
-          this.removeAction(action.id);
-          successCount++;
-          console.log(`✅ Synced: ${action.type} - ${action.id}`);
-        } else {
+          if (response.ok) {
+            this.removeAction(action.id);
+            successCount++;
+            console.log(`✅ Synced: ${action.type} - ${action.id}`);
+          } else {
+            failCount++;
+            console.error(`❌ Failed to sync: ${action.type}`, await response.text());
+          }
+        } catch (e) {
           failCount++;
-          console.error(`❌ Failed to sync: ${action.type}`, await response.text());
+          console.error(`❌ Error syncing action:`, e);
         }
-      } catch (e) {
-        failCount++;
-        console.error(`❌ Error syncing action:`, e);
+      }
+
+      if (successCount > 0) {
+        showToast(`Synced ${successCount} action(s) successfully!`, 'success');
+      }
+      if (failCount > 0) {
+        showToast(`${failCount} action(s) failed to sync. Will retry later.`, 'warning');
       }
     }
 
-    if (successCount > 0) {
-      showToast(`Synced ${successCount} action(s) successfully!`, 'success');
-    }
-    if (failCount > 0) {
-      showToast(`${failCount} action(s) failed to sync. Will retry later.`, 'warning');
+    // Also trigger SyncManager for IndexedDB queue
+    if (typeof SyncManager !== 'undefined') {
+      SyncManager.syncAll();
     }
 
     this.updateSyncIndicator();
@@ -156,16 +206,25 @@ window.addEventListener('online', () => {
   console.log('🌐 Back online!');
   showToast('Back online! Syncing data...', 'info');
   offlineQueue.processQueue();
+
+  // Update offline badge
+  const offlineBadge = document.getElementById('offlineStatusBadge');
+  if (offlineBadge) offlineBadge.classList.add('hidden');
 });
 
 window.addEventListener('offline', () => {
   console.log('📴 Gone offline');
-  showToast('You are offline. Actions will be saved locally.', 'warning');
+  showToast('You are offline. Data will be saved locally.', 'warning');
+
+  // Update offline badge
+  const offlineBadge = document.getElementById('offlineStatusBadge');
+  if (offlineBadge) offlineBadge.classList.remove('hidden');
 });
 
 // Check for pending offline actions on page load
-document.addEventListener('DOMContentLoaded', () => {
-  if (navigator.onLine && offlineQueue.getPendingCount() > 0) {
+document.addEventListener('DOMContentLoaded', async () => {
+  const pendingCount = await offlineQueue.getPendingCount();
+  if (navigator.onLine && pendingCount > 0) {
     setTimeout(() => offlineQueue.processQueue(), 2000);
   }
   offlineQueue.updateSyncIndicator();
@@ -5473,10 +5532,10 @@ window.showDriverNotifications = async function() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <p class="font-medium text-sm text-gray-800 truncate">${n.title}</p>
+                <p class="font-medium text-sm text-gray-800 truncate">${escapeHtml(n.title)}</p>
                 ${n.priority === 'urgent' ? '<span class="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">Urgent</span>' : ''}
               </div>
-              <p class="text-xs text-gray-600 mt-1 line-clamp-2">${n.message}</p>
+              <p class="text-xs text-gray-600 mt-1 line-clamp-2">${escapeHtml(n.message)}</p>
               <p class="text-xs text-gray-400 mt-1">${timeAgo}</p>
             </div>
             ${!n.isRead ? '<div class="w-2 h-2 bg-blue-500 rounded-full"></div>' : ''}
@@ -6029,6 +6088,7 @@ window.toggleMobilePanel = function() {
 
 async function loadDriverAssignments() {
   const container = document.getElementById('driverAssignments');
+  let isOfflineData = false;
 
   try {
     container.innerHTML = `
@@ -6042,17 +6102,59 @@ async function loadDriverAssignments() {
     const token = localStorage.getItem('token');
     const headers = { 'Authorization': `Bearer ${token}` };
 
-    const [routesRes, trucksRes] = await Promise.all([
-      fetch(`${API_URL}/routes`, { headers }),
-      fetch(`${API_URL}/trucks`, { headers })
-    ]);
+    let routes = [];
+    let trucks = [];
 
-    if (!routesRes.ok || !trucksRes.ok) {
-      throw new Error('Failed to load data');
+    // Try to fetch from network first
+    if (navigator.onLine) {
+      try {
+        const [routesRes, trucksRes] = await Promise.all([
+          fetch(`${API_URL}/routes`, { headers }),
+          fetch(`${API_URL}/trucks`, { headers })
+        ]);
+
+        if (!routesRes.ok || !trucksRes.ok) {
+          throw new Error('Failed to load data from network');
+        }
+
+        routes = await routesRes.json();
+        trucks = await trucksRes.json();
+
+        // Cache to IndexedDB for offline access
+        if (typeof OfflineDB !== 'undefined') {
+          try {
+            await OfflineDB.saveRoutes(routes);
+            await OfflineDB.saveTrucks(trucks);
+            console.log('📦 Cached routes and trucks to IndexedDB');
+          } catch (cacheError) {
+            console.warn('Failed to cache to IndexedDB:', cacheError);
+          }
+        }
+      } catch (networkError) {
+        console.warn('Network fetch failed, trying offline cache:', networkError);
+        // Fall through to offline fallback
+      }
     }
 
-    const routes = await routesRes.json();
-    const trucks = await trucksRes.json();
+    // Fallback to IndexedDB if no data yet (offline or network error)
+    if (routes.length === 0 && typeof OfflineDB !== 'undefined') {
+      try {
+        routes = await OfflineDB.getRoutes();
+        trucks = await OfflineDB.getTrucks();
+        isOfflineData = routes.length > 0;
+        if (isOfflineData) {
+          console.log('📦 Loaded routes and trucks from IndexedDB cache');
+          showToast('Showing cached data (offline)', 'warning');
+        }
+      } catch (offlineError) {
+        console.error('Failed to load from IndexedDB:', offlineError);
+      }
+    }
+
+    // If still no data, show error
+    if (routes.length === 0 && trucks.length === 0) {
+      throw new Error('No data available');
+    }
 
     // Filter routes assigned to this driver (not completed)
     const myRoutes = routes.filter(r => r.assignedDriver === user.username && r.status !== 'completed');
@@ -8436,13 +8538,38 @@ function stopGPSTracking() {
 
 // Update location on server
 async function updateLocationOnServer(position) {
-  try {
-    const token = localStorage.getItem('token');
-    const lat = position.coords.latitude;
-    const lng = position.coords.longitude;
-    const accuracy = position.coords.accuracy;
-    const speed = (position.coords.speed || 0) * 3.6; // Convert m/s to km/h
+  const token = localStorage.getItem('token');
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const accuracy = position.coords.accuracy;
+  const speed = (position.coords.speed || 0) * 3.6; // Convert m/s to km/h
+  const heading = position.coords.heading || 0;
+  const routeId = getCurrentActiveRoute();
 
+  const gpsData = {
+    lat: lat,
+    lng: lng,
+    speed: speed,
+    heading: heading,
+    routeId: routeId
+  };
+
+  // If offline, queue the GPS point
+  if (!navigator.onLine) {
+    console.log('📵 Offline - queueing GPS point locally');
+    if (typeof OfflineDB !== 'undefined') {
+      try {
+        await OfflineDB.queueGPSPoint(gpsData);
+        console.log('📦 GPS point queued to IndexedDB');
+        offlineQueue.updateSyncIndicator();
+      } catch (e) {
+        console.error('Failed to queue GPS point:', e);
+      }
+    }
+    return;
+  }
+
+  try {
     console.log(`📤 Sending GPS to server: ${lat}, ${lng} (accuracy: ${accuracy}m, speed: ${speed.toFixed(1)}km/h)`);
 
     const response = await fetch(`${API_URL}/tracking/update`, {
@@ -8451,13 +8578,7 @@ async function updateLocationOnServer(position) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({
-        lat: lat,
-        lng: lng,
-        speed: speed,
-        heading: position.coords.heading || 0,
-        routeId: getCurrentActiveRoute()
-      })
+      body: JSON.stringify(gpsData)
     });
 
     if (response.ok) {
@@ -8480,9 +8601,19 @@ async function updateLocationOnServer(position) {
     }
   } catch (error) {
     console.error('❌ Error sending location to server:', error.message);
-    // Network error - might be offline
-    if (!navigator.onLine) {
-      console.warn('📵 Device appears to be offline');
+
+    // Network error - queue for later sync
+    if (!navigator.onLine || error.name === 'TypeError') {
+      console.warn('📵 Device appears to be offline, queueing GPS');
+      if (typeof OfflineDB !== 'undefined') {
+        try {
+          await OfflineDB.queueGPSPoint(gpsData);
+          console.log('📦 GPS point queued to IndexedDB after network error');
+          offlineQueue.updateSyncIndicator();
+        } catch (e) {
+          console.error('Failed to queue GPS point:', e);
+        }
+      }
     }
   }
 }
@@ -9624,7 +9755,11 @@ async function loadHeaderProfilePicture() {
         const headerPic = document.getElementById('headerProfilePic');
         if (headerPic) {
           console.log('Setting profile picture:', profile.profilePicture);
-          headerPic.innerHTML = `<img src="${profile.profilePicture}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+          const img = document.createElement('img');
+          img.src = profile.profilePicture;
+          img.style.cssText = 'width: 100%; height: 100%; border-radius: 50%; object-fit: cover;';
+          headerPic.innerHTML = '';
+          headerPic.appendChild(img);
         } else {
           console.warn('headerProfilePic element not found');
         }
@@ -11124,12 +11259,12 @@ function renderComplaintsTable() {
         </td>
         <td class="px-4 py-4">
           <div>
-            <div class="font-medium text-gray-800">${c.name}</div>
-            <div class="text-sm text-gray-500">${c.barangay}</div>
+            <div class="font-medium text-gray-800">${escapeHtml(c.name)}</div>
+            <div class="text-sm text-gray-500">${escapeHtml(c.barangay)}</div>
           </div>
         </td>
         <td class="px-4 py-4">
-          <div class="text-sm text-gray-600 max-w-xs truncate" title="${c.description}">${c.description}</div>
+          <div class="text-sm text-gray-600 max-w-xs truncate" title="${escapeHtml(c.description)}">${escapeHtml(c.description)}</div>
         </td>
         <td class="px-4 py-4">
           <span class="px-3 py-1 rounded-full text-xs font-medium ${complaintsStatusColors[c.status] || 'bg-gray-100 text-gray-700'}">
@@ -11230,12 +11365,12 @@ async function showComplaints() {
           </td>
           <td class="px-4 py-4">
             <div>
-              <div class="font-medium text-gray-800">${c.name}</div>
-              <div class="text-sm text-gray-500">${c.barangay}</div>
+              <div class="font-medium text-gray-800">${escapeHtml(c.name)}</div>
+              <div class="text-sm text-gray-500">${escapeHtml(c.barangay)}</div>
             </div>
           </td>
           <td class="px-4 py-4">
-            <div class="text-sm text-gray-600 max-w-xs truncate" title="${c.description}">${c.description}</div>
+            <div class="text-sm text-gray-600 max-w-xs truncate" title="${escapeHtml(c.description)}">${escapeHtml(c.description)}</div>
           </td>
           <td class="px-4 py-4">
             <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-700'}">
@@ -11515,13 +11650,13 @@ window.viewComplaint = async function(id) {
             <i data-lucide="user" class="w-4 h-4"></i> Reporter
           </h4>
           <div class="grid grid-cols-2 gap-2 text-sm">
-            <div><span class="text-gray-500">Name:</span> <span class="font-medium">${complaint.name}</span></div>
-            <div><span class="text-gray-500">Phone:</span> <span class="font-medium">${complaint.phone}</span></div>
-            <div><span class="text-gray-500">Email:</span> <span class="font-medium">${complaint.email}</span></div>
-            <div><span class="text-gray-500">Barangay:</span> <span class="font-medium">${complaint.barangay}</span></div>
+            <div><span class="text-gray-500">Name:</span> <span class="font-medium">${escapeHtml(complaint.name)}</span></div>
+            <div><span class="text-gray-500">Phone:</span> <span class="font-medium">${escapeHtml(complaint.phone)}</span></div>
+            <div><span class="text-gray-500">Email:</span> <span class="font-medium">${escapeHtml(complaint.email)}</span></div>
+            <div><span class="text-gray-500">Barangay:</span> <span class="font-medium">${escapeHtml(complaint.barangay)}</span></div>
           </div>
           <div class="mt-2 text-sm">
-            <span class="text-gray-500">Address:</span> <span class="font-medium">${complaint.address}</span>
+            <span class="text-gray-500">Address:</span> <span class="font-medium">${escapeHtml(complaint.address)}</span>
           </div>
         </div>
 
@@ -11547,7 +11682,7 @@ window.viewComplaint = async function(id) {
             <span class="font-medium text-yellow-700">${missedDate}</span>
           </div>
           ` : ''}
-          <p class="text-gray-700">${complaint.description}</p>
+          <p class="text-gray-700">${escapeHtml(complaint.description)}</p>
         </div>
 
         <!-- Photos -->
@@ -11565,8 +11700,8 @@ window.viewComplaint = async function(id) {
             <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i> Assigned Personnel
             </h4>
-            <p class="text-blue-700 font-medium">${complaint.assignedDriver}</p>
-            ${complaint.assignedVehicle ? `<p class="text-sm text-blue-600">Vehicle: ${complaint.assignedVehicle}</p>` : ''}
+            <p class="text-blue-700 font-medium">${escapeHtml(complaint.assignedDriver)}</p>
+            ${complaint.assignedVehicle ? `<p class="text-sm text-blue-600">Vehicle: ${escapeHtml(complaint.assignedVehicle)}</p>` : ''}
           </div>
         ` : ''}
 
@@ -11575,7 +11710,7 @@ window.viewComplaint = async function(id) {
             <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <i data-lucide="message-circle" class="w-4 h-4 text-green-600"></i> Admin Response
             </h4>
-            <p class="text-green-700">${complaint.adminResponse}</p>
+            <p class="text-green-700">${escapeHtml(complaint.adminResponse)}</p>
           </div>
         ` : ''}
 
@@ -11584,13 +11719,13 @@ window.viewComplaint = async function(id) {
             <h4 class="font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <i data-lucide="file-text" class="w-4 h-4"></i> Internal Notes
             </h4>
-            <p class="text-gray-600 text-sm">${complaint.adminNotes}</p>
+            <p class="text-gray-600 text-sm">${escapeHtml(complaint.adminNotes)}</p>
           </div>
         ` : ''}
 
         ${complaint.resolvedAt ? `
           <div class="text-center text-sm text-gray-500">
-            Resolved on ${new Date(complaint.resolvedAt).toLocaleString()} by ${complaint.resolvedBy || 'Admin'}
+            Resolved on ${new Date(complaint.resolvedAt).toLocaleString()} by ${escapeHtml(complaint.resolvedBy || 'Admin')}
           </div>
         ` : ''}
 
@@ -11683,8 +11818,8 @@ window.showUpdateComplaintForm = async function(id) {
         <input type="hidden" id="updateComplaintId" value="${complaint._id || complaint.referenceNumber}">
 
         <div class="bg-gray-50 rounded-lg p-3 text-sm">
-          <strong>${complaint.name}</strong> - ${complaint.barangay}
-          <p class="text-gray-600 mt-1">${complaint.description.substring(0, 100)}${complaint.description.length > 100 ? '...' : ''}</p>
+          <strong>${escapeHtml(complaint.name)}</strong> - ${escapeHtml(complaint.barangay)}
+          <p class="text-gray-600 mt-1">${escapeHtml(complaint.description.substring(0, 100))}${complaint.description.length > 100 ? '...' : ''}</p>
         </div>
 
         <div>
@@ -12341,7 +12476,7 @@ async function viewPickupDetails(id) {
     });
     const pickup = await response.json();
 
-    const itemsList = pickup.items ? pickup.items.map(i => `<li>${i.name} x${i.quantity}</li>`).join('') : '<li>No items listed</li>';
+    const itemsList = pickup.items ? pickup.items.map(i => `<li>${escapeHtml(i.name)} x${parseInt(i.quantity) || 0}</li>`).join('') : '<li>No items listed</li>';
 
     showModal(`
       <div class="p-6">

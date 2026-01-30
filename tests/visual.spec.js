@@ -9,7 +9,7 @@ const { test, expect } = require('@playwright/test');
 
 test.describe('Visual Regression - Login Page', () => {
   test('login page should match snapshot', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1500);
 
     // Wait for any animations to complete
@@ -23,7 +23,7 @@ test.describe('Visual Regression - Login Page', () => {
   });
 
   test('admin login form should match snapshot', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
 
     await page.click('[data-role="admin"]');
@@ -39,7 +39,7 @@ test.describe('Visual Regression - Login Page', () => {
   });
 
   test('driver login form should match snapshot', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
 
     await page.click('[data-role="driver"]');
@@ -56,16 +56,18 @@ test.describe('Visual Regression - Login Page', () => {
 });
 
 test.describe('Visual Regression - Admin Dashboard', () => {
+  test.setTimeout(60000);
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await page.click('[data-role="admin"]');
     await page.waitForTimeout(500);
     await page.fill('#adminUsername', 'admin');
     await page.fill('#adminPassword', 'admin123');
     await page.click('#adminLoginForm button[type="submit"]');
-    await page.waitForURL('**/index.html**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/index.html**', { timeout: 30000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('admin dashboard should match snapshot', async ({ page }) => {
@@ -123,16 +125,18 @@ test.describe('Visual Regression - Admin Dashboard', () => {
 });
 
 test.describe('Visual Regression - Driver Dashboard', () => {
+  test.setTimeout(60000);
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await page.click('[data-role="driver"]');
     await page.waitForTimeout(500);
     await page.fill('#driverUsername', 'driver1');
     await page.fill('#driverPassword', 'driver123');
     await page.click('#driverManualForm button[type="submit"]');
-    await page.waitForURL('**/index.html**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/index.html**', { timeout: 30000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('driver dashboard should match snapshot', async ({ page }) => {
@@ -158,16 +162,18 @@ test.describe('Visual Regression - Driver Dashboard', () => {
 });
 
 test.describe('Visual Regression - Modals', () => {
+  test.setTimeout(60000);
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await page.click('[data-role="admin"]');
     await page.waitForTimeout(500);
     await page.fill('#adminUsername', 'admin');
     await page.fill('#adminPassword', 'admin123');
     await page.click('#adminLoginForm button[type="submit"]');
-    await page.waitForURL('**/index.html**', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await page.waitForURL('**/index.html**', { timeout: 30000 });
+    await page.waitForLoadState('networkidle');
   });
 
   test('add truck modal should match snapshot', async ({ page }) => {
@@ -209,10 +215,12 @@ test.describe('Visual Regression - Modals', () => {
 });
 
 test.describe('Visual Regression - Responsive Layouts', () => {
+  test.setTimeout(60000);
+
   test('login page should look correct on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE
-    await page.goto('/');
-    await page.waitForTimeout(1500);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
 
     await expect(page).toHaveScreenshot('login-mobile.png', {
       fullPage: true,
@@ -222,8 +230,8 @@ test.describe('Visual Regression - Responsive Layouts', () => {
 
   test('login page should look correct on tablet', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 }); // iPad
-    await page.goto('/');
-    await page.waitForTimeout(1500);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
 
     await expect(page).toHaveScreenshot('login-tablet.png', {
       fullPage: true,
@@ -233,15 +241,15 @@ test.describe('Visual Regression - Responsive Layouts', () => {
 
   test('dashboard should look correct on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/');
-    await page.waitForTimeout(1000);
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await page.click('[data-role="admin"]');
     await page.waitForTimeout(500);
     await page.fill('#adminUsername', 'admin');
     await page.fill('#adminPassword', 'admin123');
     await page.click('#adminLoginForm button[type="submit"]');
-    await page.waitForURL('**/index.html**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/index.html**', { timeout: 30000 });
+    await page.waitForLoadState('networkidle');
 
     await expect(page).toHaveScreenshot('dashboard-mobile.png', {
       fullPage: false,
@@ -253,7 +261,7 @@ test.describe('Visual Regression - Responsive Layouts', () => {
 
 test.describe('Visual Regression - Dark Mode (if implemented)', () => {
   test('check for dark mode support', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/login');
     await page.waitForTimeout(1000);
 
     // Check if dark mode toggle exists

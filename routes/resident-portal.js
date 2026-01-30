@@ -275,7 +275,8 @@ router.get('/schedules/:barangay', async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching schedules:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -303,7 +304,8 @@ router.get('/announcements', async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching announcements:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -318,14 +320,9 @@ router.get('/announcements/:barangay', async (req, res) => {
       const announcements = await Announcement.find({
         isActive: true,
         startDate: { $lte: now },
-        $or: [
-          { endDate: null },
-          { endDate: { $gte: now } }
-        ],
-        $or: [
-          { targetScope: 'city-wide' },
-          { targetBarangays: { $size: 0 } },
-          { targetBarangays: barangay }
+        $and: [
+          { $or: [{ endDate: null }, { endDate: { $gte: now } }] },
+          { $or: [{ targetScope: 'city-wide' }, { targetBarangays: { $size: 0 } }, { targetBarangays: barangay }] }
         ]
       })
       .select('-__v')
@@ -338,7 +335,8 @@ router.get('/announcements/:barangay', async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching barangay announcements:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -367,6 +365,28 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
       return res.status(400).json({ error: 'Invalid barangay' });
     }
 
+    // Validate phone format (Philippine mobile numbers)
+    const phoneRegex = /^(09|\+639)\d{9}$/;
+    if (!phoneRegex.test(phone.replace(/[\s-]/g, ''))) {
+      return res.status(400).json({ error: 'Invalid phone number format. Use 09XXXXXXXXX or +639XXXXXXXXX' });
+    }
+
+    // Validate email if provided
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+    }
+
+    // Validate date is not in the past
+    const preferredDateObj = new Date(preferredDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (preferredDateObj < today) {
+      return res.status(400).json({ error: 'Preferred date cannot be in the past' });
+    }
+
     // Parse items if string
     let parsedItems = [];
     if (items) {
@@ -383,6 +403,13 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
       const lat = parseFloat(latitude);
       const lng = parseFloat(longitude);
       if (!isNaN(lat) && !isNaN(lng)) {
+        // Validate coordinate ranges
+        if (lat < -90 || lat > 90) {
+          return res.status(400).json({ error: 'Invalid latitude. Must be between -90 and 90' });
+        }
+        if (lng < -180 || lng > 180) {
+          return res.status(400).json({ error: 'Invalid longitude. Must be between -180 and 180' });
+        }
         location = {
           type: 'Point',
           coordinates: [lng, lat]
@@ -455,7 +482,8 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
     }
   } catch (error) {
     console.error('Error submitting special pickup:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -491,7 +519,8 @@ router.get('/special-pickup/:referenceNumber', async (req, res) => {
     }
   } catch (error) {
     console.error('Error tracking pickup:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -533,9 +562,9 @@ router.get('/admin/special-pickups', authenticateToken, async (req, res) => {
 
     if (!useMockAuth && SpecialPickup) {
       const query = {};
-      if (status) query.status = status;
-      if (pickupType) query.pickupType = pickupType;
-      if (barangay) query.barangay = barangay;
+      if (status && typeof status === 'string') query.status = status;
+      if (pickupType && typeof pickupType === 'string') query.pickupType = pickupType;
+      if (barangay && typeof barangay === 'string') query.barangay = barangay;
 
       const pickups = await SpecialPickup.find(query)
         .select('-photos')
@@ -548,7 +577,8 @@ router.get('/admin/special-pickups', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching special pickups:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -562,8 +592,9 @@ router.get('/admin/special-pickups/:id', authenticateToken, async (req, res) => 
     const { id } = req.params;
 
     if (!useMockAuth && SpecialPickup) {
+      const sanitizedId = String(id);
       const pickup = await SpecialPickup.findOne({
-        $or: [{ _id: id }, { referenceNumber: id }]
+        $or: [{ _id: sanitizedId }, { referenceNumber: sanitizedId }]
       }).lean();
 
       if (!pickup) {
@@ -576,7 +607,8 @@ router.get('/admin/special-pickups/:id', authenticateToken, async (req, res) => 
     }
   } catch (error) {
     console.error('Error fetching pickup:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -621,7 +653,8 @@ router.put('/admin/special-pickups/:id', authenticateToken, async (req, res) => 
     }
   } catch (error) {
     console.error('Error updating pickup:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -644,7 +677,8 @@ router.post('/admin/special-pickups/:id/mark-read', authenticateToken, async (re
     res.json({ message: 'Pickup request marked as read' });
   } catch (error) {
     console.error('Error marking pickup as read:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -663,7 +697,8 @@ router.get('/admin/special-pickups-count', authenticateToken, async (req, res) =
     }
   } catch (error) {
     console.error('Error fetching pickup count:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -687,7 +722,8 @@ router.get('/admin/announcements', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching announcements:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -726,7 +762,8 @@ router.post('/admin/announcements', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error creating announcement:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -769,7 +806,8 @@ router.put('/admin/announcements/:id', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error updating announcement:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -796,7 +834,8 @@ router.delete('/admin/announcements/:id', authenticateToken, async (req, res) =>
     }
   } catch (error) {
     console.error('Error deleting announcement:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

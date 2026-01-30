@@ -13,7 +13,7 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Error getting users:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -33,7 +33,7 @@ router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     }
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -64,7 +64,12 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     if (!fullName || !phoneNumber) {
       return res.status(400).json({ error: 'Full name and phone number are required' });
     }
-    
+
+    // Validate password
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
     const newUser = new User({
       username,
       email,
@@ -89,7 +94,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     });
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to create user' });
   }
 });
 
@@ -130,6 +135,9 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     }
     
     if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
       user.password = await bcrypt.hash(password, 10);
     }
     if (fullName !== undefined) user.fullName = fullName;
@@ -154,7 +162,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     });
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to update user' });
   }
 });
 
@@ -188,7 +196,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     res.json({ message: 'Driver deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

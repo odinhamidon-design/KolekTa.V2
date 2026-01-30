@@ -53,7 +53,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json(routes);
   } catch (error) {
     console.error('Error getting routes:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -81,7 +81,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     res.json(route);
   } catch (error) {
     console.error('Error getting route:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -114,7 +114,7 @@ router.post('/', authenticateToken, async (req, res) => {
     res.status(201).json(newRoute);
   } catch (error) {
     console.error('Error creating route:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to create route' });
   }
 });
 
@@ -153,7 +153,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     res.json(route);
   } catch (error) {
     console.error('Error updating route:', error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ error: 'Failed to update route' });
   }
 });
 
@@ -180,7 +180,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
     console.error('Error deleting route:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 

@@ -4,7 +4,12 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
+const { authenticateToken } = require('../middleware/auth');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable must be set');
+}
 
 // Login
 router.post('/login', async (req, res) => {
@@ -50,8 +55,8 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[LOGIN] Error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('[LOGIN] Error:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -90,26 +95,44 @@ router.post('/login/face', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error during face login:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
-// Register face data
-router.post('/register-face', async (req, res) => {
+// Register face data (requires authentication)
+router.post('/register-face', authenticateToken, async (req, res) => {
   try {
     const { username, faceDescriptor } = req.body;
-    
+
+    // Only allow users to register their own face, or admin to register any
+    if (req.user.role !== 'admin' && req.user.username !== username) {
+      return res.status(403).json({ error: 'You can only register your own face data' });
+    }
+
+    // Validate face descriptor
+    if (!faceDescriptor || !Array.isArray(faceDescriptor) || faceDescriptor.length === 0) {
+      return res.status(400).json({ error: 'Valid face descriptor is required' });
+    }
+
+    // Validate descriptor values are numbers
+    if (!faceDescriptor.every(val => typeof val === 'number' && !isNaN(val))) {
+      return res.status(400).json({ error: 'Invalid face descriptor format' });
+    }
+
     const user = await User.findOne({ username, role: 'driver' });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     user.faceDescriptor = faceDescriptor;
     await user.save();
-    
+
+    console.log(`Face data registered for user: ${username}`);
     res.json({ message: 'Face data registered successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error registering face:', error.message);
+    res.status(500).json({ error: 'Failed to register face data' });
   }
 });
 
@@ -129,14 +152,20 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     // In production, send email with reset link
-    // For now, return token (remove in production)
+    // Note: Reset token is NOT returned in API response for security
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+    // TODO: Implement actual email sending here
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[PASSWORD RESET] Link for ${email}: ${baseUrl}/reset-password.html?token=${resetToken}`);
+    }
+
     res.json({
-      message: 'Reset token generated',
-      resetToken, // Remove this in production
-      resetLink: `http://localhost:3001/reset-password.html?token=${resetToken}`
+      message: 'If an account exists with this email, a password reset link has been sent.'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in forgot-password:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -162,7 +191,8 @@ router.post('/forgot-password/question', async (req, res) => {
       securityQuestion: user.securityQuestion
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in forgot-password/question:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -200,7 +230,8 @@ router.post('/forgot-password/verify', async (req, res) => {
       resetToken
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in forgot-password/verify:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -233,7 +264,8 @@ router.post('/forgot-password/reset', async (req, res) => {
 
     res.json({ message: 'Password reset successfully! You can now login with your new password.' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in forgot-password/reset:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
@@ -250,7 +282,11 @@ router.post('/reset-password', async (req, res) => {
     if (!user) {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
-    
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
     user.password = newPassword;
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
@@ -258,12 +294,16 @@ router.post('/reset-password', async (req, res) => {
     
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in reset-password:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Helper function
 function calculateDistance(desc1, desc2) {
+  if (!Array.isArray(desc1) || !Array.isArray(desc2) || desc1.length !== desc2.length) {
+    return Infinity;
+  }
   let sum = 0;
   for (let i = 0; i < desc1.length; i++) {
     sum += Math.pow(desc1[i] - desc2[i], 2);
