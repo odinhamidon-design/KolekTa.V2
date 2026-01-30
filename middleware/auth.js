@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('FATAL: JWT_SECRET environment variable must be set');
+const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
 }
 
 function authenticateToken(req, res, next) {
