@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
+const logger = require('../lib/logger');
 
 // MongoDB models
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -274,8 +275,7 @@ router.get('/schedules/:barangay', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error fetching schedules:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedules:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -303,8 +303,7 @@ router.get('/announcements', async (req, res) => {
       res.json([]);
     }
   } catch (error) {
-    console.error('Error fetching announcements:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching announcements:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -334,8 +333,7 @@ router.get('/announcements/:barangay', async (req, res) => {
       res.json([]);
     }
   } catch (error) {
-    console.error('Error fetching barangay announcements:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching barangay announcements:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -453,7 +451,7 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
       const pickup = new SpecialPickup(pickupData);
       await pickup.save();
 
-      console.log('New special pickup request (MongoDB):', referenceNumber, 'Type:', pickupType);
+      logger.info('New special pickup request (MongoDB):', referenceNumber, 'Type:', pickupType);
 
       res.status(201).json({
         message: 'Special pickup request submitted successfully',
@@ -481,8 +479,7 @@ router.post('/special-pickup', upload.array('photos', 3), async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error submitting special pickup:', error);
-    console.error('Error:', error);
+    logger.error('Error submitting special pickup:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -518,8 +515,7 @@ router.get('/special-pickup/:referenceNumber', async (req, res) => {
       res.status(404).json({ error: 'Tracking not available in mock mode' });
     }
   } catch (error) {
-    console.error('Error tracking pickup:', error);
-    console.error('Error:', error);
+    logger.error('Error tracking pickup:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -576,8 +572,7 @@ router.get('/admin/special-pickups', authenticateToken, async (req, res) => {
       res.json([]);
     }
   } catch (error) {
-    console.error('Error fetching special pickups:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching special pickups:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -606,8 +601,7 @@ router.get('/admin/special-pickups/:id', authenticateToken, async (req, res) => 
       res.status(404).json({ error: 'Not available in mock mode' });
     }
   } catch (error) {
-    console.error('Error fetching pickup:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching pickup:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -646,14 +640,13 @@ router.put('/admin/special-pickups/:id', authenticateToken, async (req, res) => 
         return res.status(404).json({ error: 'Pickup request not found' });
       }
 
-      console.log('Special pickup updated (MongoDB):', pickup.referenceNumber);
+      logger.info('Special pickup updated (MongoDB):', pickup.referenceNumber);
       res.json({ message: 'Pickup request updated successfully', pickup });
     } else {
       res.status(404).json({ error: 'Not available in mock mode' });
     }
   } catch (error) {
-    console.error('Error updating pickup:', error);
-    console.error('Error:', error);
+    logger.error('Error updating pickup:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -676,8 +669,7 @@ router.post('/admin/special-pickups/:id/mark-read', authenticateToken, async (re
 
     res.json({ message: 'Pickup request marked as read' });
   } catch (error) {
-    console.error('Error marking pickup as read:', error);
-    console.error('Error:', error);
+    logger.error('Error marking pickup as read:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -696,8 +688,7 @@ router.get('/admin/special-pickups-count', authenticateToken, async (req, res) =
       res.json({ count: 0 });
     }
   } catch (error) {
-    console.error('Error fetching pickup count:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching pickup count:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -721,8 +712,7 @@ router.get('/admin/announcements', authenticateToken, async (req, res) => {
       res.json([]);
     }
   } catch (error) {
-    console.error('Error fetching announcements:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching announcements:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -755,14 +745,13 @@ router.post('/admin/announcements', authenticateToken, async (req, res) => {
       });
 
       await announcement.save();
-      console.log('New announcement created:', title);
+      logger.info('New announcement created:', title);
       res.status(201).json({ message: 'Announcement created successfully', announcement });
     } else {
       res.status(201).json({ message: 'Announcement created (mock mode)', announcement: { title, content } });
     }
   } catch (error) {
-    console.error('Error creating announcement:', error);
-    console.error('Error:', error);
+    logger.error('Error creating announcement:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -799,14 +788,13 @@ router.put('/admin/announcements/:id', authenticateToken, async (req, res) => {
         return res.status(404).json({ error: 'Announcement not found' });
       }
 
-      console.log('Announcement updated:', announcement.title);
+      logger.info('Announcement updated:', announcement.title);
       res.json({ message: 'Announcement updated successfully', announcement });
     } else {
       res.status(404).json({ error: 'Not available in mock mode' });
     }
   } catch (error) {
-    console.error('Error updating announcement:', error);
-    console.error('Error:', error);
+    logger.error('Error updating announcement:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -827,14 +815,13 @@ router.delete('/admin/announcements/:id', authenticateToken, async (req, res) =>
         return res.status(404).json({ error: 'Announcement not found' });
       }
 
-      console.log('Announcement deleted:', id);
+      logger.info('Announcement deleted:', id);
       res.json({ message: 'Announcement deleted successfully' });
     } else {
       res.json({ message: 'Announcement deleted (mock mode)' });
     }
   } catch (error) {
-    console.error('Error deleting announcement:', error);
-    console.error('Error:', error);
+    logger.error('Error deleting announcement:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

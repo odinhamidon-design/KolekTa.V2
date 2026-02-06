@@ -4,17 +4,19 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { usersStorage } = require('../data/storage');
 const { authenticateToken } = require('../middleware/auth');
+const logger = require('../lib/logger');
+const { loginRules, forgotPasswordQuestionRules, forgotPasswordVerifyRules, resetPasswordRules } = require('../middleware/validate');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
+  logger.warn('JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
 }
 
 // Mock face data storage
 const faceData = {};
 
 // Login - using local JSON storage
-router.post('/login', async (req, res) => {
+router.post('/login', loginRules, async (req, res) => {
   try {
     const { username, password, role } = req.body;
 
@@ -40,7 +42,7 @@ router.post('/login', async (req, res) => {
       if (passwordValid) {
         const hashedPassword = await bcrypt.hash(password, 10);
         usersStorage.update(user.username, { password: hashedPassword });
-        console.log(`🔒 Upgraded password hash for user: ${username}`);
+        logger.info(`Upgraded password hash for user: ${username}`);
       }
     }
 
@@ -54,7 +56,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    console.log(`✅ User logged in: ${username} (${role})`);
+    logger.info(`User logged in: ${username} (${role})`);
 
     res.json({
       token,
@@ -68,7 +70,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -115,7 +117,7 @@ router.post('/login/face', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error during face login:', error);
+    logger.error('Error during face login:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -151,7 +153,7 @@ router.post('/register-face', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Face data registered successfully' });
   } catch (error) {
-    console.error('Error registering face:', error);
+    logger.error('Error registering face:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

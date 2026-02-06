@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { trucksStorage, initialize } = require('../data/storage');
+const logger = require('../lib/logger');
+const { createTruckRules } = require('../middleware/validate');
 
 // Ensure storage is initialized on each request (for Vercel serverless)
 initialize();
@@ -44,7 +46,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const trucks = trucksStorage.getAll();
     res.json(trucks);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -58,13 +60,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     res.json(truck);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new truck (Admin only)
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, async (req, res) => {
   try {
     const { truckId, plateNumber, model, capacity, notes } = req.body;
 
@@ -102,7 +104,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     trucksStorage.add(newTruck);
     res.status(201).json(newTruck);
   } catch (error) {
-    console.error('Truck operation error:', error);
+    logger.error('Truck operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -139,7 +141,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     const updatedTruck = trucksStorage.findById(truck._id);
     res.json(updatedTruck);
   } catch (error) {
-    console.error('Truck operation error:', error);
+    logger.error('Truck operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -160,7 +162,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     trucksStorage.delete(truck._id);
     res.json({ message: 'Truck deleted successfully' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -172,7 +174,7 @@ router.get('/status/available', authenticateToken, async (req, res) => {
     const available = allTrucks.filter(t => t.status === 'available');
     res.json(available);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

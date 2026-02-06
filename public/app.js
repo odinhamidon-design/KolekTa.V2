@@ -13,8 +13,8 @@ const API_URL = '/api';
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  div.textContent = String(str);
+  return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // ============================================
@@ -1709,9 +1709,9 @@ async function showDashboard() {
                     <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-800 truncate">${route.name || route.routeId}</p>
+                    <p class="font-medium text-gray-800 truncate">${escapeHtml(route.name || route.routeId)}</p>
                     <p class="text-xs text-gray-500">
-                      ${route.assignedDriver || 'Unknown driver'} • ${route.completedAt ? new Date(route.completedAt).toLocaleDateString() : 'N/A'}
+                      ${escapeHtml(route.assignedDriver || 'Unknown driver')} • ${route.completedAt ? new Date(route.completedAt).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                   <button onclick="viewRoute('${route._id || route.routeId}')" class="p-2 hover:bg-white rounded-lg transition-colors">
@@ -1743,8 +1743,8 @@ async function showDashboard() {
                     <i data-lucide="truck" class="w-5 h-5 ${truck.status === 'available' ? 'text-green-600' : truck.status === 'in-use' ? 'text-orange-600' : 'text-gray-600'}"></i>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-800 truncate">${truck.truckId}</p>
-                    <p class="text-xs text-gray-500">${truck.plateNumber || 'No plate'}</p>
+                    <p class="font-medium text-gray-800 truncate">${escapeHtml(truck.truckId)}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml(truck.plateNumber || 'No plate')}</p>
                   </div>
                 </div>
                 <div class="mt-3 flex items-center justify-between">
@@ -1753,7 +1753,7 @@ async function showDashboard() {
                     truck.status === 'in-use' ? 'bg-orange-100 text-orange-700' :
                     'bg-gray-100 text-gray-700'
                   }">${truck.status}</span>
-                  ${truck.assignedDriver ? `<span class="text-xs text-gray-500">${truck.assignedDriver}</span>` : ''}
+                  ${truck.assignedDriver ? `<span class="text-xs text-gray-500">${escapeHtml(truck.assignedDriver)}</span>` : ''}
                 </div>
               </div>
             `).join('')}
@@ -1786,9 +1786,9 @@ async function showDashboard() {
                   ${(driver.username || 'D')[0].toUpperCase()}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-800">${driver.username || 'Unknown'}</p>
+                  <p class="font-medium text-gray-800">${escapeHtml(driver.username || 'Unknown')}</p>
                   <p class="text-xs text-gray-500">
-                    ${driver.speed ? `${driver.speed.toFixed(1)} km/h` : 'Stationary'} • ${driver.routeId || 'No route'}
+                    ${driver.speed ? `${driver.speed.toFixed(1)} km/h` : 'Stationary'} • ${escapeHtml(driver.routeId || 'No route')}
                   </p>
                 </div>
                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -1940,13 +1940,13 @@ function renderUserTable() {
               ${initial}
             </div>
             <div>
-              <div class="font-medium text-gray-800">${u.username}</div>
-              <div class="text-sm text-gray-500">${u.email}</div>
+              <div class="font-medium text-gray-800">${escapeHtml(u.username)}</div>
+              <div class="text-sm text-gray-500">${escapeHtml(u.email)}</div>
             </div>
           </div>
         </td>
-        <td class="px-4 py-4 text-gray-700">${u.fullName || '-'}</td>
-        <td class="px-4 py-4 text-gray-600">${u.phoneNumber || '-'}</td>
+        <td class="px-4 py-4 text-gray-700">${escapeHtml(u.fullName || '-')}</td>
+        <td class="px-4 py-4 text-gray-600">${escapeHtml(u.phoneNumber || '-')}</td>
         <td class="px-4 py-4">
           <span class="px-3 py-1 rounded-full text-xs font-medium ${roleColor}">
             ${u.role === 'admin' ? 'Admin' : 'Driver'}
@@ -2161,23 +2161,23 @@ window.editUser = async function(userId) {
       <form id="editUserForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-          <input type="text" value="${user.username}" disabled
+          <input type="text" value="${escapeHtml(user.username)}" disabled
             class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-          <input type="text" id="editFullName" value="${user.fullName || ''}" required
+          <input type="text" id="editFullName" value="${escapeHtml(user.fullName || '')}" required
             class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input type="email" id="editEmail" value="${user.email}" required
+          <input type="email" id="editEmail" value="${escapeHtml(user.email)}" required
             class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
         </div>
         ${!isAdmin ? `
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-          <input type="tel" id="editPhone" value="${user.phoneNumber || ''}" pattern="[0-9]{11}"
+          <input type="tel" id="editPhone" value="${escapeHtml(user.phoneNumber || '')}" pattern="[0-9]{11}"
             class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
           <p class="mt-1 text-xs text-gray-500">Format: 09XXXXXXXXX (11 digits)</p>
         </div>
@@ -2380,12 +2380,12 @@ function renderTruckTable() {
                 <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
               </div>
               <div>
-                <div class="font-semibold text-gray-800">${t.truckId}</div>
-                <div class="text-sm text-gray-500">${t.plateNumber}</div>
+                <div class="font-semibold text-gray-800">${escapeHtml(t.truckId)}</div>
+                <div class="text-sm text-gray-500">${escapeHtml(t.plateNumber)}</div>
               </div>
             </div>
           </td>
-          <td class="px-4 py-4 text-gray-600">${t.model || '-'}</td>
+          <td class="px-4 py-4 text-gray-600">${escapeHtml(t.model || '-')}</td>
           <td class="px-4 py-4 text-gray-600">${t.capacity} m³</td>
           <td class="px-4 py-4">
             <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[t.status] || 'bg-gray-100 text-gray-700'}">
@@ -2398,7 +2398,7 @@ function renderTruckTable() {
                 <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
                   ${(driver.fullName || driver.username).charAt(0).toUpperCase()}
                 </div>
-                <span class="text-gray-700">${driver.fullName || driver.username}</span>
+                <span class="text-gray-700">${escapeHtml(driver.fullName || driver.username)}</span>
               </div>
             ` : '<span class="text-gray-400">Not assigned</span>'}
           </td>
@@ -2607,26 +2607,26 @@ window.editTruck = async function(truckId) {
     const users = await usersRes.json();
     const drivers = users.filter(u => u.role === 'driver');
     
-    const driverOptions = drivers.map(d => 
-      `<option value="${d.username}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${d.fullName} (${d.username})</option>`
+    const driverOptions = drivers.map(d =>
+      `<option value="${escapeHtml(d.username)}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${escapeHtml(d.fullName)} (${escapeHtml(d.username)})</option>`
     ).join('');
     
     showModal('Edit Truck', `
       <form id="editTruckForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Truck ID</label>
-          <input type="text" value="${truck.truckId}" disabled
+          <input type="text" value="${escapeHtml(truck.truckId)}" disabled
             class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Plate Number *</label>
-            <input type="text" id="editPlateNumber" value="${truck.plateNumber}" required
+            <input type="text" id="editPlateNumber" value="${escapeHtml(truck.plateNumber)}" required
               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white uppercase">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <input type="text" id="editModel" value="${truck.model || ''}"
+            <input type="text" id="editModel" value="${escapeHtml(truck.model || '')}"
               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white">
           </div>
         </div>
@@ -2682,7 +2682,7 @@ window.editTruck = async function(truckId) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
           <textarea id="editNotes" rows="3"
-            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none">${truck.notes || ''}</textarea>
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white resize-none">${escapeHtml(truck.notes || '')}</textarea>
         </div>
         <div class="flex gap-3 pt-4">
           <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl transition-colors">
@@ -2752,14 +2752,14 @@ window.assignDriver = async function(truckId) {
 
     const driverOptions = availableDrivers.map(d => {
       const statusBadge = d.availability === 'unavailable' ? ' (Driving)' : '';
-      return `<option value="${d.username}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${d.fullName} (${d.username})${statusBadge}</option>`;
+      return `<option value="${escapeHtml(d.username)}" ${truck.assignedDriver === d.username ? 'selected' : ''}>${escapeHtml(d.fullName)} (${escapeHtml(d.username)})${statusBadge}</option>`;
     }).join('');
 
     showModal('Assign Driver', `
       <form id="assignDriverForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Truck</label>
-          <input type="text" value="${truck.truckId} - ${truck.plateNumber}" disabled
+          <input type="text" value="${escapeHtml(truck.truckId)} - ${escapeHtml(truck.plateNumber)}" disabled
             class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
         <div>
@@ -3003,8 +3003,8 @@ function renderRoutesTable() {
                 <i data-lucide="route" class="w-5 h-5 text-indigo-600 group-hover:text-primary-700"></i>
               </div>
               <div>
-                <div class="font-semibold text-gray-800 group-hover:text-primary-700">${r.name || r.routeId}</div>
-                <div class="text-sm text-gray-500">${r.areas?.length ? r.areas.join(', ') : r.routeId}</div>
+                <div class="font-semibold text-gray-800 group-hover:text-primary-700">${escapeHtml(r.name || r.routeId)}</div>
+                <div class="text-sm text-gray-500">${r.areas?.length ? r.areas.map(a => escapeHtml(a)).join(', ') : escapeHtml(r.routeId)}</div>
               </div>
             </div>
           </td>
@@ -3023,7 +3023,7 @@ function renderRoutesTable() {
                 <div class="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-medium">
                   ${(driver.fullName || driver.username).charAt(0).toUpperCase()}
                 </div>
-                <span class="text-gray-700">${driver.fullName || driver.username}</span>
+                <span class="text-gray-700">${escapeHtml(driver.fullName || driver.username)}</span>
               </div>
             ` : '<span class="text-gray-400">Not assigned</span>'}
           </td>
@@ -4102,8 +4102,8 @@ function showRouteInfoPanel(route, distanceKm, durationMin, pointCount) {
             <i data-lucide="route" class="w-5 h-5 text-primary-600"></i>
           </div>
           <div>
-            <h3 class="font-bold text-gray-800">${route.name || 'Unnamed Route'}</h3>
-            <p class="text-xs text-gray-500">${route.routeId}</p>
+            <h3 class="font-bold text-gray-800">${escapeHtml(route.name || 'Unnamed Route')}</h3>
+            <p class="text-xs text-gray-500">${escapeHtml(route.routeId)}</p>
           </div>
         </div>
 
@@ -4287,15 +4287,15 @@ window.assignRouteToDriver = async function(routeId) {
             <span class="text-amber-700 font-medium">This route is already assigned!</span>
           </div>
           <div class="bg-gray-50 p-4 rounded-xl space-y-2">
-            <p class="text-sm"><span class="font-medium text-gray-500">Route:</span> <span class="text-gray-800">${route.routeId} - ${route.name}</span></p>
-            <p class="text-sm"><span class="font-medium text-gray-500">Assigned to:</span> <span class="text-gray-800">${driverName}</span></p>
+            <p class="text-sm"><span class="font-medium text-gray-500">Route:</span> <span class="text-gray-800">${escapeHtml(route.routeId)} - ${escapeHtml(route.name)}</span></p>
+            <p class="text-sm"><span class="font-medium text-gray-500">Assigned to:</span> <span class="text-gray-800">${escapeHtml(driverName)}</span></p>
             <p class="text-sm flex items-center gap-2">
               <span class="font-medium text-gray-500">Status:</span>
               <span class="px-2 py-0.5 rounded-full text-xs font-medium ${route.status === 'active' ? 'bg-amber-100 text-amber-700' : route.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">${route.status}</span>
             </p>
           </div>
           <p class="text-sm text-gray-600">
-            Ang route na ito ay naka-assign na kay <strong class="text-gray-800">${driverName}</strong>.
+            Ang route na ito ay naka-assign na kay <strong class="text-gray-800">${escapeHtml(driverName)}</strong>.
             Pwede mo itong i-unassign kung gusto mong i-assign sa ibang driver.
           </p>
           <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl">
@@ -4321,14 +4321,14 @@ window.assignRouteToDriver = async function(routeId) {
     const availableDrivers = drivers.filter(d => d.availability !== 'unavailable');
     const driverOptions = availableDrivers.map(d => {
       const statusBadge = d.availability === 'on-break' ? ' [On Break]' : '';
-      return `<option value="${d.username}">${d.fullName} (${d.username})${statusBadge}</option>`;
+      return `<option value="${escapeHtml(d.username)}">${escapeHtml(d.fullName)} (${escapeHtml(d.username)})${statusBadge}</option>`;
     }).join('');
     
     showModal('Assign Route to Driver', `
       <form id="assignRouteForm" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Route</label>
-          <input type="text" value="${route.routeId} - ${route.name}" disabled
+          <input type="text" value="${escapeHtml(route.routeId)} - ${escapeHtml(route.name)}" disabled
             class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed">
         </div>
         <div>
@@ -4802,7 +4802,7 @@ window.showDriverStats = async function() {
           <div class="space-y-2 max-h-[150px] overflow-y-auto">
             ${myRoutes.slice(0, 5).map(r => `
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600 truncate flex-1">${r.name || r.routeId}</span>
+                <span class="text-gray-600 truncate flex-1">${escapeHtml(r.name || r.routeId)}</span>
                 <span class="text-gray-400 text-xs">${new Date(r.completedAt).toLocaleDateString()}</span>
               </div>
             `).join('') || '<p class="text-gray-400 text-sm text-center">No completed routes yet</p>'}
@@ -5085,7 +5085,7 @@ function showNavigationPanel(route, stops, completedStops) {
       <div class="flex items-center justify-between">
         <div>
           <p class="text-xs opacity-80">Now navigating</p>
-          <h3 class="font-bold">${route.name || 'Unnamed Route'}</h3>
+          <h3 class="font-bold">${escapeHtml(route.name || 'Unnamed Route')}</h3>
         </div>
         <button onclick="closeNavigationPanel()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -6000,7 +6000,7 @@ async function loadMobileDriverData() {
           return `
             <div class="${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'} rounded-xl p-3 border">
               <div class="flex items-center justify-between mb-2">
-                <p class="font-semibold text-gray-800 truncate flex-1">${route.name || 'Unnamed'}</p>
+                <p class="font-semibold text-gray-800 truncate flex-1">${escapeHtml(route.name || 'Unnamed')}</p>
                 ${isActive ? '<span class="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">Active</span>' : ''}
               </div>
               <p class="text-xs text-gray-500 mb-2">${stopsCount} stops • ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}</p>
@@ -6187,8 +6187,8 @@ async function loadDriverAssignments() {
                 <i data-lucide="truck" class="w-5 h-5 text-green-600"></i>
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-800 truncate">${truck.truckId}</p>
-                <p class="text-xs text-gray-500">${truck.plateNumber} • ${truck.model}</p>
+                <p class="font-semibold text-gray-800 truncate">${escapeHtml(truck.truckId)}</p>
+                <p class="text-xs text-gray-500">${escapeHtml(truck.plateNumber)} • ${escapeHtml(truck.model)}</p>
               </div>
               <div class="text-right">
                 <p class="text-sm font-bold ${fuelColor}">${truck.fuelLevel || 0}%</p>
@@ -6218,8 +6218,8 @@ async function loadDriverAssignments() {
           <div class="${isCurrentlyActive ? 'bg-orange-50 border-orange-300' : config.bg + ' ' + config.border} rounded-xl p-3 border ${isCurrentlyActive ? 'ring-2 ring-orange-400' : ''} transition-all">
             <div class="flex items-start justify-between gap-2 mb-2">
               <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-800 truncate">${route.name || 'Unnamed Route'}</p>
-                <p class="text-xs text-gray-500">${route.routeId}</p>
+                <p class="font-semibold text-gray-800 truncate">${escapeHtml(route.name || 'Unnamed Route')}</p>
+                <p class="text-xs text-gray-500">${escapeHtml(route.routeId)}</p>
               </div>
               ${isCurrentlyActive ? `
                 <span class="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-full whitespace-nowrap">
@@ -6808,8 +6808,8 @@ async function showNotificationDetails(notifications) {
       <div style="background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); padding: 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 5px solid #4caf50; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div style="flex: 1;">
-            <h4 style="margin: 0; color: #4caf50; font-size: 1.2rem;">✓ ${route.completedBy}</h4>
-            <p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.85rem;">completed <strong>${route.name}</strong></p>
+            <h4 style="margin: 0; color: #4caf50; font-size: 1.2rem;">✓ ${escapeHtml(route.completedBy)}</h4>
+            <p style="margin: 0.25rem 0 0 0; color: #666; font-size: 0.85rem;">completed <strong>${escapeHtml(route.name)}</strong></p>
             <p style="margin: 0.25rem 0 0 0; color: #999; font-size: 0.8rem;">${completedDate}</p>
           </div>
           <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
@@ -6881,13 +6881,13 @@ window.viewCompletionDetails = async function(routeId) {
       ).join('') : 
       '<p style="color: #999;">No photos uploaded</p>';
     
-    showModal(`✓ ${route.name || 'Route Completed'}`, `
+    showModal(`✓ ${escapeHtml(route.name || 'Route Completed')}`, `
       <div style="padding: 0.5rem;">
         <div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <p style="margin: 0.5rem 0;"><strong>Route ID:</strong> ${route.routeId}</p>
-          <p style="margin: 0.5rem 0;"><strong>👤 Driver:</strong> ${route.completedBy}</p>
+          <p style="margin: 0.5rem 0;"><strong>Route ID:</strong> ${escapeHtml(route.routeId)}</p>
+          <p style="margin: 0.5rem 0;"><strong>👤 Driver:</strong> ${escapeHtml(route.completedBy)}</p>
           <p style="margin: 0.5rem 0;"><strong>🕐 Completed:</strong> ${completedDate}</p>
-          ${route.completionNotes ? `<p style="margin: 0.5rem 0;"><strong>📝 Notes:</strong> ${route.completionNotes}</p>` : ''}
+          ${route.completionNotes ? `<p style="margin: 0.5rem 0;"><strong>📝 Notes:</strong> ${escapeHtml(route.completionNotes)}</p>` : ''}
         </div>
         <div>
           <strong>📷 Proof Photos (${route.completionPhotos ? route.completionPhotos.length : 0}):</strong>
@@ -7084,8 +7084,8 @@ window.showNotificationHistory = async function() {
                 <i data-lucide="${isAcknowledged ? 'check-circle' : 'bell'}" class="w-5 h-5 ${isAcknowledged ? 'text-gray-600' : 'text-green-600'}"></i>
               </div>
               <div>
-                <h3 class="font-semibold ${isAcknowledged ? 'text-gray-700' : 'text-green-700'}">${route.name || 'Unnamed Route'}</h3>
-                <p class="text-sm text-gray-500">${route.routeId}</p>
+                <h3 class="font-semibold ${isAcknowledged ? 'text-gray-700' : 'text-green-700'}">${escapeHtml(route.name || 'Unnamed Route')}</h3>
+                <p class="text-sm text-gray-500">${escapeHtml(route.routeId)}</p>
               </div>
             </div>
             <span class="px-3 py-1 rounded-full text-xs font-medium ${isAcknowledged ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}">
@@ -7102,7 +7102,7 @@ window.showNotificationHistory = async function() {
                   <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
                     ${(route.completedBy || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <span class="font-medium text-gray-800">${route.completedBy || 'Unknown'}</span>
+                  <span class="font-medium text-gray-800">${escapeHtml(route.completedBy || 'Unknown')}</span>
                 </div>
               </div>
               <div>
@@ -7142,7 +7142,7 @@ window.showNotificationHistory = async function() {
             ${route.completionNotes ? `
               <div>
                 <p class="text-xs text-gray-500 mb-1">Notes</p>
-                <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${route.completionNotes}</p>
+                <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(route.completionNotes)}</p>
               </div>
             ` : ''}
 
@@ -7280,9 +7280,9 @@ window.viewCompletionPhotos = async function(routeId) {
       return;
     }
 
-    showModal(`Completion Photos - ${route.name || route.routeId}`, `
+    showModal(`Completion Photos - ${escapeHtml(route.name || route.routeId)}`, `
       <div class="space-y-4">
-        <p class="text-sm text-gray-500">Completed by <strong>${route.completedBy || 'Unknown'}</strong> on ${new Date(route.completedAt).toLocaleDateString()}</p>
+        <p class="text-sm text-gray-500">Completed by <strong>${escapeHtml(route.completedBy || 'Unknown')}</strong> on ${new Date(route.completedAt).toLocaleDateString()}</p>
         <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
           ${photos.map((photo, i) => `
             <img src="${photo}" class="w-full h-40 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-200"
@@ -8338,7 +8338,7 @@ async function initializeNavigation(currentLatLng) {
     // Update ETA destination name
     const destEl = document.getElementById('etaDestination');
     if (destEl) {
-      destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${destination.name} - ${destination.routeName}`;
+      destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${escapeHtml(destination.name)} - ${escapeHtml(destination.routeName)}`;
       if (typeof lucide !== 'undefined') {
         lucide.createIcons();
       }
@@ -8384,7 +8384,7 @@ async function updateNavigationToDestination(currentLatLng) {
   // Update destination name
   const destEl = document.getElementById('etaDestination');
   if (destEl && nextDestination) {
-    destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${nextDestination.name}`;
+    destEl.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 inline"></i> ${escapeHtml(nextDestination.name)}`;
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
@@ -8972,22 +8972,22 @@ async function createTruckPopup(truck) {
   
   return `
     <div style="min-width: 250px;">
-      <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">🚛 ${truckId}</h4>
+      <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">🚛 ${escapeHtml(truckId)}</h4>
       <div style="background: ${statusColor}; color: white; padding: 0.3rem 0.6rem; border-radius: 12px; display: inline-block; font-size: 0.8rem; margin-bottom: 0.5rem; font-weight: 600;">
         ${statusText}
       </div>
       <div style="background: #f5f5f5; padding: 0.5rem; border-radius: 8px; margin: 0.5rem 0;">
         <p style="margin: 0.25rem 0; font-size: 0.85rem;">
-          <strong>👤 Driver:</strong> ${fullName || username}
+          <strong>👤 Driver:</strong> ${escapeHtml(fullName || username)}
         </p>
         <p style="margin: 0.25rem 0; font-size: 0.85rem;">
-          <strong>🚗 Plate:</strong> ${plateNumber}
+          <strong>🚗 Plate:</strong> ${escapeHtml(plateNumber)}
         </p>
         <p style="margin: 0.25rem 0; font-size: 0.85rem;">
-          <strong>📦 Model:</strong> ${model}
+          <strong>📦 Model:</strong> ${escapeHtml(model)}
         </p>
         <p style="margin: 0.25rem 0; font-size: 0.85rem;">
-          <strong>🛣️ Route:</strong> ${routeName || 'Not assigned'}
+          <strong>🛣️ Route:</strong> ${escapeHtml(routeName || 'Not assigned')}
         </p>
       </div>
       ${isLive ? `
@@ -9231,7 +9231,7 @@ window.showLiveTruckPanel = async function() {
               <i data-lucide="truck" class="w-5 h-5 text-green-600"></i>
             </div>
             <div>
-              <p class="font-bold text-gray-800">${truckId}</p>
+              <p class="font-bold text-gray-800">${escapeHtml(truckId)}</p>
               <p class="text-xs text-green-600 flex items-center gap-1">
                 <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Live
               </p>
@@ -9240,11 +9240,11 @@ window.showLiveTruckPanel = async function() {
           <div class="space-y-2 text-sm mb-3">
             <div class="flex items-center gap-2">
               <i data-lucide="user" class="w-4 h-4 text-gray-400"></i>
-              <span class="font-medium text-gray-700">${fullName || username}</span>
+              <span class="font-medium text-gray-700">${escapeHtml(fullName || username)}</span>
             </div>
             <div class="flex items-center gap-2">
               <i data-lucide="route" class="w-4 h-4 text-gray-400"></i>
-              <span class="font-medium ${routeId ? 'text-primary-600' : 'text-gray-400'}">${routeName || 'Not assigned'}</span>
+              <span class="font-medium ${routeId ? 'text-primary-600' : 'text-gray-400'}">${escapeHtml(routeName || 'Not assigned')}</span>
             </div>
             <div class="flex items-center gap-2">
               <i data-lucide="gauge" class="w-4 h-4 text-gray-400"></i>
@@ -9345,8 +9345,8 @@ function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
                 ${isLive ? '<span class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full animate-pulse border-2 border-white"></span>' : ''}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-800 truncate group-hover:text-primary-700">${truckId}</p>
-                <p class="text-xs text-gray-500 truncate">${fullName || username}</p>
+                <p class="font-semibold text-gray-800 truncate group-hover:text-primary-700">${escapeHtml(truckId)}</p>
+                <p class="text-xs text-gray-500 truncate">${escapeHtml(fullName || username)}</p>
               </div>
               <div class="text-right flex-shrink-0">
                 ${isLive ? `
@@ -9363,7 +9363,7 @@ function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
             ${routeName && routeName !== 'No route assigned' ? `
               <div class="mt-2 flex items-center gap-1 text-xs ${routeId ? 'text-primary-600' : 'text-gray-500'}">
                 <i data-lucide="route" class="w-3 h-3"></i>
-                <span class="truncate">${routeName}</span>
+                <span class="truncate">${escapeHtml(routeName)}</span>
                 ${routeId ? '<i data-lucide="map" class="w-3 h-3 ml-auto text-primary-400"></i>' : ''}
               </div>
             ` : `
@@ -10165,7 +10165,7 @@ window.removeProfilePicture = async function() {
       // Update header
       const headerPic = document.getElementById('headerProfilePic');
       if (headerPic) {
-        headerPic.innerHTML = (user.fullName || user.username).charAt(0).toUpperCase();
+        headerPic.innerHTML = escapeHtml((user.fullName || user.username).charAt(0).toUpperCase());
       }
 
       // Refresh profile view
@@ -10239,8 +10239,8 @@ function renderFuelCards() {
                 <i data-lucide="truck" class="w-5 h-5 text-blue-600"></i>
               </div>
               <div>
-                <h3 class="font-semibold text-gray-800">${t.truckId}</h3>
-                <p class="text-sm text-gray-500">${t.plateNumber}</p>
+                <h3 class="font-semibold text-gray-800">${escapeHtml(t.truckId)}</h3>
+                <p class="text-sm text-gray-500">${escapeHtml(t.plateNumber)}</p>
               </div>
             </div>
             ${t.fuelLevel < 25 ? `
@@ -10695,7 +10695,7 @@ async function showFuelHistory(truckId) {
               <div>
                 <span class="text-xs font-medium text-green-600 uppercase">Refuel</span>
                 <div class="font-semibold text-gray-800">+${log.litersAdded} L</div>
-                <div class="text-xs text-gray-500">${log.gasStation || 'Unknown station'}</div>
+                <div class="text-xs text-gray-500">${escapeHtml(log.gasStation || 'Unknown station')}</div>
               </div>
               <div class="text-right text-xs text-gray-500">
                 <div>${date}</div>
@@ -10717,7 +10717,7 @@ async function showFuelHistory(truckId) {
               <div class="text-right text-xs text-gray-500">
                 <div>${date}</div>
                 <div>${time}</div>
-                ${log.routeName ? `<div class="text-orange-600">${log.routeName}</div>` : ''}
+                ${log.routeName ? `<div class="text-orange-600">${escapeHtml(log.routeName)}</div>` : ''}
               </div>
             </div>
           </div>
@@ -10839,8 +10839,8 @@ async function loadDriverAssignmentsOverlay() {
                 <i data-lucide="truck" class="w-4 h-4 text-green-600"></i>
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-medium text-gray-800 text-sm truncate">${truck.truckId}</p>
-                <p class="text-xs text-gray-500">${truck.plateNumber}</p>
+                <p class="font-medium text-gray-800 text-sm truncate">${escapeHtml(truck.truckId)}</p>
+                <p class="text-xs text-gray-500">${escapeHtml(truck.plateNumber)}</p>
               </div>
               <div class="text-right">
                 <p class="text-sm font-bold ${fuelColor}">${truck.fuelLevel || 0}%</p>
@@ -10862,7 +10862,7 @@ async function loadDriverAssignmentsOverlay() {
           <div class="${isCurrentlyActive ? 'bg-orange-100 border-orange-300 ring-1 ring-orange-400' : 'bg-white/80 border-gray-200'} rounded-lg p-2 border transition-all">
             <div class="flex items-start justify-between gap-2 mb-1">
               <div class="flex-1 min-w-0">
-                <p class="font-medium text-gray-800 text-sm truncate">${route.name || 'Unnamed Route'}</p>
+                <p class="font-medium text-gray-800 text-sm truncate">${escapeHtml(route.name || 'Unnamed Route')}</p>
                 <p class="text-xs text-gray-500">${stopsCount} stops • ${route.distance ? (route.distance / 1000).toFixed(1) + ' km' : '-'}</p>
               </div>
               ${isCurrentlyActive ? `

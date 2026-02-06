@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken: auth } = require('../middleware/auth');
+const logger = require('../lib/logger');
 
 // Check if using mock mode
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -20,7 +21,7 @@ function loadModels() {
     Truck = require('../models/Truck');
     modelsLoaded = true;
   } catch (error) {
-    console.error('Failed to load driver feature models:', error.message);
+    logger.error('Failed to load driver feature models:', error.message);
   }
 }
 
@@ -113,7 +114,7 @@ router.post('/inspections', auth, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Inspection submission error:', error);
+    logger.error('Inspection submission error:', error);
     res.status(500).json({ error: 'Failed to submit inspection' });
   }
 });
@@ -151,7 +152,7 @@ router.get('/inspections', auth, async (req, res) => {
       res.json(filtered.slice(0, 50));
     }
   } catch (error) {
-    console.error('Get inspections error:', error);
+    logger.error('Get inspections error:', error);
     res.status(500).json({ error: 'Failed to get inspections' });
   }
 });
@@ -181,7 +182,7 @@ router.get('/inspections/all', auth, async (req, res) => {
       res.json(filtered.slice(0, 100));
     }
   } catch (error) {
-    console.error('Get all inspections error:', error);
+    logger.error('Get all inspections error:', error);
     res.status(500).json({ error: 'Failed to get inspections' });
   }
 });
@@ -251,7 +252,7 @@ router.post('/stops/complete', auth, async (req, res) => {
       res.status(201).json({ success: true, completion: completionData });
     }
   } catch (error) {
-    console.error('Stop completion error:', error);
+    logger.error('Stop completion error:', error);
     res.status(500).json({ error: 'Failed to mark stop as completed' });
   }
 });
@@ -327,7 +328,7 @@ router.post('/stops/skip', auth, async (req, res) => {
       res.status(201).json({ success: true, skip: skipData });
     }
   } catch (error) {
-    console.error('Skip stop error:', error);
+    logger.error('Skip stop error:', error);
     res.status(500).json({ error: 'Failed to skip stop' });
   }
 });
@@ -356,7 +357,7 @@ router.get('/stops/progress/:routeId', auth, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Get progress error:', error);
+    logger.error('Get progress error:', error);
     res.status(500).json({ error: 'Failed to get route progress' });
   }
 });
@@ -389,7 +390,7 @@ router.get('/notifications', auth, async (req, res) => {
       res.json(filtered.slice(0, 50));
     }
   } catch (error) {
-    console.error('Get notifications error:', error);
+    logger.error('Get notifications error:', error);
     res.status(500).json({ error: 'Failed to get notifications' });
   }
 });
@@ -413,7 +414,7 @@ router.get('/notifications/count', auth, async (req, res) => {
       res.json({ count });
     }
   } catch (error) {
-    console.error('Get notification count error:', error);
+    logger.error('Get notification count error:', error);
     res.status(500).json({ error: 'Failed to get notification count' });
   }
 });
@@ -440,7 +441,7 @@ router.put('/notifications/:id/read', auth, async (req, res) => {
       }
     }
   } catch (error) {
-    console.error('Mark read error:', error);
+    logger.error('Mark read error:', error);
     res.status(500).json({ error: 'Failed to mark notification as read' });
   }
 });
@@ -461,7 +462,7 @@ router.put('/notifications/read-all', auth, async (req, res) => {
       res.json({ success: true });
     }
   } catch (error) {
-    console.error('Mark all read error:', error);
+    logger.error('Mark all read error:', error);
     res.status(500).json({ error: 'Failed to mark all as read' });
   }
 });
@@ -505,7 +506,7 @@ router.post('/notifications/send', auth, async (req, res) => {
       res.status(201).json({ success: true, notification });
     }
   } catch (error) {
-    console.error('Send notification error:', error);
+    logger.error('Send notification error:', error);
     res.status(500).json({ error: 'Failed to send notification' });
   }
 });
@@ -611,7 +612,7 @@ router.get('/performance', auth, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Get performance error:', error);
+    logger.error('Get performance error:', error);
     res.status(500).json({ error: 'Failed to get performance stats' });
   }
 });
@@ -651,7 +652,7 @@ router.get('/performance/leaderboard', auth, async (req, res) => {
       res.json([]);
     }
   } catch (error) {
-    console.error('Get leaderboard error:', error);
+    logger.error('Get leaderboard error:', error);
     res.status(500).json({ error: 'Failed to get leaderboard' });
   }
 });

@@ -3,6 +3,7 @@ const router = express.Router();
 const Bin = require('../models/Bin');
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const logger = require('../lib/logger');
 
 // Get all bins (authenticated)
 router.get('/', authenticateToken, async (req, res) => {
@@ -11,7 +12,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const bins = await Bin.find().lean();
     res.json(bins);
   } catch (error) {
-    console.error('Error fetching bins:', error.message);
+    logger.error('Error fetching bins:', error.message);
     res.status(500).json({ error: 'Failed to fetch bins' });
   }
 });
@@ -29,7 +30,7 @@ router.post('/', authenticateToken, async (req, res) => {
     await bin.save();
     res.status(201).json(bin);
   } catch (error) {
-    console.error('Error creating bin:', error.message);
+    logger.error('Error creating bin:', error.message);
     res.status(400).json({ error: 'Failed to create bin' });
   }
 });
@@ -61,7 +62,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     res.json(bin);
   } catch (error) {
-    console.error('Error updating bin:', error.message);
+    logger.error('Error updating bin:', error.message);
     res.status(400).json({ error: 'Failed to update bin' });
   }
 });
@@ -82,7 +83,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Bin deleted successfully' });
   } catch (error) {
-    console.error('Error deleting bin:', error.message);
+    logger.error('Error deleting bin:', error.message);
     res.status(500).json({ error: 'Failed to delete bin' });
   }
 });
@@ -130,7 +131,7 @@ router.get('/nearby', authenticateToken, async (req, res) => {
 
     res.json(bins);
   } catch (error) {
-    console.error('Error fetching nearby bins:', error.message);
+    logger.error('Error fetching nearby bins:', error.message);
     res.status(500).json({ error: 'Failed to fetch nearby bins' });
   }
 });

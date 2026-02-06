@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
 const Route = require('../models/Route');
+const logger = require('../lib/logger');
 
 // Helper function to check and update route expiration
 async function checkRouteExpiration(route) {
@@ -52,7 +53,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(routes);
   } catch (error) {
-    console.error('Error getting routes:', error);
+    logger.error('Error getting routes:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -61,7 +62,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     await connectDB();
-    console.log('Looking for route:', req.params.id);
+    logger.debug('Looking for route:', req.params.id);
     const route = await Route.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
@@ -70,17 +71,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!route) {
-      console.log('Route not found:', req.params.id);
+      logger.debug('Route not found:', req.params.id);
       return res.status(404).json({ error: 'Route not found' });
     }
 
     // Check and update expiration
     await checkRouteExpiration(route);
 
-    console.log('Found route:', route.routeId);
+    logger.debug('Found route:', route.routeId);
     res.json(route);
   } catch (error) {
-    console.error('Error getting route:', error);
+    logger.error('Error getting route:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -110,10 +111,10 @@ router.post('/', authenticateToken, async (req, res) => {
     });
 
     await newRoute.save();
-    console.log('✅ Route created in MongoDB:', newRoute.routeId);
+    logger.info('Route created in MongoDB:', newRoute.routeId);
     res.status(201).json(newRoute);
   } catch (error) {
-    console.error('Error creating route:', error);
+    logger.error('Error creating route:', error);
     res.status(400).json({ error: 'Failed to create route' });
   }
 });
@@ -149,10 +150,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (isExpired !== undefined) route.isExpired = isExpired;
 
     await route.save();
-    console.log('✅ Route updated in MongoDB:', route.routeId);
+    logger.info('Route updated in MongoDB:', route.routeId);
     res.json(route);
   } catch (error) {
-    console.error('Error updating route:', error);
+    logger.error('Error updating route:', error);
     res.status(400).json({ error: 'Failed to update route' });
   }
 });
@@ -161,7 +162,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     await connectDB();
-    console.log('Delete route request for ID:', req.params.id);
+    logger.debug('Delete route request for ID:', req.params.id);
     
     const route = await Route.findOne({
       $or: [
@@ -171,15 +172,15 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     });
     
     if (!route) {
-      console.log('Route not found:', req.params.id);
+      logger.debug('Route not found:', req.params.id);
       return res.status(404).json({ error: 'Route not found' });
     }
-    
+
     await Route.deleteOne({ _id: route._id });
-    console.log('✅ Route deleted from MongoDB:', route.routeId);
+    logger.info('Route deleted from MongoDB:', route.routeId);
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
-    console.error('Error deleting route:', error);
+    logger.error('Error deleting route:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

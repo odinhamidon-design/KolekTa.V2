@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
 const User = require('../models/User');
+const logger = require('../lib/logger');
+const { createUserRules, updateUserRules } = require('../middleware/validate');
 
 // Get all users (Admin only)
 router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
@@ -12,7 +14,7 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     const users = await User.find({}).select('-password -faceDescriptor');
     res.json(users);
   } catch (error) {
-    console.error('Error getting users:', error);
+    logger.error('Error getting users:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -38,7 +40,7 @@ router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
 });
 
 // Create new user (Admin only)
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin'), createUserRules, async (req, res) => {
   try {
     await connectDB();
     const { username, email, password, role, fullName, phoneNumber } = req.body;
@@ -81,7 +83,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     });
     
     await newUser.save();
-    console.log('✅ User created in MongoDB:', username);
+    logger.info('User created in MongoDB:', username);
     
     res.status(201).json({
       _id: newUser._id,
@@ -93,7 +95,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
       isActive: newUser.isActive
     });
   } catch (error) {
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     res.status(400).json({ error: 'Failed to create user' });
   }
 });
@@ -149,7 +151,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     }
     
     await user.save();
-    console.log('✅ User updated in MongoDB:', user.username);
+    logger.info('User updated in MongoDB:', user.username);
     
     res.json({
       _id: user._id,
@@ -161,7 +163,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       isActive: user.isActive
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user:', error);
     res.status(400).json({ error: 'Failed to update user' });
   }
 });
@@ -192,10 +194,10 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     }
     
     await User.deleteOne({ _id: user._id });
-    console.log('✅ User deleted from MongoDB:', user.username);
+    logger.info('User deleted from MongoDB:', user.username);
     res.json({ message: 'Driver deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    logger.error('Error deleting user:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

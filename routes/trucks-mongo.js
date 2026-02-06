@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
 const Truck = require('../models/Truck');
+const logger = require('../lib/logger');
+const { createTruckRules } = require('../middleware/validate');
 
 // Helper function to build query for finding truck by id or truckId
 function buildTruckQuery(id) {
@@ -21,8 +23,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const trucks = await Truck.find({});
     res.json(trucks);
   } catch (error) {
-    console.error('Error getting trucks:', error);
-    console.error('Error:', error);
+    logger.error('Error getting trucks:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -37,13 +38,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     res.json(truck);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new truck (Admin only)
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, async (req, res) => {
   try {
     await connectDB();
     const { truckId, plateNumber, model, capacity, notes } = req.body;
@@ -77,10 +78,10 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
     });
     
     await newTruck.save();
-    console.log('✅ Truck created in MongoDB:', truckId);
+    logger.info('Truck created in MongoDB:', truckId);
     res.status(201).json(newTruck);
   } catch (error) {
-    console.error('Error creating truck:', error);
+    logger.error('Error creating truck:', error);
     res.status(400).json({ error: 'Failed to create truck' });
   }
 });
@@ -120,10 +121,10 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     if (notes !== undefined) truck.notes = notes;
 
     await truck.save();
-    console.log('✅ Truck updated in MongoDB:', truck.truckId);
+    logger.info('Truck updated in MongoDB:', truck.truckId);
     res.json(truck);
   } catch (error) {
-    console.error('Error updating truck:', error);
+    logger.error('Error updating truck:', error);
     res.status(400).json({ error: 'Failed to update truck' });
   }
 });
@@ -144,11 +145,10 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     }
     
     await Truck.deleteOne({ _id: truck._id });
-    console.log('✅ Truck deleted from MongoDB:', truck.truckId);
+    logger.info('Truck deleted from MongoDB:', truck.truckId);
     res.json({ message: 'Truck deleted successfully' });
   } catch (error) {
-    console.error('Error deleting truck:', error);
-    console.error('Error:', error);
+    logger.error('Error deleting truck:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -160,7 +160,7 @@ router.get('/status/available', authenticateToken, async (req, res) => {
     const available = await Truck.find({ status: 'available' });
     res.json(available);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

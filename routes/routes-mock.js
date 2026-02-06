@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { routesStorage, initialize } = require('../data/storage');
+const logger = require('../lib/logger');
 
 // Ensure storage is initialized on each request (for Vercel serverless)
 initialize();
@@ -32,7 +33,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const routes = routesStorage.getAll();
     res.json(routes);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -40,20 +41,19 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get single route
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    console.log('Looking for route with ID:', req.params.id);
+    logger.debug('Looking for route with ID:', req.params.id);
     const allRoutes = routesStorage.getAll();
-    console.log('All routes:', allRoutes.map(r => ({ _id: r._id, routeId: r.routeId })));
-    
+    logger.debug('All routes:', allRoutes.map(r => ({ _id: r._id, routeId: r.routeId })));
+
     const route = routesStorage.findById(req.params.id);
     if (!route) {
-      console.log('Route not found for ID:', req.params.id);
+      logger.debug('Route not found for ID:', req.params.id);
       return res.status(404).json({ error: 'Route not found' });
     }
-    console.log('Found route:', route.routeId, route.name);
+    logger.debug('Found route:', route.routeId, route.name);
     res.json(route);
   } catch (error) {
-    console.error('Error getting route:', error);
-    console.error('Error:', error);
+    logger.error('Error getting route:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -74,7 +74,7 @@ router.post('/', authenticateToken, async (req, res) => {
     routesStorage.add(newRoute);
     res.status(201).json(newRoute);
   } catch (error) {
-    console.error('Error creating route:', error);
+    logger.error('Error creating route:', error);
     res.status(400).json({ error: 'Failed to create route' });
   }
 });
@@ -98,7 +98,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updatedRoute = routesStorage.findById(route._id);
     res.json(updatedRoute);
   } catch (error) {
-    console.error('Error updating route:', error);
+    logger.error('Error updating route:', error);
     res.status(400).json({ error: 'Failed to update route' });
   }
 });
@@ -106,19 +106,18 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete route
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    console.log('Delete route request for ID:', req.params.id);
+    logger.debug('Delete route request for ID:', req.params.id);
     const route = routesStorage.findById(req.params.id);
     if (!route) {
-      console.log('Route not found:', req.params.id);
+      logger.debug('Route not found:', req.params.id);
       return res.status(404).json({ error: 'Route not found' });
     }
-    console.log('Deleting route:', route);
+    logger.debug('Deleting route:', route);
     const deleted = routesStorage.delete(route._id);
-    console.log('Delete result:', deleted);
+    logger.debug('Delete result:', deleted);
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
-    console.error('Error deleting route:', error);
-    console.error('Error:', error);
+    logger.error('Error deleting route:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

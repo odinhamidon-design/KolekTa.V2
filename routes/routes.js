@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { routesStorage } = require('../data/storage');
 const routeOptimizer = require('../lib/routeOptimizer');
+const logger = require('../lib/logger');
 
 // Helper function to check and update route expiration
 function checkRouteExpiration(route) {
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
     routes = routes.map(checkRouteExpiration);
     res.json(routes);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -40,7 +41,7 @@ router.get('/:id', async (req, res) => {
     route = checkRouteExpiration(route);
     res.json(route);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -57,7 +58,7 @@ router.post('/', async (req, res) => {
     routesStorage.add(route);
     res.status(201).json(route);
   } catch (error) {
-    console.error('Route operation error:', error);
+    logger.error('Route operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -72,7 +73,7 @@ router.put('/:id', async (req, res) => {
     const route = routesStorage.findById(req.params.id);
     res.json(route);
   } catch (error) {
-    console.error('Route operation error:', error);
+    logger.error('Route operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -86,7 +87,7 @@ router.delete('/:id', async (req, res) => {
     }
     res.json({ message: 'Route deleted successfully' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -148,7 +149,7 @@ router.post('/optimize', authenticateToken, async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('Route operation error:', error);
+    logger.error('Route operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -292,7 +293,7 @@ router.post('/:id/optimize', authenticateToken, async (req, res) => {
       optimization: result
     });
   } catch (error) {
-    console.error('Route operation error:', error);
+    logger.error('Route operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });
@@ -317,7 +318,7 @@ router.get('/:id/suggestions', async (req, res) => {
     const result = routeOptimizer.getRouteSuggestions(route);
     res.json(result);
   } catch (error) {
-    console.error('Route operation error:', error);
+    logger.error('Route operation error:', error);
     res.status(400).json({ error: 'Operation failed' });
   }
 });

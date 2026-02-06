@@ -3,6 +3,8 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { usersStorage, initialize } = require('../data/storage');
+const logger = require('../lib/logger');
+const { createUserRules, updateUserRules } = require('../middleware/validate');
 
 // Ensure storage is initialized on each request (for Vercel serverless)
 initialize();
@@ -22,7 +24,7 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
     }));
     res.json(users);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -46,13 +48,13 @@ router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       isActive: user.isActive
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new user (Admin only)
-router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin'), createUserRules, async (req, res) => {
   try {
     const { username, email, password, role, fullName, phoneNumber } = req.body;
     const allUsers = usersStorage.getAll();
@@ -108,7 +110,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), async (req, res) => 
       isActive: newUser.isActive
     });
   } catch (error) {
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     res.status(400).json({ error: 'Failed to create user' });
   }
 });
@@ -168,7 +170,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       isActive: updatedUser.isActive
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user:', error);
     res.status(400).json({ error: 'Failed to update user' });
   }
 });
@@ -195,7 +197,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     usersStorage.delete(user.username);
     res.json({ message: 'Driver deleted successfully' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

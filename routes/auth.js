@@ -5,32 +5,34 @@ const crypto = require('crypto');
 const User = require('../models/User');
 
 const { authenticateToken } = require('../middleware/auth');
+const logger = require('../lib/logger');
+const { loginRules, forgotPasswordQuestionRules, forgotPasswordVerifyRules, resetPasswordRules } = require('../middleware/validate');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
+  logger.warn('JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
 }
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', loginRules, async (req, res) => {
   try {
     const { username, password, role } = req.body;
-    console.log('[LOGIN] Attempt:', username, role);
+    logger.info('[LOGIN] Attempt:', username, role);
 
     // Ensure MongoDB connection is ready
     const connectDB = require('../lib/mongodb');
     await connectDB();
-    console.log('[LOGIN] DB connected');
+    logger.debug('[LOGIN] DB connected');
 
     const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(60000);
-    console.log('[LOGIN] User found:', !!user);
+    logger.debug('[LOGIN] User found:', !!user);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const isMatch = await user.comparePassword(password);
-    console.log('[LOGIN] Password match:', isMatch);
+    logger.debug('[LOGIN] Password match:', isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -42,7 +44,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    console.log('[LOGIN] Success for:', username);
+    logger.info('[LOGIN] Success for:', username);
     res.json({
       token,
       user: {
@@ -55,7 +57,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[LOGIN] Error:', error);
+    logger.error('[LOGIN] Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -95,7 +97,7 @@ router.post('/login/face', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error during face login:', error);
+    logger.error('Error during face login:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -128,10 +130,10 @@ router.post('/register-face', authenticateToken, async (req, res) => {
     user.faceDescriptor = faceDescriptor;
     await user.save();
 
-    console.log(`Face data registered for user: ${username}`);
+    logger.info(`Face data registered for user: ${username}`);
     res.json({ message: 'Face data registered successfully' });
   } catch (error) {
-    console.error('Error registering face:', error.message);
+    logger.error('Error registering face:', error.message);
     res.status(500).json({ error: 'Failed to register face data' });
   }
 });
@@ -151,26 +153,24 @@ router.post('/forgot-password', async (req, res) => {
     user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    // In production, send email with reset link
-    // Note: Reset token is NOT returned in API response for security
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const resetLink = `${baseUrl}/reset-password.html?token=${resetToken}`;
 
-    // TODO: Implement actual email sending here
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PASSWORD RESET] Link for ${email}: ${baseUrl}/reset-password.html?token=${resetToken}`);
-    }
+    // Send password reset email (falls back to logging if SMTP not configured)
+    const { sendPasswordResetEmail } = require('../lib/mailer');
+    await sendPasswordResetEmail(email, resetLink);
 
     res.json({
       message: 'If an account exists with this email, a password reset link has been sent.'
     });
   } catch (error) {
-    console.error('Error in forgot-password:', error);
+    logger.error('Error in forgot-password:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Forgot password Step 1: Get security question by username
-router.post('/forgot-password/question', async (req, res) => {
+router.post('/forgot-password/question', forgotPasswordQuestionRules, async (req, res) => {
   try {
     const { username, role } = req.body;
 
@@ -191,13 +191,13 @@ router.post('/forgot-password/question', async (req, res) => {
       securityQuestion: user.securityQuestion
     });
   } catch (error) {
-    console.error('Error in forgot-password/question:', error);
+    logger.error('Error in forgot-password/question:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Forgot password Step 2: Verify security answer
-router.post('/forgot-password/verify', async (req, res) => {
+router.post('/forgot-password/verify', forgotPasswordVerifyRules, async (req, res) => {
   try {
     const { username, role, answer } = req.body;
 
@@ -230,13 +230,13 @@ router.post('/forgot-password/verify', async (req, res) => {
       resetToken
     });
   } catch (error) {
-    console.error('Error in forgot-password/verify:', error);
+    logger.error('Error in forgot-password/verify:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Forgot password Step 3: Reset password with token
-router.post('/forgot-password/reset', async (req, res) => {
+router.post('/forgot-password/reset', resetPasswordRules, async (req, res) => {
   try {
     const { resetToken, newPassword } = req.body;
 
@@ -264,7 +264,7 @@ router.post('/forgot-password/reset', async (req, res) => {
 
     res.json({ message: 'Password reset successfully! You can now login with your new password.' });
   } catch (error) {
-    console.error('Error in forgot-password/reset:', error);
+    logger.error('Error in forgot-password/reset:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -294,7 +294,7 @@ router.post('/reset-password', async (req, res) => {
     
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
-    console.error('Error in reset-password:', error);
+    logger.error('Error in reset-password:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

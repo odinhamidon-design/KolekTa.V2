@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { schedulesStorage, routesStorage } = require('../data/storage');
+const logger = require('../lib/logger');
+const { createScheduleRules } = require('../middleware/validate');
 
 // Get all schedules
 router.get('/', authenticateToken, async (req, res) => {
@@ -38,8 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(schedules);
   } catch (error) {
-    console.error('Error fetching schedules:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedules:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -62,8 +63,7 @@ router.get('/upcoming', authenticateToken, async (req, res) => {
 
     res.json(enriched);
   } catch (error) {
-    console.error('Error fetching upcoming collections:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching upcoming collections:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -90,8 +90,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching schedule stats:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedule stats:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -118,14 +117,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
       routeName: route ? route.name : 'Unknown Route'
     });
   } catch (error) {
-    console.error('Error fetching schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new schedule
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, createScheduleRules, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -195,11 +193,10 @@ router.post('/', authenticateToken, async (req, res) => {
 
     schedulesStorage.add(schedule);
 
-    console.log('Schedule created (JSON):', scheduleId);
+    logger.info('Schedule created (JSON):', scheduleId);
     res.status(201).json({ message: 'Schedule created successfully', schedule });
   } catch (error) {
-    console.error('Error creating schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error creating schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -231,14 +228,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     if (success) {
       const updated = schedulesStorage.findById(id);
-      console.log('Schedule updated (JSON):', id);
+      logger.info('Schedule updated (JSON):', id);
       res.json({ message: 'Schedule updated successfully', schedule: updated });
     } else {
       res.status(500).json({ error: 'Failed to update schedule' });
     }
   } catch (error) {
-    console.error('Error updating schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error updating schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -264,14 +260,13 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
 
     if (success) {
       const updated = schedulesStorage.findById(id);
-      console.log('Schedule toggled (JSON):', id, '-> isActive:', updated.isActive);
+      logger.info('Schedule toggled (JSON):', id, '-> isActive:', updated.isActive);
       res.json({ message: `Schedule ${updated.isActive ? 'activated' : 'deactivated'}`, schedule: updated });
     } else {
       res.status(500).json({ error: 'Failed to toggle schedule' });
     }
   } catch (error) {
-    console.error('Error toggling schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error toggling schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -292,11 +287,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 
     schedulesStorage.delete(id);
 
-    console.log('Schedule deleted (JSON):', id);
+    logger.info('Schedule deleted (JSON):', id);
     res.json({ message: 'Schedule deleted successfully' });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error deleting schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

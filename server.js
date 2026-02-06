@@ -4,9 +4,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
 const mongoose = require('mongoose');
 const path = require('path');
 const { initialize } = require('./data/storage');
+const logger = require('./lib/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +22,8 @@ const PORT = process.env.PORT || 3000;
 // consider migrating to httpOnly cookie-based auth. The current CSP helps
 // mitigate XSS risk but 'unsafe-inline'/'unsafe-eval' are still required by
 // the Tailwind Play CDN runtime compiler (now self-hosted in /vendor/).
+// script-src-attr 'unsafe-inline' is needed because the frontend uses
+// inline onclick handlers extensively (~190 instances in app.js/index.html).
 
 // Helmet for security headers (with Service Worker support)
 app.use(helmet({
@@ -28,6 +32,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrcAttr: ["'unsafe-inline'"],  // Allow inline onclick handlers
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https://router.project-osrm.org", "https://*.tile.openstreetmap.org"],
       fontSrc: ["'self'"],
@@ -81,32 +86,41 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Sanitize request data against NoSQL injection (strips $ and . from keys)
+app.use(mongoSanitize());
+
 // ===========================================
 // Rate Limiting
 // ===========================================
 
-// General API rate limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // 500 requests per 15 minutes
-  message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for static files
-    return req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images');
-  }
-});
+const isTestEnv = process.env.NODE_ENV === 'test';
 
-// Stricter limiter for authentication endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 login attempts per 15 minutes
-  message: { error: 'Too many login attempts, please try again after 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true // Don't count successful logins
-});
+// General API rate limiter — disabled in test environment
+const apiLimiter = isTestEnv
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 500, // 500 requests per 15 minutes
+      message: { error: 'Too many requests, please try again later.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: (req) => {
+        // Skip rate limiting for static files
+        return req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images');
+      }
+    });
+
+// Stricter limiter for authentication endpoints — disabled in test environment
+const authLimiter = isTestEnv
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 10, // 10 login attempts per 15 minutes
+      message: { error: 'Too many login attempts, please try again after 15 minutes.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+      skipSuccessfulRequests: true // Don't count successful logins
+    });
 
 // Apply rate limiting to API routes
 app.use('/api/', apiLimiter);
@@ -161,21 +175,21 @@ if (!useMockAuth) {
   if (process.env.NODE_ENV !== 'production') {
     const connectDB = require('./lib/mongodb');
     connectDB().then(() => {
-      console.log('✅ MongoDB connected for live tracking');
+      logger.info('MongoDB connected for live tracking');
     }).catch(err => {
-      console.error('❌ MongoDB connection error:', err.message);
-      console.log('⚠️ Live GPS tracking will not work without MongoDB');
+      logger.error('MongoDB connection error:', err.message);
+      logger.warn('Live GPS tracking will not work without MongoDB');
     });
   }
 } else {
-  console.log('📝 Skipping MongoDB connection (mock auth mode)');
+  logger.info('Skipping MongoDB connection (mock auth mode)');
 }
 
 // Initialize persistent storage for mock auth
 if (useMockAuth) {
-  console.log('📝 Mock authentication enabled - using JSON storage for users');
+  logger.info('Mock authentication enabled - using JSON storage');
   initialize();
-  console.log('💾 Persistent storage initialized');
+  logger.info('Persistent storage initialized');
 }
 
 // ===========================================
@@ -206,7 +220,7 @@ app.get('/api/health', async (req, res) => {
 
 // Auth routes with stricter rate limiting
 if (useMockAuth) {
-  console.log('⚠️  Using MOCK authentication');
+  logger.warn('Using MOCK authentication');
   app.use('/api/auth', authLimiter, require('./routes/auth-mock'));
 } else {
   app.use('/api/auth', authLimiter, require('./routes/auth'));
@@ -214,19 +228,25 @@ if (useMockAuth) {
 
 // Use local JSON storage or MongoDB based on mock mode
 if (useMockAuth) {
-  console.log('📦 Using local JSON storage for users, trucks, routes');
+  logger.info('Using local JSON storage for users, trucks, routes');
   app.use('/api/users', require('./routes/users'));
   app.use('/api/trucks', require('./routes/trucks'));
   app.use('/api/routes', require('./routes/routes'));
 } else {
-  console.log('📦 Using MongoDB for users, trucks, routes (persistent storage)');
+  logger.info('Using MongoDB for users, trucks, routes (persistent storage)');
   app.use('/api/users', require('./routes/users-mongo'));
   app.use('/api/trucks', require('./routes/trucks-mongo'));
   app.use('/api/routes', require('./routes/routes-mongo'));
 }
 
-app.use('/api/collections', require('./routes/collections'));
-app.use('/api/bins', require('./routes/bins'));
+// Collections and Bins require MongoDB — provide mock fallback
+if (useMockAuth) {
+  app.use('/api/collections', require('./middleware/auth').authenticateToken, (req, res) => res.json([]));
+  app.use('/api/bins', require('./middleware/auth').authenticateToken, (req, res) => res.json([]));
+} else {
+  app.use('/api/collections', require('./routes/collections'));
+  app.use('/api/bins', require('./routes/bins'));
+}
 
 // Use mock or MongoDB tracking based on mode
 if (useMockAuth) {
@@ -234,7 +254,7 @@ if (useMockAuth) {
   app.use('/api/tracking', require('./routes/tracking'));
   app.use('/api/profile', require('./routes/profile'));
 } else {
-  console.log('📡 Using MongoDB for live tracking');
+  logger.info('Using MongoDB for live tracking');
   app.use('/api/completions', require('./routes/completions'));
   app.use('/api/tracking', require('./routes/tracking-mongo'));
   app.use('/api/profile', require('./routes/profile'));
@@ -265,7 +285,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error('Unhandled error:', err);
 
   // Don't expose error details in production
   const message = process.env.NODE_ENV === 'production'
@@ -284,25 +304,48 @@ app.use((err, req, res, next) => {
 
 const host = '0.0.0.0';
 
+// ===========================================
+// Graceful Shutdown & Crash Handlers
+// ===========================================
+
+process.on('uncaughtException', (err) => {
+  logger.error('UNCAUGHT EXCEPTION — shutting down...', err.name, err.message);
+  logger.error(err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('UNHANDLED REJECTION — shutting down...', reason);
+  process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received — shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received — shutting down gracefully...');
+  process.exit(0);
+});
+
 async function startServer() {
   // In production with MongoDB, await DB connection before listening
   if (!useMockAuth && process.env.NODE_ENV === 'production') {
     try {
       const connectDB = require('./lib/mongodb');
       await connectDB();
-      console.log('✅ MongoDB connected before server start');
+      logger.info('MongoDB connected before server start');
     } catch (err) {
-      console.error('❌ Cannot start without database in production:', err.message);
+      logger.error('Cannot start without database in production:', err.message);
       process.exit(1);
     }
   }
 
   app.listen(PORT, host, () => {
-    console.log(`\n🚀 Kolek-Ta server running on port ${PORT}`);
-    console.log(`📍 Access from this computer: http://localhost:${PORT}`);
-    console.log(`📍 Access from other devices: http://YOUR-IP-ADDRESS:${PORT}`);
-    console.log(`\n🔒 Security: Helmet, Rate Limiting, CORS configured`);
-    console.log(`💡 To find your IP address, run: ipconfig\n`);
+    logger.info(`Kolek-Ta server running on port ${PORT}`);
+    logger.info(`Local: http://localhost:${PORT}`);
+    logger.info('Security: Helmet, Rate Limiting, CORS, MongoSanitize configured');
   });
 }
 

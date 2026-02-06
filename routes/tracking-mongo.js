@@ -7,6 +7,8 @@ const Truck = require('../models/Truck');
 const Route = require('../models/Route');
 const LiveLocation = require('../models/LiveLocation');
 const TripData = require('../models/TripData');
+const logger = require('../lib/logger');
+const { trackingUpdateRules } = require('../middleware/validate');
 
 // Haversine distance calculation (in km)
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -41,7 +43,7 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: `Batch size exceeds maximum of ${MAX_BATCH_SIZE} points` });
     }
 
-    console.log(`📍 Batch GPS Update from ${username}: ${points.length} points`);
+    logger.debug(`Batch GPS Update from ${username}: ${points.length} points`);
 
     await connectDB();
 
@@ -61,13 +63,13 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
         if (speed < 0) speed = 0;
 
         if (isNaN(lat) || isNaN(lng)) {
-          console.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
+          logger.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
           failed++;
           continue;
         }
 
         if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-          console.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
+          logger.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
           failed++;
           continue;
         }
@@ -126,12 +128,12 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
 
         processed++;
       } catch (pointError) {
-        console.error(`Error processing point:`, pointError);
+        logger.error(`Error processing point:`, pointError);
         failed++;
       }
     }
 
-    console.log(`✅ Batch update complete: ${processed} processed, ${failed} failed`);
+    logger.info(`Batch update complete: ${processed} processed, ${failed} failed`);
 
     res.json({
       message: 'Batch update complete',
@@ -142,14 +144,13 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
       failedCount: failed
     });
   } catch (error) {
-    console.error('❌ Error in batch update:', error.message);
-    console.error('Error:', error);
+    logger.error('Error in batch update:', error.message);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Update driver location
-router.post('/update', authenticateToken, async (req, res) => {
+router.post('/update', authenticateToken, trackingUpdateRules, async (req, res) => {
   try {
     if (req.user.role !== 'driver') {
       return res.status(403).json({ error: 'Driver access required' });
@@ -209,7 +210,7 @@ router.post('/update', authenticateToken, async (req, res) => {
         { username },
         { availability: 'unavailable', currentRouteId: routeId || null }
       );
-      console.log(`🚗 Driver ${username} set to unavailable (started tracking)`);
+      logger.info(`Driver ${username} set to unavailable (started tracking)`);
     }
 
     // Calculate distance
@@ -246,7 +247,7 @@ router.post('/update', authenticateToken, async (req, res) => {
     // Save trip data to MongoDB
     await trip.save();
 
-    console.log(`📍 GPS Update from ${username}: ${parsedLat}, ${parsedLng} | Distance: ${trip.totalDistance.toFixed(2)}km`);
+    logger.debug(`GPS Update from ${username}: ${parsedLat}, ${parsedLng} | Distance: ${trip.totalDistance.toFixed(2)}km`);
 
     res.json({
       message: 'Location updated',
@@ -259,8 +260,7 @@ router.post('/update', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error updating location:', error.message);
-    console.error('Error:', error);
+    logger.error('Error updating location:', error.message);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -282,7 +282,7 @@ router.get('/active', authenticateToken, async (req, res) => {
 
     res.json(locations);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -358,11 +358,10 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
       }
     }
 
-    console.log(`📡 Returning ${allTrucks.length} trucks from MongoDB`);
+    logger.debug(`Returning ${allTrucks.length} trucks from MongoDB`);
     res.json(allTrucks);
   } catch (error) {
-    console.error('❌ Error getting all trucks:', error);
-    console.error('Error:', error);
+    logger.error('Error getting all trucks:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -390,7 +389,7 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
 
     res.json(location);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -403,7 +402,7 @@ router.delete('/clear', authenticateToken, async (req, res) => {
     await LiveLocation.deleteOne({ username });
     res.json({ message: 'Location cleared' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -439,7 +438,7 @@ router.get('/my-trip', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -473,7 +472,7 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
       trip: { username, startTime: trip.startTime.toISOString() }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -502,7 +501,7 @@ router.post('/end-trip', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Trip ended', summary });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -567,7 +566,7 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
       trucks: truckFuelData
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -592,7 +591,7 @@ router.get('/all-trips', authenticateToken, async (req, res) => {
 
     res.json({ count: trips.length, trips });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -622,7 +621,7 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
       stops: trip.stopCount || 0
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

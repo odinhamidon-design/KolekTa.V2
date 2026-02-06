@@ -4,6 +4,7 @@ const Collection = require('../models/Collection');
 const Bin = require('../models/Bin');
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const logger = require('../lib/logger');
 
 // Get all collections (authenticated)
 router.get('/', authenticateToken, async (req, res) => {
@@ -15,7 +16,7 @@ router.get('/', authenticateToken, async (req, res) => {
       .lean();
     res.json(collections);
   } catch (error) {
-    console.error('Error fetching collections:', error.message);
+    logger.error('Error fetching collections:', error.message);
     res.status(500).json({ error: 'Failed to fetch collections' });
   }
 });
@@ -46,7 +47,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     res.status(201).json(collection);
   } catch (error) {
-    console.error('Error recording collection:', error.message);
+    logger.error('Error recording collection:', error.message);
     res.status(400).json({ error: 'Failed to record collection' });
   }
 });
@@ -71,7 +72,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
     ]);
     res.json(stats[0] || { totalCollections: 0, totalWaste: 0, avgWaste: 0 });
   } catch (error) {
-    console.error('Error fetching collection stats:', error.message);
+    logger.error('Error fetching collection stats:', error.message);
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
@@ -102,7 +103,7 @@ router.get('/range', authenticateToken, async (req, res) => {
 
     res.json(collections);
   } catch (error) {
-    console.error('Error fetching collections by range:', error.message);
+    logger.error('Error fetching collections by range:', error.message);
     res.status(500).json({ error: 'Failed to fetch collections' });
   }
 });

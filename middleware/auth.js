@@ -1,8 +1,14 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set. Cannot start in production without it.');
+  console.error('   Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-dev-fallback-secret';
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
+  console.warn('⚠️  WARNING: JWT_SECRET not set — using dev fallback. Set JWT_SECRET env var before deploying!');
 }
 
 function authenticateToken(req, res, next) {

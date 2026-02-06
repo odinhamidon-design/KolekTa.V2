@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { authenticateToken } = require('../middleware/auth');
 const Schedule = require('../models/Schedule');
 const Route = require('../models/Route');
+const logger = require('../lib/logger');
+const { createScheduleRules } = require('../middleware/validate');
 
 // Helper function to build query for finding schedule by id or scheduleId
 function buildScheduleQuery(id) {
@@ -52,8 +54,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(enriched);
   } catch (error) {
-    console.error('Error fetching schedules:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedules:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -79,8 +80,7 @@ router.get('/upcoming', authenticateToken, async (req, res) => {
 
     res.json(enriched);
   } catch (error) {
-    console.error('Error fetching upcoming collections:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching upcoming collections:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -109,8 +109,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching schedule stats:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedule stats:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -136,14 +135,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
       routeName: route ? route.name : 'Unknown Route'
     });
   } catch (error) {
-    console.error('Error fetching schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
 
 // Create new schedule
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, createScheduleRules, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -209,11 +207,10 @@ router.post('/', authenticateToken, async (req, res) => {
 
     await schedule.save();
 
-    console.log('Schedule created (MongoDB):', scheduleId);
+    logger.info('Schedule created (MongoDB):', scheduleId);
     res.status(201).json({ message: 'Schedule created successfully', schedule });
   } catch (error) {
-    console.error('Error creating schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error creating schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -243,11 +240,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Schedule not found' });
     }
 
-    console.log('Schedule updated (MongoDB):', id);
+    logger.info('Schedule updated (MongoDB):', id);
     res.json({ message: 'Schedule updated successfully', schedule });
   } catch (error) {
-    console.error('Error updating schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error updating schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -270,11 +266,10 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     schedule.isActive = !schedule.isActive;
     await schedule.save();
 
-    console.log('Schedule toggled (MongoDB):', id, '-> isActive:', schedule.isActive);
+    logger.info('Schedule toggled (MongoDB):', id, '-> isActive:', schedule.isActive);
     res.json({ message: `Schedule ${schedule.isActive ? 'activated' : 'deactivated'}`, schedule });
   } catch (error) {
-    console.error('Error toggling schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error toggling schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -294,11 +289,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Schedule not found' });
     }
 
-    console.log('Schedule deleted (MongoDB):', id);
+    logger.info('Schedule deleted (MongoDB):', id);
     res.json({ message: 'Schedule deleted successfully' });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
-    console.error('Error:', error);
+    logger.error('Error deleting schedule:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

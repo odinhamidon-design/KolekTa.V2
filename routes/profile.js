@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('../middleware/auth');
 const { usersStorage } = require('../data/storage');
+const logger = require('../lib/logger');
 
 // MongoDB support
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -72,7 +73,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       isActive: user.isActive
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -152,7 +153,7 @@ router.put('/me', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -200,7 +201,7 @@ router.post('/picture', authenticateToken, upload.single('profilePicture'), asyn
       profilePicture: profilePicturePath
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -237,7 +238,7 @@ router.delete('/picture', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Profile picture removed' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

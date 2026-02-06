@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { routesStorage, usersStorage, complaintsStorage } = require('../data/storage');
+const logger = require('../lib/logger');
 
 // Collection Summary Report
 router.get('/collection-summary', authenticateToken, async (req, res) => {
@@ -92,8 +93,7 @@ router.get('/collection-summary', authenticateToken, async (req, res) => {
       daily: dailyArray
     });
   } catch (error) {
-    console.error('Error generating collection summary:', error);
-    console.error('Error:', error);
+    logger.error('Error generating collection summary:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -207,8 +207,7 @@ router.get('/driver-performance', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error generating driver performance report:', error);
-    console.error('Error:', error);
+    logger.error('Error generating driver performance report:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -320,8 +319,7 @@ router.get('/complaint-analytics', authenticateToken, async (req, res) => {
       timeline: timelineArray
     });
   } catch (error) {
-    console.error('Error generating complaint analytics:', error);
-    console.error('Error:', error);
+    logger.error('Error generating complaint analytics:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

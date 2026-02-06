@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
 const { routesStorage, trucksStorage } = require('../data/storage');
+const logger = require('../lib/logger');
 
 // MongoDB support
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -57,8 +58,8 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
     const { routeId } = req.params;
     const { notes, distanceTraveled, fuelConsumed, stopsCompleted, averageSpeed } = req.body;
 
-    console.log('Completing route:', routeId);
-    console.log('Trip data:', { distanceTraveled, fuelConsumed, stopsCompleted, averageSpeed });
+    logger.info('Completing route:', routeId);
+    logger.debug('Trip data:', { distanceTraveled, fuelConsumed, stopsCompleted, averageSpeed });
 
     // Convert uploaded files to base64 data URLs
     const photos = [];
@@ -118,7 +119,7 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
           { username: req.user.username },
           { availability: 'available', currentRouteId: null }
         );
-        console.log(`✅ Driver ${req.user.username} set to available (completed route)`);
+        logger.info(`Driver ${req.user.username} set to available (completed route)`);
       }
 
       // Auto-deduct fuel from truck and log consumption
@@ -147,14 +148,14 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
               distanceTraveled: tripStats.distanceTraveled
             };
 
-            console.log('Auto fuel deduction (MongoDB):', fuelLogResult);
+            logger.info('Auto fuel deduction (MongoDB):', fuelLogResult);
           }
         } catch (fuelError) {
-          console.error('Error auto-deducting fuel:', fuelError);
+          logger.error('Error auto-deducting fuel:', fuelError);
         }
       }
 
-      console.log('Route completed successfully (MongoDB):', routeId);
+      logger.info('Route completed successfully (MongoDB):', routeId);
 
       res.json({
         message: 'Route marked as completed successfully!',
@@ -243,14 +244,14 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
               distanceTraveled: tripStats.distanceTraveled
             };
 
-            console.log('Auto fuel deduction (JSON):', fuelLogResult);
+            logger.info('Auto fuel deduction (JSON):', fuelLogResult);
           }
         } catch (fuelError) {
-          console.error('Error auto-deducting fuel:', fuelError);
+          logger.error('Error auto-deducting fuel:', fuelError);
         }
       }
 
-      console.log('Route completed successfully (JSON):', routeId);
+      logger.info('Route completed successfully (JSON):', routeId);
 
       res.json({
         message: 'Route marked as completed successfully!',
@@ -269,8 +270,7 @@ router.post('/:routeId/complete', authenticateToken, upload.array('photos', 10),
       });
     }
   } catch (error) {
-    console.error('Error completing route:', error);
-    console.error('Error:', error);
+    logger.error('Error completing route:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -304,7 +304,7 @@ router.get('/:routeId/completion', authenticateToken, async (req, res) => {
       tripStats: route.tripStats || null
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -337,11 +337,10 @@ router.get('/notifications/pending', authenticateToken, async (req, res) => {
       }));
     }
 
-    console.log('Pending notifications found:', pendingNotifications.length);
+    logger.debug('Pending notifications found:', pendingNotifications.length);
     res.json(pendingNotifications);
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    console.error('Error:', error);
+    logger.error('Error fetching notifications:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -365,7 +364,7 @@ router.get('/:routeId', authenticateToken, async (req, res) => {
 
     res.json(route);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -394,10 +393,10 @@ router.post('/notifications/:routeId/read', authenticateToken, async (req, res) 
       }
     }
 
-    console.log('Notification marked as read:', routeId);
+    logger.info('Notification marked as read:', routeId);
     res.json({ message: 'Notification marked as read' });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

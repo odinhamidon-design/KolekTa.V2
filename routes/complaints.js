@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const { authenticateToken } = require('../middleware/auth');
 const { complaintsStorage } = require('../data/storage');
+const logger = require('../lib/logger');
+const { submitComplaintRules } = require('../middleware/validate');
 
 // MongoDB support
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -67,7 +69,7 @@ router.get('/report-types', (req, res) => {
 });
 
 // Submit a new complaint (PUBLIC)
-router.post('/submit', upload.array('photos', 3), async (req, res) => {
+router.post('/submit', upload.array('photos', 3), submitComplaintRules, async (req, res) => {
   try {
     const { name, phone, email, address, barangay, description, missedCollectionDate, reportType, latitude, longitude } = req.body;
 
@@ -147,7 +149,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
       const complaint = new Complaint(complaintData);
       await complaint.save();
 
-      console.log('New complaint submitted (MongoDB):', referenceNumber, 'Type:', selectedReportType);
+      logger.info('New complaint submitted (MongoDB):', referenceNumber, 'Type:', selectedReportType);
 
       res.status(201).json({
         message: 'Complaint submitted successfully',
@@ -182,7 +184,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
 
       complaintsStorage.add(complaint);
 
-      console.log('New complaint submitted (JSON):', referenceNumber);
+      logger.info('New complaint submitted (JSON):', referenceNumber);
 
       res.status(201).json({
         message: 'Complaint submitted successfully',
@@ -196,7 +198,7 @@ router.post('/submit', upload.array('photos', 3), async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error submitting complaint:', error);
+    logger.error('Error submitting complaint:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -239,7 +241,7 @@ router.get('/track/:referenceNumber', async (req, res) => {
       updatedAt: complaint.updatedAt
     });
   } catch (error) {
-    console.error('Error tracking complaint:', error);
+    logger.error('Error tracking complaint:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -305,7 +307,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     res.json(complaints);
   } catch (error) {
-    console.error('Error fetching complaints:', error);
+    logger.error('Error fetching complaints:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -367,7 +369,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Error fetching complaint stats:', error);
+    logger.error('Error fetching complaint stats:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -390,7 +392,7 @@ router.get('/new-count', authenticateToken, async (req, res) => {
 
     res.json({ count });
   } catch (error) {
-    console.error('Error fetching new complaints count:', error);
+    logger.error('Error fetching new complaints count:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -420,7 +422,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     res.json(complaint);
   } catch (error) {
-    console.error('Error fetching complaint:', error);
+    logger.error('Error fetching complaint:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -459,7 +461,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         return res.status(404).json({ error: 'Complaint not found' });
       }
 
-      console.log('Complaint updated (MongoDB):', complaint.referenceNumber);
+      logger.info('Complaint updated (MongoDB):', complaint.referenceNumber);
       res.json({ message: 'Complaint updated successfully', complaint });
     } else {
       const success = complaintsStorage.update(id, updates);
@@ -469,11 +471,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
       }
 
       const complaint = complaintsStorage.findById(id);
-      console.log('Complaint updated (JSON):', complaint.referenceNumber);
+      logger.info('Complaint updated (JSON):', complaint.referenceNumber);
       res.json({ message: 'Complaint updated successfully', complaint });
     }
   } catch (error) {
-    console.error('Error updating complaint:', error);
+    logger.error('Error updating complaint:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -496,10 +498,10 @@ router.post('/:id/mark-read', authenticateToken, async (req, res) => {
       complaintsStorage.update(id, { isUnread: false });
     }
 
-    console.log('Complaint marked as read:', id);
+    logger.info('Complaint marked as read:', id);
     res.json({ message: 'Complaint marked as read' });
   } catch (error) {
-    console.error('Error marking complaint as read:', error);
+    logger.error('Error marking complaint as read:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -519,10 +521,10 @@ router.post('/mark-all-read', authenticateToken, async (req, res) => {
       complaintsStorage.save(updated);
     }
 
-    console.log('All complaints marked as read');
+    logger.info('All complaints marked as read');
     res.json({ message: 'All complaints marked as read' });
   } catch (error) {
-    console.error('Error marking all complaints as read:', error);
+    logger.error('Error marking all complaints as read:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -552,10 +554,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       complaintsStorage.delete(id);
     }
 
-    console.log('Complaint deleted:', id);
+    logger.info('Complaint deleted:', id);
     res.json({ message: 'Complaint deleted successfully' });
   } catch (error) {
-    console.error('Error deleting complaint:', error);
+    logger.error('Error deleting complaint:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });

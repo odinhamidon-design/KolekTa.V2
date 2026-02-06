@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken: auth } = require('../middleware/auth');
 const { trucksStorage } = require('../data/storage');
+const logger = require('../lib/logger');
 
 // Check if using MongoDB
 const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
@@ -10,7 +11,7 @@ if (!useMockAuth) {
   try {
     Truck = require('../models/Truck');
   } catch (e) {
-    console.log('Truck model not available');
+    logger.warn('Truck model not available');
   }
 }
 
@@ -242,7 +243,7 @@ router.post('/estimate', auth, async (req, res) => {
       input: { distance, averageSpeed, stopCount, idleTimeMinutes, loadPercentage }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -314,7 +315,7 @@ router.post('/refuel', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -399,7 +400,7 @@ router.post('/consumption', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -418,7 +419,7 @@ router.get('/logs/:truckId', auth, async (req, res) => {
 
     res.json(logs);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -474,7 +475,7 @@ router.get('/stats/:truckId', auth, async (req, res) => {
 
     res.json(stats);
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -503,7 +504,7 @@ router.get('/all-logs', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
@@ -602,8 +603,7 @@ router.get('/all-stats', auth, async (req, res) => {
 
     res.json({ trucks: stats, fleet: fleetStats });
   } catch (error) {
-    console.error('Fuel stats error:', error);
-    console.error('Error:', error);
+    logger.error('Fuel stats error:', error);
     res.status(500).json({ error: 'An internal error occurred' });
   }
 });
