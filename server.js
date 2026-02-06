@@ -129,6 +129,11 @@ app.use('/api/', apiLimiter);
 // Static Routes (before API routes)
 // ===========================================
 
+// Version check endpoint for deployment verification
+app.get('/api/version', (req, res) => {
+  res.json({ version: '2.1.0', deployed: new Date().toISOString(), dirname: __dirname });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
