@@ -161,7 +161,7 @@ app.get('/resident-portal', (req, res) => {
 });
 
 // Static file serving (after explicit routes)
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ===========================================
 // Database Connection

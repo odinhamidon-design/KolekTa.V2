@@ -6,7 +6,7 @@
       "use": "@vercel/node",
       "config": {
         "maxDuration": 30,
-        "includeFiles": "public/**"
+        "includeFiles": ["public/**", "lib/**", "middleware/**", "routes/**", "models/**", "data/**"]
       }
     }
   ],
