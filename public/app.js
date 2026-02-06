@@ -1832,10 +1832,10 @@ function setActiveSidebarButton(activeId) {
     const btn = document.getElementById(id);
     if (btn) {
       if (id === activeId) {
-        btn.classList.add('bg-primary-50', 'text-primary-700');
-        btn.classList.remove('text-gray-700');
+        btn.classList.add('bg-primary-100', 'text-primary-800', 'font-semibold', 'border-l-4', 'border-primary-600');
+        btn.classList.remove('text-gray-700', 'bg-primary-50', 'text-primary-700');
       } else {
-        btn.classList.remove('bg-primary-50', 'text-primary-700');
+        btn.classList.remove('bg-primary-100', 'text-primary-800', 'font-semibold', 'border-l-4', 'border-primary-600', 'bg-primary-50', 'text-primary-700');
         btn.classList.add('text-gray-700');
       }
     }
@@ -7148,7 +7148,7 @@ window.showNotificationHistory = async function() {
 
             ${photoCount > 0 ? `
               <div>
-                <button onclick="viewCompletionPhotos('${route._id || route.routeId}')"
+                <button onclick="viewCompletionPhotos('${String(route._id || route.routeId)}')"
                   class="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm">
                   <i data-lucide="image" class="w-4 h-4"></i>
                   <span>View ${photoCount} Photo${photoCount > 1 ? 's' : ''}</span>
@@ -7260,6 +7260,11 @@ window.viewCompletionPhotos = async function(routeId) {
     const response = await fetch(`${API_URL}/routes/${routeId}?includePhotos=true`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server returned ${response.status}`);
+    }
 
     const route = await response.json();
     const photos = route.completionPhotos || [];

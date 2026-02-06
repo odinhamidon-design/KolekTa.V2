@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%2316a34a' width='180' height='180' rx='30'/%3E%3Cpath fill='white' d='M90 36c-29.8 0-54 24.2-54 54 0 29.8 24.2 54 54 54s54-24.2 54-54c0-29.8-24.2-54-54-54zm0 92c-21 0-38-17-38-38s17-38 38-38 38 17 38 38-17 38-38 38zm-8-30h16v16H82v-16zm0-46h16v38H82V52z'/%3E%3C/svg%3E">
 
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/vendor/tailwindcss/tailwind.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -40,11 +40,11 @@
   </script>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="/vendor/lucide/lucide.min.js"></script>
 
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
 
   <style>
     /* Base styles */
@@ -465,7 +465,7 @@
           <div id="adminControls" class="hidden">
             <!-- Dashboard -->
             <div class="space-y-1 mb-4">
-              <button id="dashboardBtn" class="w-full flex items-center gap-3 px-4 py-3 bg-primary-50 text-primary-700 rounded-lg transition-colors text-left">
+              <button id="dashboardBtn" class="w-full flex items-center gap-3 px-4 py-3 bg-primary-100 text-primary-800 font-semibold border-l-4 border-primary-600 rounded-lg transition-colors text-left">
                 <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
                 <span class="font-medium">Dashboard</span>
               </button>
@@ -914,15 +914,15 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/leaflet-routing-machine/leaflet-routing-machine.js"></script>
   <!-- Leaflet Heatmap plugin for analytics -->
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="/vendor/leaflet-heat/leaflet-heat.js"></script>
   <!-- jsPDF for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+  <script src="/vendor/jspdf/jspdf.umd.min.js"></script>
+  <script src="/vendor/jspdf/jspdf.plugin.autotable.min.js"></script>
   <!-- Chart.js for report visualizations -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/vendor/chartjs/chart.umd.js"></script>
   <!-- Offline Support -->
   <script src="/js/offline-db.js"></script>
   <script src="/js/sync-manager.js"></script>

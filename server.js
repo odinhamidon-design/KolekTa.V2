@@ -18,20 +18,19 @@ const PORT = process.env.PORT || 3000;
 // SECURITY NOTE: JWT tokens are stored in localStorage on the frontend.
 // This is accessible to XSS attacks. For production with sensitive data,
 // consider migrating to httpOnly cookie-based auth. The current CSP helps
-// mitigate XSS risk but 'unsafe-inline'/'unsafe-eval' are required by
-// CDN-hosted Tailwind CSS. For maximum security, self-host CSS/JS assets
-// and remove 'unsafe-inline'/'unsafe-eval' from CSP.
+// mitigate XSS risk but 'unsafe-inline'/'unsafe-eval' are still required by
+// the Tailwind Play CDN runtime compiler (now self-hosted in /vendor/).
 
 // Helmet for security headers (with Service Worker support)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://cdn.tailwindcss.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       connectSrc: ["'self'", "https://router.project-osrm.org", "https://*.tile.openstreetmap.org"],
-      fontSrc: ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'"],
       frameSrc: ["'none'"],
       workerSrc: ["'self'"],  // Allow Service Workers
       manifestSrc: ["'self'"]  // Allow manifest.json

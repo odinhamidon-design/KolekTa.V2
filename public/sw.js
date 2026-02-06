@@ -17,22 +17,23 @@ const STATIC_ASSETS = [
   '/app.js',
   '/js/offline-db.js',
   '/js/sync-manager.js',
-  '/manifest.json'
+  '/manifest.json',
+  // Vendor libraries (locally hosted)
+  '/vendor/tailwindcss/tailwind.min.js',
+  '/vendor/lucide/lucide.min.js',
+  '/vendor/leaflet/leaflet.css',
+  '/vendor/leaflet/leaflet.js',
+  '/vendor/leaflet-routing-machine/leaflet-routing-machine.css',
+  '/vendor/leaflet-routing-machine/leaflet-routing-machine.js',
+  '/vendor/leaflet-heat/leaflet-heat.js',
+  '/vendor/jspdf/jspdf.umd.min.js',
+  '/vendor/jspdf/jspdf.plugin.autotable.min.js',
+  '/vendor/chartjs/chart.umd.js',
+  '/vendor/fonts/inter.css'
 ];
 
-// CDN assets to cache (external libraries)
-const CDN_ASSETS = [
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/lucide@latest/dist/umd/lucide.min.js',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css',
-  'https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js',
-  'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
-];
+// CDN assets to cache (no longer used - all vendor libs are local)
+const CDN_ASSETS = [];
 
 // API endpoints to cache for offline access
 const CACHEABLE_API = [
