@@ -15,6 +15,7 @@ const STATIC_ASSETS = [
   '/index.html',
   '/login.html',
   '/app.js',
+  '/js/fetch-retry.js',
   '/js/offline-db.js',
   '/js/sync-manager.js',
   '/manifest.json',

@@ -161,7 +161,7 @@ const offlineQueue = {
               continue;
           }
 
-          const response = await fetch(endpoint, {
+          const response = await fetchWithRetry(endpoint, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -1168,7 +1168,7 @@ let markers = {};
 // Load bins
 async function loadBins() {
   try {
-    const response = await fetch(`${API_URL}/bins`);
+    const response = await fetchWithRetry(`${API_URL}/bins`);
     bins = await response.json();
     displayBins();
   } catch (error) {
@@ -1864,7 +1864,7 @@ let cachedUsersData = [];
 async function showUserManagement() {
   showPageLoading('Loading users...');
   try {
-    const response = await fetch(`${API_URL}/users`);
+    const response = await fetchWithRetry(`${API_URL}/users`);
     cachedUsersData = await response.json();
 
     // Register sort handler
@@ -2129,7 +2129,7 @@ window.showAddUserForm = function() {
     };
     
     try {
-      const response = await fetch(`${API_URL}/users`, {
+      const response = await fetchWithRetry(`${API_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -2151,7 +2151,7 @@ window.showAddUserForm = function() {
 
 window.editUser = async function(userId) {
   try {
-    const response = await fetch(`${API_URL}/users/${userId}`);
+    const response = await fetchWithRetry(`${API_URL}/users/${userId}`);
     const user = await response.json();
     
     // Check if editing admin
@@ -2240,7 +2240,7 @@ window.editUser = async function(userId) {
       }
       
       try {
-        const response = await fetch(`${API_URL}/users/${userId}`, {
+        const response = await fetchWithRetry(`${API_URL}/users/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData)
@@ -2269,7 +2269,7 @@ window.deleteUser = async function(userId) {
   }
   
   try {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
+    const response = await fetchWithRetry(`${API_URL}/users/${userId}`, {
       method: 'DELETE'
     });
     
@@ -2576,7 +2576,7 @@ window.showAddTruckForm = function() {
     };
     
     try {
-      const response = await fetch(`${API_URL}/trucks`, {
+      const response = await fetchWithRetry(`${API_URL}/trucks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(truckData)
@@ -2712,7 +2712,7 @@ window.editTruck = async function(truckId) {
       };
       
       try {
-        const response = await fetch(`${API_URL}/trucks/${truckId}`, {
+        const response = await fetchWithRetry(`${API_URL}/trucks/${truckId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData)
@@ -2801,7 +2801,7 @@ window.assignDriver = async function(truckId) {
       }
       
       try {
-        const response = await fetch(`${API_URL}/trucks/${truckId}`, {
+        const response = await fetchWithRetry(`${API_URL}/trucks/${truckId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2833,7 +2833,7 @@ window.unassignTruck = async function(truckId) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/trucks/${truckId}`, {
+    const response = await fetchWithRetry(`${API_URL}/trucks/${truckId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2860,7 +2860,7 @@ window.deleteTruck = async function(truckId) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/trucks/${truckId}`, {
+    const response = await fetchWithRetry(`${API_URL}/trucks/${truckId}`, {
       method: 'DELETE'
     });
     
@@ -3329,7 +3329,7 @@ window.showAddRouteForm = function() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/routes`, {
+      const response = await fetchWithRetry(`${API_URL}/routes`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -3946,7 +3946,7 @@ window.cancelAddRoute = function() {
 window.viewRoute = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -4208,7 +4208,7 @@ window.deleteRoute = async function(routeId) {
   
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -4235,7 +4235,7 @@ window.unassignRoute = async function(routeId) {
   
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
@@ -4372,7 +4372,7 @@ window.assignRouteToDriver = async function(routeId) {
       
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/routes/${routeId}`, {
+        const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
           method: 'PUT',
           headers: { 
             'Content-Type': 'application/json',
@@ -4410,7 +4410,7 @@ window.assignRouteToDriver = async function(routeId) {
 async function updateDriverQuickStats() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const routes = await response.json();
@@ -4458,7 +4458,7 @@ async function updateActiveRoutePanel(routes) {
       // Fetch route if not in list
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/routes/${activeRouteId}`, {
+        const response = await fetchWithRetry(`${API_URL}/routes/${activeRouteId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -4617,7 +4617,7 @@ window.submitInspection = async function() {
   const token = localStorage.getItem('token');
   let truckId = 'UNKNOWN';
   try {
-    const trucksRes = await fetch(`${API_URL}/trucks`, {
+    const trucksRes = await fetchWithRetry(`${API_URL}/trucks`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const trucks = await trucksRes.json();
@@ -4651,7 +4651,7 @@ window.submitInspection = async function() {
   }));
 
   try {
-    const response = await fetch(`${API_URL}/driver/inspections`, {
+    const response = await fetchWithRetry(`${API_URL}/driver/inspections`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -4698,7 +4698,7 @@ window.submitInspection = async function() {
 window.showDriverStats = async function() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const routes = await response.json();
@@ -4950,7 +4950,7 @@ window.showActiveRouteNavigation = async function() {
   showPageLoading('Loading route...');
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${activeRouteId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${activeRouteId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -5193,7 +5193,7 @@ window.markStopCompleted = async function(stopIndex) {
   // Try to sync online, or queue for later
   if (navigator.onLine) {
     try {
-      const response = await fetch(`${API_URL}/driver/stops/complete`, {
+      const response = await fetchWithRetry(`${API_URL}/driver/stops/complete`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -5383,7 +5383,7 @@ window.submitSkipStop = async function(stopIndex) {
   // Try to sync online, or queue for later
   if (navigator.onLine) {
     try {
-      const response = await fetch(`${API_URL}/driver/stops/skip`, {
+      const response = await fetchWithRetry(`${API_URL}/driver/stops/skip`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -5455,7 +5455,7 @@ window.loadDriverNotifications = async function() {
   if (!token) return;
 
   try {
-    const response = await fetch(`${API_URL}/driver/notifications/count`, {
+    const response = await fetchWithRetry(`${API_URL}/driver/notifications/count`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!response.ok) return;
@@ -5482,7 +5482,7 @@ window.showDriverNotifications = async function() {
   const token = localStorage.getItem('token');
 
   try {
-    const response = await fetch(`${API_URL}/driver/notifications`, {
+    const response = await fetchWithRetry(`${API_URL}/driver/notifications`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!response.ok) throw new Error('Failed to load notifications');
@@ -5569,7 +5569,7 @@ window.showDriverNotifications = async function() {
 window.markNotificationRead = async function(notificationId) {
   const token = localStorage.getItem('token');
   try {
-    await fetch(`${API_URL}/driver/notifications/${notificationId}/read`, {
+    await fetchWithRetry(`${API_URL}/driver/notifications/${notificationId}/read`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -5583,7 +5583,7 @@ window.markNotificationRead = async function(notificationId) {
 window.markAllNotificationsRead = async function() {
   const token = localStorage.getItem('token');
   try {
-    await fetch(`${API_URL}/driver/notifications/read-all`, {
+    await fetchWithRetry(`${API_URL}/driver/notifications/read-all`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -5929,7 +5929,7 @@ window.showMobileDriverHome = function() {
 async function loadMobileDriverData() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const routes = await response.json();
@@ -6301,7 +6301,7 @@ async function loadDriverAssignments() {
 window.viewDriverRoute = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -6351,7 +6351,7 @@ window.viewDriverRoute = async function(routeId) {
 window.startCollection = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -6367,7 +6367,7 @@ window.startCollection = async function(routeId) {
     localStorage.setItem('activeRouteId', routeId);
     
     // Update route status to active
-    await fetch(`${API_URL}/routes/${routeId}`, {
+    await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -6581,7 +6581,7 @@ window.markRouteComplete = async function(routeId) {
 
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/completions/${routeId}/complete`, {
+        const response = await fetchWithRetry(`${API_URL}/completions/${routeId}/complete`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -6595,7 +6595,7 @@ window.markRouteComplete = async function(routeId) {
           // Auto-log fuel consumption if we have distance data
           if (tripDistanceKm > 0 && tripFuelLiters > 0) {
             try {
-              await fetch(`${API_URL}/tracking/end-trip`, {
+              await fetchWithRetry(`${API_URL}/tracking/end-trip`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
               });
@@ -6631,7 +6631,7 @@ window.markRouteComplete = async function(routeId) {
 window.updateRouteStatus = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -6682,7 +6682,7 @@ window.updateRouteStatus = async function(routeId) {
       
       try {
         const token = localStorage.getItem('token');
-        const updateResponse = await fetch(`${API_URL}/routes/${routeId}`, {
+        const updateResponse = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
           method: 'PUT',
           headers: { 
             'Content-Type': 'application/json',
@@ -6759,7 +6759,7 @@ async function checkCompletionNotifications() {
   
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/completions/notifications/pending`, {
+    const response = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -6861,7 +6861,7 @@ window.viewCompletionDetails = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
     // Use completions endpoint to get full route details including photos
-    const response = await fetch(`${API_URL}/completions/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/completions/${routeId}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     
@@ -6921,7 +6921,7 @@ window.openPhotoModal = function(index, photos) {
 window.markNotificationRead = async function(routeId) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/completions/notifications/${routeId}/read`, {
+    const response = await fetchWithRetry(`${API_URL}/completions/notifications/${routeId}/read`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -6948,7 +6948,7 @@ window.deleteNotification = async function(routeId) {
     const token = localStorage.getItem('token');
     
     // Delete the route permanently
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -6978,7 +6978,7 @@ window.deleteAllNotifications = async function() {
   
   try {
     const token = localStorage.getItem('token');
-    const notificationsRes = await fetch(`${API_URL}/completions/notifications/pending`, {
+    const notificationsRes = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -7052,7 +7052,7 @@ window.showNotificationHistory = async function() {
     const token = localStorage.getItem('token');
 
     // Include photos to get accurate photo count for completion history
-    const response = await fetch(`${API_URL}/routes?includePhotos=true`, {
+    const response = await fetchWithRetry(`${API_URL}/routes?includePhotos=true`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -7257,7 +7257,7 @@ window.viewCompletionPhotos = async function(routeId) {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}?includePhotos=true`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}?includePhotos=true`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -7312,7 +7312,7 @@ window.deleteHistoryItem = async function(routeId) {
   
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes/${routeId}`, {
+    const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -7341,7 +7341,7 @@ window.clearAllHistory = async function() {
     const token = localStorage.getItem('token');
     
     // Get all completed routes
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -7371,7 +7371,7 @@ window.clearAllHistory = async function() {
 window.markAllNotificationsRead = async function() {
   try {
     const token = localStorage.getItem('token');
-    const notificationsRes = await fetch(`${API_URL}/completions/notifications/pending`, {
+    const notificationsRes = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -7580,7 +7580,7 @@ async function startGPSTracking() {
 async function positionTruckAtFirstBin() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -7886,7 +7886,7 @@ async function drawNavigationLine(fromLatLng, toLatLng) {
     // Use OSRM for road-based routing
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLatLng[1]},${fromLatLng[0]};${toLatLng[1]},${toLatLng[0]}?overview=full&geometries=geojson`;
 
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const data = await response.json();
 
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
@@ -7937,7 +7937,7 @@ async function drawCurrentPathLine(fromLatLng, toLatLng) {
     // Use OSRM for road-based routing
     const url = `https://router.project-osrm.org/route/v1/driving/${fromLatLng[1]},${fromLatLng[0]};${toLatLng[1]},${toLatLng[0]}?overview=full&geometries=geojson`;
 
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const data = await response.json();
 
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
@@ -8278,7 +8278,7 @@ window.closeETAPanel = function() {
 async function getNextDestination() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -8577,14 +8577,14 @@ async function updateLocationOnServer(position) {
   try {
     console.log(`📤 Sending GPS to server: ${lat}, ${lng} (accuracy: ${accuracy}m, speed: ${speed.toFixed(1)}km/h)`);
 
-    const response = await fetch(`${API_URL}/tracking/update`, {
+    const response = await fetchWithRetry(`${API_URL}/tracking/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(gpsData)
-    });
+    }, { retryOnMutation: true });
 
     if (response.ok) {
       const data = await response.json();
@@ -8647,7 +8647,7 @@ async function fetchTripData() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    const response = await fetch(`${API_URL}/tracking/my-trip`, {
+    const response = await fetchWithRetry(`${API_URL}/tracking/my-trip`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -8777,7 +8777,7 @@ window.testGPSConnection = async function() {
     
     // Test 2: Send to server
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/tracking/update`, {
+    const response = await fetchWithRetry(`${API_URL}/tracking/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -8789,11 +8789,11 @@ window.testGPSConnection = async function() {
         speed: position.coords.speed || 0,
         heading: position.coords.heading || 0
       })
-    });
+    }, { retryOnMutation: true });
     
     if (response.ok) {
       // Test 3: Verify server received it
-      const verifyRes = await fetch(`${API_URL}/tracking/test-my-location`, {
+      const verifyRes = await fetchWithRetry(`${API_URL}/tracking/test-my-location`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const verifyData = await verifyRes.json();
@@ -8880,7 +8880,7 @@ async function updateLiveTruckLocations() {
   try {
     const token = localStorage.getItem('token');
     // Use new endpoint that shows ALL assigned trucks
-    const response = await fetch(`${API_URL}/tracking/all-trucks`, {
+    const response = await fetchWithRetry(`${API_URL}/tracking/all-trucks`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -9096,7 +9096,7 @@ async function processGeocodeQueue() {
     }
 
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const response = await fetchWithRetry(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
       const data = await response.json();
 
       let locationName = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
@@ -9183,7 +9183,7 @@ window.showLiveTruckPanel = async function() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/tracking/all-trucks`, {
+    const response = await fetchWithRetry(`${API_URL}/tracking/all-trucks`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -9428,7 +9428,7 @@ window.showTruckWithRoute = async function(truckData) {
   if (routeId) {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/routes/${routeId}`, {
+      const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -9746,7 +9746,7 @@ async function loadHeaderProfilePicture() {
     }
     
     console.log('Loading profile picture...');
-    const response = await fetch(`${API_URL}/profile/me`, {
+    const response = await fetchWithRetry(`${API_URL}/profile/me`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -9785,7 +9785,7 @@ window.showDriverHistory = async function() {
     const token = localStorage.getItem('token');
     
     // Get all routes completed by this driver
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -9876,7 +9876,7 @@ window.showDriverHistory = async function() {
 
 window.showProfile = async function() {
   try {
-    const response = await fetch(`${API_URL}/profile/me`);
+    const response = await fetchWithRetry(`${API_URL}/profile/me`);
     if (!response.ok) {
       throw new Error('Failed to load profile');
     }
@@ -9947,7 +9947,7 @@ window.showProfile = async function() {
 
 window.showEditProfile = async function() {
   try {
-    const response = await fetch(`${API_URL}/profile/me`);
+    const response = await fetchWithRetry(`${API_URL}/profile/me`);
     const profile = await response.json();
     
     showModal('Edit Profile', `
@@ -10022,7 +10022,7 @@ window.showEditProfile = async function() {
       }
       
       try {
-        const response = await fetch(`${API_URL}/profile/me`, {
+        const response = await fetchWithRetry(`${API_URL}/profile/me`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData)
@@ -10116,7 +10116,7 @@ window.showChangeProfilePicture = function() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/profile/picture`, {
+      const response = await fetchWithRetry(`${API_URL}/profile/picture`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -10151,7 +10151,7 @@ window.removeProfilePicture = async function() {
   
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/profile/picture`, {
+    const response = await fetchWithRetry(`${API_URL}/profile/picture`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10189,7 +10189,7 @@ let cachedFuelData = { trucks: [], fleet: {} };
 async function showFuelManagement() {
   showPageLoading('Loading fuel data...');
   try {
-    const response = await fetch(`${API_URL}/fuel/all-stats`);
+    const response = await fetchWithRetry(`${API_URL}/fuel/all-stats`);
     const data = await response.json();
 
     cachedFuelData = data;
@@ -10477,7 +10477,7 @@ async function submitRefuel(e) {
   };
 
   try {
-    const response = await fetch(`${API_URL}/fuel/refuel`, {
+    const response = await fetchWithRetry(`${API_URL}/fuel/refuel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -10584,7 +10584,7 @@ async function calculateFuelEstimate(e) {
   };
 
   try {
-    const response = await fetch(`${API_URL}/fuel/estimate`, {
+    const response = await fetchWithRetry(`${API_URL}/fuel/estimate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -10659,7 +10659,7 @@ async function logEstimatedConsumption() {
   };
 
   try {
-    const response = await fetch(`${API_URL}/fuel/consumption`, {
+    const response = await fetchWithRetry(`${API_URL}/fuel/consumption`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -10681,7 +10681,7 @@ async function logEstimatedConsumption() {
 
 async function showFuelHistory(truckId) {
   try {
-    const response = await fetch(`${API_URL}/fuel/stats/${truckId}?days=30`);
+    const response = await fetchWithRetry(`${API_URL}/fuel/stats/${truckId}?days=30`);
     const stats = await response.json();
 
     const logsHtml = stats.recentLogs.map(log => {
@@ -10949,7 +10949,7 @@ function updateOverlayActiveRoute(routes) {
 async function updateDriverOverlayStats() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const routes = await response.json();
@@ -11090,7 +11090,7 @@ async function updateMobileStats() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/routes`, {
+    const response = await fetchWithRetry(`${API_URL}/routes`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const routes = await response.json();
@@ -11148,7 +11148,7 @@ async function checkNewComplaints() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/complaints/new-count`, {
+    const response = await fetchWithRetry(`${API_URL}/complaints/new-count`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -11567,7 +11567,7 @@ window.filterComplaints = async function() {
     if (status) url += `status=${status}&`;
     if (barangay) url += `barangay=${encodeURIComponent(barangay)}`;
 
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -11584,7 +11584,7 @@ window.filterComplaints = async function() {
 window.viewComplaint = async function(id) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/complaints/${id}`, {
+    const response = await fetchWithRetry(`${API_URL}/complaints/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -11899,7 +11899,7 @@ async function submitComplaintUpdate(e) {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/complaints/${id}`, {
+    const response = await fetchWithRetry(`${API_URL}/complaints/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -11930,7 +11930,7 @@ window.deleteComplaint = async function(id) {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/complaints/${id}`, {
+    const response = await fetchWithRetry(`${API_URL}/complaints/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -11951,7 +11951,7 @@ window.deleteComplaint = async function(id) {
 window.markAllComplaintsRead = async function() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/complaints/mark-all-read`, {
+    const response = await fetchWithRetry(`${API_URL}/complaints/mark-all-read`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -12341,7 +12341,7 @@ async function showSpecialPickupsAdmin() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/resident/admin/special-pickups', {
+    const response = await fetchWithRetry('/api/resident/admin/special-pickups', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -12476,7 +12476,7 @@ async function showSpecialPickupsAdmin() {
 async function viewPickupDetails(id) {
   const token = localStorage.getItem('token');
   try {
-    const response = await fetch(`/api/resident/admin/special-pickups/${id}`, {
+    const response = await fetchWithRetry(`/api/resident/admin/special-pickups/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const pickup = await response.json();
@@ -12556,7 +12556,7 @@ async function schedulePickup(id) {
 
   const token = localStorage.getItem('token');
   try {
-    await fetch(`/api/resident/admin/special-pickups/${id}`, {
+    await fetchWithRetry(`/api/resident/admin/special-pickups/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -12580,7 +12580,7 @@ async function completePickup(id) {
 
   const token = localStorage.getItem('token');
   try {
-    await fetch(`/api/resident/admin/special-pickups/${id}`, {
+    await fetchWithRetry(`/api/resident/admin/special-pickups/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -12608,7 +12608,7 @@ async function showAnnouncementsAdmin() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/resident/admin/announcements', {
+    const response = await fetchWithRetry('/api/resident/admin/announcements', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -12718,7 +12718,7 @@ async function showAnnouncementsAdmin() {
 }
 
 async function showCreateAnnouncementModal() {
-  const barangaysResponse = await fetch('/api/resident/barangays');
+  const barangaysResponse = await fetchWithRetry('/api/resident/barangays');
   const barangays = await barangaysResponse.json();
 
   const barangayOptions = barangays.map(b => `<option value="${b}">${b}</option>`).join('');
@@ -12813,7 +12813,7 @@ async function createAnnouncement() {
     Array.from(barangaySelect.selectedOptions).map(o => o.value) : [];
 
   try {
-    await fetch('/api/resident/admin/announcements', {
+    await fetchWithRetry('/api/resident/admin/announcements', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -12841,7 +12841,7 @@ async function createAnnouncement() {
 async function toggleAnnouncementStatus(id, isActive) {
   const token = localStorage.getItem('token');
   try {
-    await fetch(`/api/resident/admin/announcements/${id}`, {
+    await fetchWithRetry(`/api/resident/admin/announcements/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -12861,7 +12861,7 @@ async function deleteAnnouncement(id) {
 
   const token = localStorage.getItem('token');
   try {
-    await fetch(`/api/resident/admin/announcements/${id}`, {
+    await fetchWithRetry(`/api/resident/admin/announcements/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -12874,14 +12874,14 @@ async function deleteAnnouncement(id) {
 
 async function editAnnouncement(id) {
   const token = localStorage.getItem('token');
-  const response = await fetch(`/api/resident/admin/announcements`, {
+  const response = await fetchWithRetry(`/api/resident/admin/announcements`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   const announcements = await response.json();
   const a = announcements.find(ann => ann._id === id);
   if (!a) return;
 
-  const barangaysResponse = await fetch('/api/resident/barangays');
+  const barangaysResponse = await fetchWithRetry('/api/resident/barangays');
   const barangays = await barangaysResponse.json();
   const barangayOptions = barangays.map(b =>
     `<option value="${b}" ${a.targetBarangays && a.targetBarangays.includes(b) ? 'selected' : ''}>${b}</option>`
@@ -12963,7 +12963,7 @@ async function updateAnnouncement(id) {
     Array.from(barangaySelect.selectedOptions).map(o => o.value) : [];
 
   try {
-    await fetch(`/api/resident/admin/announcements/${id}`, {
+    await fetchWithRetry(`/api/resident/admin/announcements/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -13424,7 +13424,7 @@ async function handleScheduleSubmit(e) {
     const url = editId ? `${API_URL}/schedules/${editId}` : `${API_URL}/schedules`;
     const method = editId ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -13450,7 +13450,7 @@ async function handleScheduleSubmit(e) {
 window.editSchedule = async function(id) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/schedules/${id}`, {
+    const response = await fetchWithRetry(`${API_URL}/schedules/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -13501,7 +13501,7 @@ window.editSchedule = async function(id) {
 window.toggleScheduleStatus = async function(id) {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/schedules/${id}/toggle`, {
+    const response = await fetchWithRetry(`${API_URL}/schedules/${id}/toggle`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -13526,7 +13526,7 @@ window.deleteSchedule = async function(id) {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/schedules/${id}`, {
+    const response = await fetchWithRetry(`${API_URL}/schedules/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -13719,7 +13719,7 @@ window.generateReport = async function() {
         break;
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetchWithRetry(`${API_URL}${endpoint}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -15048,7 +15048,7 @@ async function loadAnalyticsData() {
   }
 
   try {
-    const response = await fetch(`/api/reports/analytics-data?startDate=${startDate}&endDate=${endDate}`, {
+    const response = await fetchWithRetry(`/api/reports/analytics-data?startDate=${startDate}&endDate=${endDate}`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
 

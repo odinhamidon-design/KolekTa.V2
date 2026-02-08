@@ -6,6 +6,9 @@ const logger = require('../lib/logger');
 const { trackingUpdateRules } = require('../middleware/validate');
 
 // Batch update for syncing offline GPS points
+const BATCH_TIMEOUT_MS = 10000; // 10 second hard timeout
+const CHUNK_SIZE = 50;
+
 router.post('/batch-update', authenticateToken, async (req, res) => {
   try {
     // Only drivers can submit GPS batch updates
@@ -30,61 +33,76 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
 
     let processed = 0;
     let failed = 0;
+    let timedOut = false;
+    const errors = [];
+    const startTime = Date.now();
 
     // Sort by timestamp to process in order
     const sortedPoints = [...points].sort((a, b) =>
       new Date(a.timestamp) - new Date(b.timestamp)
     );
 
-    for (const point of sortedPoints) {
-      try {
-        const lat = parseFloat(point.lat);
-        const lng = parseFloat(point.lng);
-        let speed = parseFloat(point.speed) || 0;
-        if (speed < 0) speed = 0;
+    // Process in chunks
+    for (let i = 0; i < sortedPoints.length; i += CHUNK_SIZE) {
+      // Check timeout before each chunk
+      if (Date.now() - startTime > BATCH_TIMEOUT_MS) {
+        timedOut = true;
+        logger.warn(`Batch timeout after ${processed} points for ${username}`);
+        break;
+      }
 
-        if (isNaN(lat) || isNaN(lng)) {
-          logger.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
+      const chunk = sortedPoints.slice(i, i + CHUNK_SIZE);
+
+      for (const point of chunk) {
+        try {
+          const lat = parseFloat(point.lat);
+          const lng = parseFloat(point.lng);
+          let speed = parseFloat(point.speed) || 0;
+          if (speed < 0) speed = 0;
+
+          if (isNaN(lat) || isNaN(lng)) {
+            failed++;
+            continue;
+          }
+
+          if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            failed++;
+            continue;
+          }
+
+          // Save to live locations storage (update to latest)
+          liveLocationsStorage.set(username, {
+            username,
+            lat,
+            lng,
+            routeId: point.routeId || null,
+            speed,
+            heading: point.heading || 0,
+            timestamp: new Date(point.timestamp || Date.now())
+          });
+
+          // Update trip data
+          tripDataStorage.updateTrip(username, lat, lng, speed);
+
+          processed++;
+        } catch (pointError) {
+          logger.error(`Error processing point:`, pointError);
           failed++;
-          continue;
+          errors.push(pointError.message);
         }
-
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-          logger.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
-          failed++;
-          continue;
-        }
-
-        // Save to live locations storage (update to latest)
-        liveLocationsStorage.set(username, {
-          username,
-          lat,
-          lng,
-          routeId: point.routeId || null,
-          speed,
-          heading: point.heading || 0,
-          timestamp: new Date(point.timestamp || Date.now())
-        });
-
-        // Update trip data
-        tripDataStorage.updateTrip(username, lat, lng, speed);
-
-        processed++;
-      } catch (pointError) {
-        logger.error(`Error processing point:`, pointError);
-        failed++;
       }
     }
 
-    logger.info(`Batch update complete: ${processed} processed, ${failed} failed`);
+    logger.info(`Batch update: ${processed} processed, ${failed} failed${timedOut ? ' (timed out)' : ''}`);
 
-    res.json({
-      message: 'Batch update complete',
+    const status = timedOut ? 206 : 200;
+    res.status(status).json({
+      message: timedOut ? 'Batch partially processed (timeout)' : 'Batch update complete',
       processed,
       failed,
       total: points.length,
-      processedCount: processed,
-      failedCount: failed
+      ...(errors.length > 0 && { errors: errors.slice(0, 5) }),
+      ...(timedOut && { timedOut: true })
     });
   } catch (error) {
     logger.error('Error in batch update:', error.message);

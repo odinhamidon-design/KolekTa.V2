@@ -176,16 +176,14 @@ const useMockAuth = process.env.USE_MOCK_AUTH === 'true';
 
 // MongoDB Connection - Only connect if not using mock auth
 if (!useMockAuth) {
-  // In development, connect non-blocking; production awaits in startServer()
-  if (process.env.NODE_ENV !== 'production') {
-    const connectDB = require('./lib/mongodb');
-    connectDB().then(() => {
-      logger.info('MongoDB connected for live tracking');
-    }).catch(err => {
-      logger.error('MongoDB connection error:', err.message);
-      logger.warn('Live GPS tracking will not work without MongoDB');
-    });
-  }
+  // Start persistent connection (non-blocking, auto-reconnects forever)
+  const connectDB = require('./lib/mongodb');
+  connectDB().then(() => {
+    logger.info('MongoDB connected for live tracking');
+  }).catch(() => {
+    // attemptConnect never throws (retries forever), but guard just in case
+    logger.warn('MongoDB initial connection pending — will keep retrying');
+  });
 } else {
   logger.info('Skipping MongoDB connection (mock auth mode)');
 }
@@ -211,15 +209,18 @@ app.get('/api/health', async (req, res) => {
   };
 
   if (!useMockAuth) {
-    try {
-      const mongoose = require('mongoose');
-      health.database = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    } catch {
-      health.database = 'error';
+    const { getConnectionState } = require('./lib/mongodb');
+    health.db = getConnectionState();
+    if (health.db !== 'connected') {
+      health.status = 'degraded';
     }
   }
 
-  const statusCode = health.database === 'error' ? 503 : 200;
+  // OSRM circuit breaker status
+  const { getCircuitState } = require('./lib/osrmService');
+  health.osrm = getCircuitState().state;
+
+  const statusCode = health.status === 'degraded' ? 503 : 200;
   res.status(statusCode).json(health);
 });
 
@@ -335,18 +336,8 @@ process.on('SIGINT', () => {
 });
 
 async function startServer() {
-  // In production with MongoDB, await DB connection before listening
-  if (!useMockAuth && process.env.NODE_ENV === 'production') {
-    try {
-      const connectDB = require('./lib/mongodb');
-      await connectDB();
-      logger.info('MongoDB connected before server start');
-    } catch (err) {
-      logger.error('Cannot start without database in production:', err.message);
-      process.exit(1);
-    }
-  }
-
+  // Server starts immediately — MongoDB reconnects persistently in background
+  // Routes return 503 via requireDBConnection middleware when DB is unavailable
   app.listen(PORT, host, () => {
     logger.info(`Kolek-Ta server running on port ${PORT}`);
     logger.info(`Local: http://localhost:${PORT}`);

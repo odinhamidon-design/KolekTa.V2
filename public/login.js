@@ -50,11 +50,11 @@ document.getElementById('adminLoginForm').addEventListener('submit', async (e) =
   submitBtn.innerHTML = '<svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Signing in...';
 
   try {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetchWithRetry(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role: 'admin' })
-    });
+    }, { retryOnMutation: true });
 
     const data = await response.json();
 
@@ -85,11 +85,11 @@ document.getElementById('driverManualForm').addEventListener('submit', async (e)
   submitBtn.innerHTML = '<svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Signing in...';
 
   try {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetchWithRetry(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role: 'driver' })
-    });
+    }, { retryOnMutation: true });
 
     const data = await response.json();
 
@@ -232,7 +232,7 @@ document.getElementById('forgotUsernameForm').addEventListener('submit', async (
   submitBtn.innerHTML = '<svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
 
   try {
-    const response = await fetch(`${API_URL}/auth/forgot-password/question`, {
+    const response = await fetchWithRetry(`${API_URL}/auth/forgot-password/question`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, role })
@@ -272,7 +272,7 @@ document.getElementById('forgotSecurityForm').addEventListener('submit', async (
   submitBtn.textContent = 'Verifying...';
 
   try {
-    const response = await fetch(`${API_URL}/auth/forgot-password/verify`, {
+    const response = await fetchWithRetry(`${API_URL}/auth/forgot-password/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -326,7 +326,7 @@ document.getElementById('forgotNewPasswordForm').addEventListener('submit', asyn
   submitBtn.innerHTML = '<svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
 
   try {
-    const response = await fetch(`${API_URL}/auth/forgot-password/reset`, {
+    const response = await fetchWithRetry(`${API_URL}/auth/forgot-password/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -23,6 +23,68 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 }
 
 // Batch update for syncing offline GPS points
+const BATCH_TIMEOUT_MS = 10000; // 10 second hard timeout
+const CHUNK_SIZE = 50;
+
+async function processPoint(username, point, trip) {
+  const lat = parseFloat(point.lat);
+  const lng = parseFloat(point.lng);
+  let speed = parseFloat(point.speed) || 0;
+  if (speed < 0) speed = 0;
+
+  if (isNaN(lat) || isNaN(lng)) throw new Error('Invalid coordinates');
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) throw new Error('Out of range');
+
+  // Update live location in MongoDB
+  await LiveLocation.findOneAndUpdate(
+    { username },
+    {
+      username,
+      lat,
+      lng,
+      routeId: point.routeId || null,
+      speed,
+      heading: point.heading || 0,
+      timestamp: new Date(point.timestamp || Date.now()),
+      lastUpdate: new Date()
+    },
+    { upsert: true, new: true }
+  );
+
+  // Update trip data (sequential for this point — trip state is shared)
+  if (trip) {
+    if (trip.lastLocation && trip.lastLocation.lat && trip.lastLocation.lng) {
+      const distance = haversineDistance(
+        trip.lastLocation.lat, trip.lastLocation.lng,
+        lat, lng
+      );
+      if (distance < 1) trip.totalDistance += distance;
+
+      const timeDiff = Date.now() - (trip.lastUpdateTime ? trip.lastUpdateTime.getTime() : Date.now());
+      if (speed < 3 && trip.lastSpeed >= 3) trip.stopCount++;
+      if (speed < 5) trip.idleTimeMs += timeDiff;
+    }
+
+    trip.lastLocation = { lat, lng };
+    trip.lastUpdateTime = new Date();
+    trip.lastSpeed = speed;
+    if (speed > 0) {
+      trip.speedSamples.push(speed);
+      if (trip.speedSamples.length > 100) trip.speedSamples.shift();
+    }
+
+    // Calculate fuel estimate
+    const avgSpeed = trip.speedSamples.length > 0
+      ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
+      : 30;
+    let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
+    const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
+    const stopFuel = trip.stopCount * 0.05;
+    const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
+    trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+  }
+}
+
 router.post('/batch-update', authenticateToken, async (req, res) => {
   try {
     // Only drivers can submit GPS batch updates
@@ -49,99 +111,56 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
 
     let processed = 0;
     let failed = 0;
+    let timedOut = false;
+    const errors = [];
+    const startTime = Date.now();
 
     // Sort by timestamp to process in order
     const sortedPoints = [...points].sort((a, b) =>
       new Date(a.timestamp) - new Date(b.timestamp)
     );
 
-    for (const point of sortedPoints) {
-      try {
-        const lat = parseFloat(point.lat);
-        const lng = parseFloat(point.lng);
-        let speed = parseFloat(point.speed) || 0;
-        if (speed < 0) speed = 0;
+    // Load trip once (shared across all points)
+    const trip = await TripData.findOne({ username, isActive: true });
 
-        if (isNaN(lat) || isNaN(lng)) {
-          logger.warn(`Invalid coordinates in batch: ${point.lat}, ${point.lng}`);
+    // Process in chunks
+    for (let i = 0; i < sortedPoints.length; i += CHUNK_SIZE) {
+      // Check timeout before each chunk
+      if (Date.now() - startTime > BATCH_TIMEOUT_MS) {
+        timedOut = true;
+        logger.warn(`Batch timeout after ${processed} points for ${username}`);
+        break;
+      }
+
+      const chunk = sortedPoints.slice(i, i + CHUNK_SIZE);
+
+      // Process chunk: points must be sequential (trip state depends on order)
+      for (const point of chunk) {
+        try {
+          await processPoint(username, point, trip);
+          processed++;
+        } catch (pointError) {
           failed++;
-          continue;
+          errors.push(pointError.message);
         }
-
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-          logger.warn(`Coordinates out of range in batch: ${lat}, ${lng}`);
-          failed++;
-          continue;
-        }
-
-        // Update live location in MongoDB
-        await LiveLocation.findOneAndUpdate(
-          { username },
-          {
-            username,
-            lat,
-            lng,
-            routeId: point.routeId || null,
-            speed,
-            heading: point.heading || 0,
-            timestamp: new Date(point.timestamp || Date.now()),
-            lastUpdate: new Date()
-          },
-          { upsert: true, new: true }
-        );
-
-        // Update trip data
-        let trip = await TripData.findOne({ username, isActive: true });
-        if (trip) {
-          if (trip.lastLocation && trip.lastLocation.lat && trip.lastLocation.lng) {
-            const distance = haversineDistance(
-              trip.lastLocation.lat, trip.lastLocation.lng,
-              lat, lng
-            );
-            if (distance < 1) trip.totalDistance += distance;
-
-            const timeDiff = Date.now() - (trip.lastUpdateTime ? trip.lastUpdateTime.getTime() : Date.now());
-            if (speed < 3 && trip.lastSpeed >= 3) trip.stopCount++;
-            if (speed < 5) trip.idleTimeMs += timeDiff;
-          }
-
-          trip.lastLocation = { lat, lng };
-          trip.lastUpdateTime = new Date();
-          trip.lastSpeed = speed;
-          if (speed > 0) {
-            trip.speedSamples.push(speed);
-            if (trip.speedSamples.length > 100) trip.speedSamples.shift();
-          }
-
-          // Calculate fuel estimate
-          const avgSpeed = trip.speedSamples.length > 0
-            ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
-            : 30;
-          let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
-          const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
-          const stopFuel = trip.stopCount * 0.05;
-          const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
-          trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
-
-          await trip.save();
-        }
-
-        processed++;
-      } catch (pointError) {
-        logger.error(`Error processing point:`, pointError);
-        failed++;
       }
     }
 
-    logger.info(`Batch update complete: ${processed} processed, ${failed} failed`);
+    // Save trip once after all points
+    if (trip) {
+      await trip.save();
+    }
 
-    res.json({
-      message: 'Batch update complete',
+    logger.info(`Batch update: ${processed} processed, ${failed} failed${timedOut ? ' (timed out)' : ''}`);
+
+    const status = timedOut ? 206 : 200;
+    res.status(status).json({
+      message: timedOut ? 'Batch partially processed (timeout)' : 'Batch update complete',
       processed,
       failed,
       total: points.length,
-      processedCount: processed,
-      failedCount: failed
+      ...(errors.length > 0 && { errors: errors.slice(0, 5) }),
+      ...(timedOut && { timedOut: true })
     });
   } catch (error) {
     logger.error('Error in batch update:', error.message);
