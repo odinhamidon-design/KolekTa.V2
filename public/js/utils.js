@@ -160,8 +160,8 @@
           </div>
         </div>
         <div class="p-6 text-center">
-          <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
-          <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+          <h3 class="text-xl font-bold text-gray-800 mb-2">${escapeHtml(title)}</h3>
+          <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${escapeHtml(message)}</p>
           ${autoClose && cfg.autoCloseDelay > 0 ? `
             <div class="mt-4 w-full bg-gray-200 rounded-full h-1 overflow-hidden">
               <div class="alert-progress h-full ${cfg.buttonBg.split(' ')[0]} transition-all duration-[${cfg.autoCloseDelay}ms]" style="width: 100%"></div>
@@ -245,8 +245,8 @@
           <div class="w-16 h-16 ${cfg.iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
             <i data-lucide="${cfg.icon}" class="w-8 h-8 ${cfg.iconColor}"></i>
           </div>
-          <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
-          <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+          <h3 class="text-xl font-bold text-gray-800 mb-2">${escapeHtml(title)}</h3>
+          <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${escapeHtml(message)}</p>
         </div>
         <div class="px-6 pb-6 flex gap-3">
           <button id="confirmModalCancel" class="flex-1 border-2 border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-all transform active:scale-95 flex items-center justify-center gap-2">
@@ -314,8 +314,8 @@
             <div class="w-16 h-16 ${cfg.iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
               <i data-lucide="${cfg.icon}" class="w-8 h-8 ${cfg.iconColor}"></i>
             </div>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">${title}</h3>
-            <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${message}</p>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">${escapeHtml(title)}</h3>
+            <p class="text-gray-600 text-sm whitespace-pre-line leading-relaxed">${escapeHtml(message)}</p>
           </div>
           <div class="px-6 pb-6 flex gap-3">
             <button class="confirm-cancel flex-1 border-2 border-gray-200 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-all transform active:scale-95 flex items-center justify-center gap-2">
@@ -421,7 +421,7 @@
             <button onclick="closePage()" class="p-2 hover:bg-gray-200 rounded-lg transition-colors">
               <i data-lucide="arrow-left" class="w-5 h-5 text-gray-600"></i>
             </button>
-            <h1 class="text-2xl font-bold text-gray-800">${title}</h1>
+            <h1 class="text-2xl font-bold text-gray-800">${escapeHtml(title)}</h1>
           </div>
         </div>
         <div class="page-body">

@@ -38,7 +38,7 @@ window.showDriverHistory = async function() {
     const routes = await response.json();
     const myCompletedRoutes = routes.filter(r => 
       r.status === 'completed' && 
-      r.completedBy === user.username &&
+      r.completedBy === App.user.username &&
       r.completedAt
     );
     
@@ -275,7 +275,7 @@ window.showEditProfile = async function() {
         if (response.ok) {
           const result = await response.json();
           // Update local storage
-          const updatedUser = { ...user, ...result.user };
+          const updatedUser = { ...App.user, ...result.user };
           localStorage.setItem('user', JSON.stringify(updatedUser));
 
           closeModal();
@@ -413,7 +413,7 @@ window.removeProfilePicture = async function() {
       // Update header
       const headerPic = document.getElementById('headerProfilePic');
       if (headerPic) {
-        headerPic.innerHTML = escapeHtml((user.fullName || user.username).charAt(0).toUpperCase());
+        headerPic.innerHTML = escapeHtml((App.user.fullName || App.user.username).charAt(0).toUpperCase());
       }
 
       // Refresh profile view

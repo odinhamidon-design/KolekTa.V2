@@ -7,7 +7,8 @@
 
 // Check authentication
 const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || '{}');
+// NOTE: Do NOT create a local `user` const — use App.user as single source of truth
+// to avoid stale references after profile updates.
 
 if (!token) {
   window.location.href = 'login.html';
@@ -19,14 +20,14 @@ function initializeApp() {
   const headerProfilePic = document.getElementById('headerProfilePic');
   const headerUserName = document.getElementById('headerUserName');
   if (headerProfilePic) {
-    headerProfilePic.textContent = (user.fullName || user.username || 'U').charAt(0).toUpperCase();
+    headerProfilePic.textContent = (App.user.fullName || App.user.username || 'U').charAt(0).toUpperCase();
   }
   if (headerUserName) {
-    headerUserName.textContent = user.fullName || user.username || 'User';
+    headerUserName.textContent = App.user.fullName || App.user.username || 'User';
   }
 
   // Show/hide panels based on role
-  if (user.role === 'admin') {
+  if (App.user.role === 'admin') {
     // Show admin controls panel
     const adminControls = document.getElementById('adminControls');
     if (adminControls) {
@@ -35,18 +36,18 @@ function initializeApp() {
     // Create permanent notification icon after a small delay to ensure DOM is ready
     setTimeout(() => {
       createNotificationIcon();
-      // Start checking for notifications
+      // Start checking for notifications (store handles for cleanup on logout)
       checkCompletionNotifications();
-      setInterval(checkCompletionNotifications, 30000); // Check every 30 seconds
+      App.intervals.notificationCheck = setInterval(checkCompletionNotifications, 30000);
 
       // Start checking for new complaints
       checkNewComplaints();
-      setInterval(checkNewComplaints, 30000); // Check every 30 seconds
+      App.intervals.complaintCheck = setInterval(checkNewComplaints, 30000);
 
       // Show dashboard by default for admins
       showDashboard();
     }, 100);
-  } else if (user.role === 'driver') {
+  } else if (App.user.role === 'driver') {
     // Check if desktop view (lg breakpoint = 1024px)
     const isDesktop = window.innerWidth >= 1024;
 
@@ -123,6 +124,11 @@ function initializeApp() {
 // (loaded last, after all modules and app.js are ready)
 
 function logout() {
+  // Clear all tracked intervals to prevent memory leaks
+  Object.keys(App.intervals).forEach(key => {
+    clearInterval(App.intervals[key]);
+    delete App.intervals[key];
+  });
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = 'login.html';
@@ -735,8 +741,8 @@ async function loadHeaderProfilePicture() {
   window.showDashboard = showDashboard;
   window.setActiveSidebarButton = setActiveSidebarButton;
   window.loadHeaderProfilePicture = loadHeaderProfilePicture;
-  // Backward compat: remaining app.js code references bare `token` and `user`
+  // Backward compat: remaining modules reference bare `token` and `user`
   window.token = token;
-  window.user = user;
+  window.user = App.user;
 
 })();
