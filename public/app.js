@@ -281,8 +281,12 @@ window.showEditProfile = async function() {
           closeModal();
           showToast('Profile updated successfully!', 'success');
 
-          // Refresh the page to update header
-          location.reload();
+          // Update header without full page reload
+          window.user = updatedUser;
+          App.user = updatedUser;
+          const headerName = document.querySelector('[id="headerUserName"], .header-user-name');
+          if (headerName) headerName.textContent = updatedUser.fullName || updatedUser.username;
+          loadHeaderProfilePicture();
         } else {
           const error = await response.json();
           showToast(error.error || 'Failed to update profile', 'error');
