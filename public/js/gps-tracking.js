@@ -1439,15 +1439,11 @@
     });
   }
   
-  // Admin: Show live truck locations on map
-
   // Expose to global scope
   window.startGPSTracking = startGPSTracking;
   window.stopGPSTracking = stopGPSTracking;
   window.updateTruckMarker = updateTruckMarker;
   window.positionTruckAtFirstBin = positionTruckAtFirstBin;
-  window.showLiveTruckLocations = showLiveTruckLocations;
-  window.updateLiveTruckLocations = updateLiveTruckLocations;
   window.showTrackingStatus = showTrackingStatus;
   window.getCurrentActiveRoute = getCurrentActiveRoute;
   window.drawRouteVisualization = drawRouteVisualization;

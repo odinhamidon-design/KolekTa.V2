@@ -1534,5 +1534,6 @@ window.assignRouteToDriver = async function(routeId) {
   // Expose on window
   window.showRoutesManagement = showRoutesManagement;
   window.renderRoutesTable = renderRoutesTable;
+  window.clearTempMarkers = clearTempMarkers;
 
 })();
