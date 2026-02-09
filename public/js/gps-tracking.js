@@ -90,7 +90,7 @@
   
         // Update truck marker with real GPS position
         updateTruckMarker(position);
-        showTrackingStatus(true);
+        if (typeof DriverState !== 'undefined') DriverState.setGPSState(true);
   
         // Start live fuel estimation polling
         startTripDataPolling();
@@ -98,10 +98,6 @@
         // Show success feedback
         showToast('GPS tracking active!', 'success');
   
-        // Sync overlay GPS state
-        if (typeof syncOverlayGPSState === 'function') {
-          syncOverlayGPSState();
-        }
       },
       error => {
         console.error('❌ GPS Error:', error.code, error.message);
@@ -111,7 +107,7 @@
             errorMsg = 'Location permission denied. Please allow GPS access in your browser settings.';
             showAlertModal('GPS Permission Denied', 'Please allow location access:\n\n1. Click the lock icon in the address bar\n2. Allow Location access\n3. Refresh the page', 'warning');
             trackingEnabled = false;
-            updateGPSButtonState(false);
+            if (typeof DriverState !== 'undefined') DriverState.setGPSState(false);
             break;
           case error.POSITION_UNAVAILABLE:
             errorMsg = 'Location unavailable. Make sure GPS is enabled on your device.';
@@ -123,12 +119,7 @@
             break;
         }
         console.error('GPS Error Details:', errorMsg);
-        showTrackingStatus(false, errorMsg);
-  
-        // Sync overlay GPS state on error too
-        if (typeof syncOverlayGPSState === 'function') {
-          syncOverlayGPSState();
-        }
+        if (typeof DriverState !== 'undefined') DriverState.setGPSState(false, errorMsg);
       },
       {
         enableHighAccuracy: true,
@@ -1005,21 +996,12 @@
       if (trackingEnabled) {
         console.log('⏹️ Stopping GPS tracking...');
         stopGPSTracking();
-        updateGPSButtonState(false);
+        if (typeof DriverState !== 'undefined') DriverState.setGPSState(false);
         showToast('GPS tracking stopped', 'info');
       } else {
         console.log('▶️ Starting GPS tracking...');
-        // Update button state immediately for visual feedback
-        updateGPSButtonState(true);
+        if (typeof DriverState !== 'undefined') DriverState.setGPSState(true);
         startGPSTracking();
-      }
-      // Sync overlay GPS state immediately (desktop)
-      if (typeof syncOverlayGPSState === 'function') {
-        syncOverlayGPSState();
-      }
-      // Sync mobile overlay GPS state
-      if (typeof updateMobileGpsStatus === 'function') {
-        updateMobileGpsStatus();
       }
     } catch (error) {
       console.error('❌ Error in toggleGPSTracking:', error);
@@ -1027,41 +1009,6 @@
     }
   };
   
-  // Update GPS button state
-  function updateGPSButtonState(isActive) {
-    const desktopBtn = document.getElementById('startGpsBtn');
-    const mobileBtn = document.getElementById('mobileGpsBtn');
-    const mobileBtnText = document.getElementById('mobileGpsBtnText');
-  
-    if (isActive) {
-      if (desktopBtn) {
-        desktopBtn.innerHTML = '<i data-lucide="navigation-off" class="w-5 h-5"></i><span>Stop GPS Tracking</span>';
-        desktopBtn.classList.remove('bg-primary-500', 'hover:bg-primary-600');
-        desktopBtn.classList.add('bg-red-500', 'hover:bg-red-600');
-      }
-      if (mobileBtn) {
-        mobileBtn.innerHTML = '<i data-lucide="navigation-off" class="w-5 h-5"></i><span id="mobileGpsBtnText">Stop GPS</span>';
-        mobileBtn.classList.remove('bg-primary-500', 'hover:bg-primary-600');
-        mobileBtn.classList.add('bg-red-500', 'hover:bg-red-600');
-      }
-    } else {
-      if (desktopBtn) {
-        desktopBtn.innerHTML = '<i data-lucide="navigation" class="w-5 h-5"></i><span>Start GPS Tracking</span>';
-        desktopBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
-        desktopBtn.classList.add('bg-primary-500', 'hover:bg-primary-600');
-      }
-      if (mobileBtn) {
-        mobileBtn.innerHTML = '<i data-lucide="navigation" class="w-5 h-5"></i><span id="mobileGpsBtnText">Start GPS</span>';
-        mobileBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
-        mobileBtn.classList.add('bg-primary-500', 'hover:bg-primary-600');
-      }
-    }
-  
-    // Re-initialize lucide icons
-    if (typeof lucide !== 'undefined') {
-      lucide.createIcons();
-    }
-  }
   
   // Stop GPS tracking
   function stopGPSTracking() {
@@ -1124,7 +1071,7 @@
       }
     }).catch(error => console.error('Error clearing location:', error));
   
-    showTrackingStatus(false);
+    if (typeof DriverState !== 'undefined') DriverState.setGPSState(false);
   }
   
   // Update location on server
@@ -1307,31 +1254,6 @@
     return localStorage.getItem('activeRouteId') || null;
   }
   
-  // Show tracking status in UI
-  function showTrackingStatus(isActive, errorMessage = '') {
-    const panel = document.getElementById('gpsStatusPanel');
-    const icon = document.getElementById('gpsStatusIcon');
-    const text = document.getElementById('gpsStatusText');
-    const detail = document.getElementById('gpsStatusDetail');
-    
-    if (!panel || !icon || !text || !detail) return;
-    
-    if (isActive) {
-      panel.style.borderLeftColor = '#4caf50';
-      panel.style.background = '#e8f5e9';
-      icon.textContent = '🟢';
-      text.textContent = 'GPS Active';
-      text.style.color = '#2e7d32';
-      detail.textContent = errorMessage || 'Location is being tracked';
-    } else {
-      panel.style.borderLeftColor = '#f44336';
-      panel.style.background = '#ffebee';
-      icon.textContent = '🔴';
-      text.textContent = 'GPS Error';
-      text.style.color = '#c62828';
-      detail.textContent = errorMessage || 'Location tracking failed';
-    }
-  }
   
   // Test GPS connection
   window.testGPSConnection = async function() {
@@ -1444,14 +1366,12 @@
   window.stopGPSTracking = stopGPSTracking;
   window.updateTruckMarker = updateTruckMarker;
   window.positionTruckAtFirstBin = positionTruckAtFirstBin;
-  window.showTrackingStatus = showTrackingStatus;
   window.getCurrentActiveRoute = getCurrentActiveRoute;
   window.drawRouteVisualization = drawRouteVisualization;
   window.clearRouteVisualization = clearRouteVisualization;
   window.showRouteLegend = showRouteLegend;
   window.hideRouteLegend = hideRouteLegend;
   window.updateETAPanel = updateETAPanel;
-  window.updateGPSButtonState = updateGPSButtonState;
   window.startTripDataPolling = startTripDataPolling;
   window.stopTripDataPolling = stopTripDataPolling;
   window.initializeNavigation = initializeNavigation;

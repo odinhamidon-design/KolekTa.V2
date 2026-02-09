@@ -70,11 +70,6 @@ function initializeApp() {
       if (driverAssignmentsOverlay) driverAssignmentsOverlay.classList.remove('hidden');
       if (driverStatsOverlay) driverStatsOverlay.classList.remove('hidden');
 
-      // Load driver data into overlays
-      setTimeout(() => {
-        if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
-        if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
-      }, 100);
     } else {
       // Mobile view - use existing sidebar/mobile nav
       const driverPanel = document.getElementById('driverPanel');
@@ -83,10 +78,6 @@ function initializeApp() {
 
       if (driverPanel) {
         driverPanel.classList.remove('hidden');
-        setTimeout(() => {
-          loadDriverAssignments();
-          updateDriverQuickStats();
-        }, 100);
       }
       if (driverHistoryPanel) {
         driverHistoryPanel.classList.remove('hidden');
@@ -107,10 +98,16 @@ function initializeApp() {
     const mobileDriverOverlay = document.getElementById('mobileDriverOverlay');
     if (mobileDriverOverlay && !isDesktop) {
       mobileDriverOverlay.classList.remove('hidden');
-      // Sync mobile overlay state
-      setTimeout(() => {
-        if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
-      }, 200);
+    }
+
+    // Centralized driver state: single auto-refresh for all viewports
+    if (typeof DriverState !== 'undefined') {
+      DriverState.startAutoRefresh(30000);
+
+      // Register sidebar assignment rendering as listener
+      DriverState.on('assignments-updated', function() {
+        if (typeof loadDriverAssignments === 'function') loadDriverAssignments();
+      });
     }
   }
 

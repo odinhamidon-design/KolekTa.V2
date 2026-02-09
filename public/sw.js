@@ -32,6 +32,7 @@ const STATIC_ASSETS = [
   '/js/admin-schedules.js',
   '/js/admin-reports.js',
   '/js/admin-analytics.js',
+  '/js/driver-state.js',
   '/js/gps-tracking.js',
   '/js/driver-dashboard.js',
   '/js/driver-routes.js',

@@ -192,8 +192,7 @@
         lucide.createIcons();
       }
   
-      // Auto-refresh every 30 seconds
-      setTimeout(loadDriverAssignments, 30000);
+      // Auto-refresh handled by DriverState.startAutoRefresh()
     } catch (error) {
       console.error('Error loading assignments:', error);
       container.innerHTML = `
@@ -307,10 +306,10 @@
       showAlertModal('Collection Started', `Route: ${route.name}\n\nTruck positioned at first bin\nGPS tracking active`, 'success');
   
       // Refresh assignments to show updated status
-      loadDriverAssignments();
-      if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
-      if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
-      if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
+      if (typeof DriverState !== 'undefined') {
+        DriverState.refreshAssignments();
+        DriverState.setGPSState(true);
+      }
   
     } catch (error) {
       console.error('Error starting collection:', error);
@@ -331,11 +330,11 @@
     localStorage.removeItem('activeRouteId');
   
     // Refresh assignments
-    loadDriverAssignments();
-    if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
-    if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
-    if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
-  
+    if (typeof DriverState !== 'undefined') {
+      DriverState.refreshAssignments();
+      DriverState.setGPSState(false);
+    }
+
     showAlertModal('Collection Stopped', 'You can restart anytime from your assignments.', 'info');
   };
   
@@ -523,13 +522,11 @@
             showAlertModal('Route Completed', `Route marked as complete! Admin has been notified.\n\n📊 Trip Summary:\n• Distance: ${tripDistanceKm.toFixed(2)} km\n• Est. Fuel: ${tripFuelLiters.toFixed(2)} L`, 'success');
             closeModal();
             localStorage.removeItem('activeRouteId');
-            loadDriverAssignments();
-            if (typeof loadDriverAssignmentsOverlay === 'function') loadDriverAssignmentsOverlay();
-            if (typeof updateDriverQuickStats === 'function') updateDriverQuickStats();
-            if (typeof updateDriverOverlayStats === 'function') updateDriverOverlayStats();
             stopGPSTracking();
-            if (typeof syncOverlayGPSState === 'function') syncOverlayGPSState();
-            if (typeof syncMobileOverlay === 'function') syncMobileOverlay();
+            if (typeof DriverState !== 'undefined') {
+              DriverState.setGPSState(false);
+              DriverState.refreshAssignments();
+            }
           } else {
             const error = await response.json();
             showToast(error.error || 'Failed to complete route', 'error');
