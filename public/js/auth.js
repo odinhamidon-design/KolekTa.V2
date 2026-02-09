@@ -307,15 +307,21 @@ async function showDashboard() {
       fetch(`${API_URL}/tracking/active`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ json: () => [] }))
     ]);
 
-    const users = await usersRes.json();
-    const trucks = await trucksRes.json();
-    const routes = await routesRes.json();
-    const activeDrivers = await trackingRes.json().catch(() => []);
+    const usersData = await usersRes.json().catch(() => []);
+    const trucksData = await trucksRes.json().catch(() => []);
+    const routesData = await routesRes.json().catch(() => []);
+    const activeDriversData = await trackingRes.json().catch(() => []);
+
+    // Ensure all data is array (API may return { error: "..." } on failure)
+    const users = Array.isArray(usersData) ? usersData : [];
+    const trucks = Array.isArray(trucksData) ? trucksData : [];
+    const routes = Array.isArray(routesData) ? routesData : [];
+    const activeDrivers = Array.isArray(activeDriversData) ? activeDriversData : [];
 
     // Calculate statistics
     const drivers = users.filter(u => u.role === 'driver');
     const admins = users.filter(u => u.role === 'admin');
-    const activeDriverCount = Array.isArray(activeDrivers) ? activeDrivers.length : 0;
+    const activeDriverCount = activeDrivers.length;
 
     const availableTrucks = trucks.filter(t => t.status === 'available').length;
     const inUseTrucks = trucks.filter(t => t.status === 'in-use').length;
