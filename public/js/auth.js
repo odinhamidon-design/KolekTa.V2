@@ -43,9 +43,6 @@ function initializeApp() {
       checkNewComplaints();
       setInterval(checkNewComplaints, 30000); // Check every 30 seconds
 
-      // Start live truck tracking on map
-      showLiveTruckLocations();
-
       // Show dashboard by default for admins
       showDashboard();
     }, 100);
@@ -276,6 +273,10 @@ if (viewDriverHistoryBtn) {
 // ============================================
 async function showDashboard() {
   setActiveSidebarButton('dashboardBtn');
+  // Clean up live tracking panel when returning to dashboard
+  const livePanel = document.getElementById('liveTrackingPanel');
+  if (livePanel) livePanel.remove();
+  clearTempMarkers();
   showPageContent();
 
   const pageContent = document.getElementById('pageContent');

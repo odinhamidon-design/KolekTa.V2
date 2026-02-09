@@ -13,7 +13,13 @@ let cachedRoutesData = [];
 let cachedRouteDrivers = [];
 
 async function showRoutesManagement() {
-  showPageLoading('Loading routes...');
+  setActiveSidebarButton('routesManagementBtn');
+  showPage('Routes Management', `
+    <div class="flex flex-col items-center justify-center py-16">
+      <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500">Loading routes...</p>
+    </div>
+  `);
   try {
     const token = localStorage.getItem('token');
     const headers = { 'Authorization': `Bearer ${token}` };
@@ -33,7 +39,6 @@ async function showRoutesManagement() {
     renderRoutesTable();
   } catch (error) {
     console.error('Error loading routes:', error);
-    hidePageLoading();
     showPage('Routes Management', `
       <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
@@ -186,7 +191,6 @@ function renderRoutesTable() {
       `;
     }).join('');
 
-    hidePageLoading();
     showPage('Routes Management', `
       <!-- Stats Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

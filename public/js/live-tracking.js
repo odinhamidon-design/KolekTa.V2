@@ -322,8 +322,7 @@
   // Show live truck tracking panel - MAP FOCUSED VIEW
   window.showLiveTruckPanel = async function() {
     setActiveSidebarButton('liveTruckTrackingBtn');
-    showPageLoading('Loading live trucks...');
-  
+
     // Show map view instead of page content
     showMapView();
   
@@ -424,11 +423,9 @@
       // Create floating panel for truck list
       createLiveTrackingPanel(trucks, liveCount, offlineCount);
   
-      hidePageLoading();
     } catch (error) {
       console.error('Error loading truck tracking:', error);
       showToast('Error loading truck data: ' + error.message, 'error');
-      hidePageLoading();
     }
   };
   
@@ -562,7 +559,6 @@
   
   // Enhanced: Show truck with its assigned route on the map
   window.showTruckWithRoute = async function(truckData) {
-    showPageLoading('Loading truck details...');
     const { truckId, routeId, lat, lng, fullName, username, speed, plateNumber, model, routeName, isLive } = truckData;
   
     // Clear existing route markers but keep truck markers
@@ -711,7 +707,6 @@
   
   // Show truck information panel
   function showTruckInfoPanel(truckData, route, distanceKm, durationMin) {
-    hidePageLoading(); // Hide loading when panel shows
     const { truckId, fullName, username, speed, plateNumber, model, routeName, isLive, lat, lng } = truckData;
   
     // Remove existing panel

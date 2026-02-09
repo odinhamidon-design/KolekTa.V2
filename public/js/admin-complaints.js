@@ -180,13 +180,19 @@
   
   // Main complaints management view
   async function showComplaints() {
+    setActiveSidebarButton('complaintsBtn');
     if (user.role !== 'admin') {
       showToast('Admin access required', 'error');
       return;
     }
-  
-    showPageLoading('Loading complaints...');
-  
+
+    showPage('Public Complaints', `
+      <div class="flex flex-col items-center justify-center py-16">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-500">Loading complaints...</p>
+      </div>
+    `);
+
     try {
       const token = localStorage.getItem('token');
       const [complaintsRes, statsRes, usersRes] = await Promise.all([
@@ -273,8 +279,7 @@
       const barangayOptions = BARANGAYS.map(b =>
         `<option value="${b}">${b}</option>`
       ).join('');
-  
-      hidePageLoading();
+
       showPage('Public Complaints', `
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -410,7 +415,6 @@
   
     } catch (error) {
       console.error('Error loading complaints:', error);
-      hidePageLoading();
       showPage('Public Complaints', `
         <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>

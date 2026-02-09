@@ -9,7 +9,13 @@
 var cachedUsersData = [];
 
 async function showUserManagement() {
-  showPageLoading('Loading users...');
+  setActiveSidebarButton('userManagementBtn');
+  showPage('User Management', `
+    <div class="flex flex-col items-center justify-center py-16">
+      <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500">Loading users...</p>
+    </div>
+  `);
   try {
     const response = await fetchWithRetry(`${API_URL}/users`);
     cachedUsersData = await response.json();
@@ -20,7 +26,6 @@ async function showUserManagement() {
     renderUserTable();
   } catch (error) {
     console.error('Error loading users:', error);
-    hidePageLoading();
     showPage('User Management', `
       <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
@@ -136,7 +141,6 @@ function renderUserTable() {
     `;
   }).join('');
 
-    hidePageLoading();
     showPage('User Management', `
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

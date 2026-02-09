@@ -329,6 +329,7 @@
   
   // Show notification history
   window.showNotificationHistory = async function() {
+    setActiveSidebarButton('completionHistoryBtn');
     // Show loading state immediately
     showPage('Completion History', `
       <div class="flex flex-col items-center justify-center py-16">

@@ -546,7 +546,6 @@
       return;
     }
   
-    showPageLoading('Loading route...');
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/routes/${activeRouteId}`, {
@@ -657,12 +656,9 @@
   
       // Show navigation panel
       showNavigationPanel(route, stops, completedStops);
-  
-      hidePageLoading();
     } catch (error) {
       console.error('Error showing route navigation:', error);
       showToast('Error loading route', 'error');
-      hidePageLoading();
     }
   };
   

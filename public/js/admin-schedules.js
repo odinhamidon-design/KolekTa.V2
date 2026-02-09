@@ -368,9 +368,13 @@
     }
   
     setActiveSidebarButton('specialPickupsBtn');
-    showPageContent();
-    showPageLoading('Loading special pickup requests...');
-  
+    showPage('Special Pickups', `
+      <div class="flex flex-col items-center justify-center py-16">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-500">Loading special pickup requests...</p>
+      </div>
+    `);
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry('/api/resident/admin/special-pickups', {
@@ -497,11 +501,9 @@
       `;
   
       lucide.createIcons();
-      hidePageLoading();
     } catch (error) {
       console.error('Error loading special pickups:', error);
       showPageError('Failed to load special pickup requests');
-      hidePageLoading();
     }
   }
   
@@ -635,9 +637,13 @@
     }
   
     setActiveSidebarButton('announcementsAdminBtn');
-    showPageContent();
-    showPageLoading('Loading announcements...');
-  
+    showPage('Announcements', `
+      <div class="flex flex-col items-center justify-center py-16">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-500">Loading announcements...</p>
+      </div>
+    `);
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry('/api/resident/admin/announcements', {
@@ -741,11 +747,9 @@
       `;
   
       lucide.createIcons();
-      hidePageLoading();
     } catch (error) {
       console.error('Error loading announcements:', error);
       showPageError('Failed to load announcements');
-      hidePageLoading();
     }
   }
   
@@ -1025,9 +1029,13 @@
     }
   
     setActiveSidebarButton('schedulesBtn');
-    showPageContent();
-    showPageLoading('Loading schedules...');
-  
+    showPage('Collection Schedules', `
+      <div class="flex flex-col items-center justify-center py-16">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-500">Loading schedules...</p>
+      </div>
+    `);
+
     try {
       const token = localStorage.getItem('token');
       const [schedulesRes, statsRes, routesRes, usersRes, trucksRes] = await Promise.all([
@@ -1370,7 +1378,6 @@
         </div>
       `;
   
-      hidePageLoading();
       lucide.createIcons();
   
       // Setup form submission
@@ -1378,7 +1385,6 @@
   
     } catch (error) {
       console.error('Error loading schedules:', error);
-      hidePageLoading();
       showToast('Error loading schedules', 'error');
     }
   }

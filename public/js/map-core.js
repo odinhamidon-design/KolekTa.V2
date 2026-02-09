@@ -141,6 +141,9 @@
   function showPageContent() {
     var mapContainer = document.getElementById('mapContainer');
     var pageContainer = document.getElementById('pageContainer');
+    var pageContent = document.getElementById('pageContent');
+    // Clear stale content before showing container to prevent flicker
+    if (pageContent) pageContent.innerHTML = '';
     if (mapContainer) mapContainer.classList.add('hidden');
     if (pageContainer) pageContainer.classList.remove('hidden');
   }
@@ -148,6 +151,9 @@
   function showMapView() {
     var mapContainer = document.getElementById('mapContainer');
     var pageContainer = document.getElementById('pageContainer');
+    var pageContent = document.getElementById('pageContent');
+    // Clear stale content to prevent flicker on next page show
+    if (pageContent) pageContent.innerHTML = '';
     if (mapContainer) mapContainer.classList.remove('hidden');
     if (pageContainer) pageContainer.classList.add('hidden');
   }

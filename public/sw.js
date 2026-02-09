@@ -3,7 +3,7 @@
  * Enables offline functionality for drivers
  */
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 1770601574760;
 const STATIC_CACHE = `kolekta-static-v${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `kolekta-dynamic-v${CACHE_VERSION}`;
 

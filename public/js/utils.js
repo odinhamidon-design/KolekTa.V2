@@ -409,9 +409,11 @@
     const pageContainer = document.getElementById('pageContainer');
     const pageContent = document.getElementById('pageContent');
 
-    mapContainer.classList.add('hidden');
-    pageContainer.classList.remove('hidden');
+    // Clean up live tracking panel if navigating away from tracking
+    const livePanel = document.getElementById('liveTrackingPanel');
+    if (livePanel) livePanel.remove();
 
+    // Set new content BEFORE showing the container to prevent flicker
     pageContent.innerHTML = `
       <div class="animate-fade-in">
         <div class="flex items-center justify-between mb-6">
@@ -427,6 +429,9 @@
         </div>
       </div>
     `;
+
+    mapContainer.classList.add('hidden');
+    pageContainer.classList.remove('hidden');
 
     if (typeof lucide !== 'undefined') {
       setTimeout(() => lucide.createIcons(), 50);

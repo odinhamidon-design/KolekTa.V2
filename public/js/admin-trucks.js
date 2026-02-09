@@ -10,7 +10,13 @@ let cachedTrucksData = [];
 let cachedTruckDrivers = [];
 
 async function showTruckManagement() {
-  showPageLoading('Loading trucks...');
+  setActiveSidebarButton('truckManagementBtn');
+  showPage('Truck Management', `
+    <div class="flex flex-col items-center justify-center py-16">
+      <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+      <p class="text-gray-500">Loading trucks...</p>
+    </div>
+  `);
   try {
     const [trucksRes, usersRes] = await Promise.all([
       fetch(`${API_URL}/trucks`),
@@ -30,7 +36,6 @@ async function showTruckManagement() {
     renderTruckTable();
   } catch (error) {
     console.error('Error loading trucks:', error);
-    hidePageLoading();
     showPage('Truck Management', `
       <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
@@ -153,7 +158,6 @@ function renderTruckTable() {
       `;
     }).join('');
 
-    hidePageLoading();
     showPage('Truck Management', `
       <!-- Stats Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

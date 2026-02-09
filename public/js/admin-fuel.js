@@ -9,7 +9,13 @@
   let cachedFuelData = { trucks: [], fleet: {} };
   
   async function showFuelManagement() {
-    showPageLoading('Loading fuel data...');
+    setActiveSidebarButton('fuelManagementBtn');
+    showPage('Fuel Management', `
+      <div class="flex flex-col items-center justify-center py-16">
+        <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-500">Loading fuel data...</p>
+      </div>
+    `);
     try {
       const response = await fetchWithRetry(`${API_URL}/fuel/all-stats`);
       const data = await response.json();
@@ -22,7 +28,6 @@
       renderFuelCards();
     } catch (error) {
       console.error('Error loading fuel data:', error);
-      hidePageLoading();
       showPage('Fuel Management', `
         <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <i data-lucide="alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-3"></i>
@@ -219,7 +224,6 @@
         </div>
       `);
   
-      hidePageLoading();
       lucide.createIcons();
   }
   
