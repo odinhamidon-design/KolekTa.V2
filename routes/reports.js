@@ -324,4 +324,161 @@ router.get('/complaint-analytics', authenticateToken, async (req, res) => {
   }
 });
 
+// Analytics Heatmap Data (mock mode)
+router.get('/analytics-data', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { startDate, endDate } = req.query;
+    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate) : new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const barangays = [
+      { name: 'Badas', center: { lat: 6.9380, lng: 126.2050 } },
+      { name: 'Bobon', center: { lat: 6.9420, lng: 126.2250 } },
+      { name: 'Buso', center: { lat: 6.9350, lng: 126.2380 } },
+      { name: 'Cabuaya', center: { lat: 6.9580, lng: 126.1980 } },
+      { name: 'Central', center: { lat: 6.9549, lng: 126.2185 } },
+      { name: 'Culaman', center: { lat: 6.9680, lng: 126.2350 } },
+      { name: 'Dahican', center: { lat: 6.9150, lng: 126.2850 } },
+      { name: 'Danao', center: { lat: 6.9750, lng: 126.2100 } },
+      { name: 'Dawan', center: { lat: 6.9480, lng: 126.2450 } },
+      { name: 'Don Enrique Lopez', center: { lat: 6.9620, lng: 126.2280 } },
+      { name: 'Don Martin Marundan', center: { lat: 6.9720, lng: 126.1950 } },
+      { name: 'Don Salvador Lopez', center: { lat: 6.9520, lng: 126.2080 } },
+      { name: 'Langka', center: { lat: 6.9450, lng: 126.1920 } },
+      { name: 'Lawigan', center: { lat: 6.9280, lng: 126.2180 } },
+      { name: 'Libudon', center: { lat: 6.9650, lng: 126.2480 } },
+      { name: 'Limot', center: { lat: 6.9180, lng: 126.2650 } },
+      { name: 'Luban', center: { lat: 6.9320, lng: 126.2520 } },
+      { name: 'Macambol', center: { lat: 6.9580, lng: 126.2550 } },
+      { name: 'Mamali', center: { lat: 6.9480, lng: 126.1850 } },
+      { name: 'Matiao', center: { lat: 6.9380, lng: 126.2680 } },
+      { name: 'Mayo', center: { lat: 6.9220, lng: 126.2350 } },
+      { name: 'Sainz', center: { lat: 6.9620, lng: 126.2080 } },
+      { name: 'Sanghay', center: { lat: 6.9250, lng: 126.2480 } },
+      { name: 'Tagabakid', center: { lat: 6.9780, lng: 126.2250 } },
+      { name: 'Tagbinonga', center: { lat: 6.9480, lng: 126.2320 } },
+      { name: 'Taguibo', center: { lat: 6.9350, lng: 126.1780 } }
+    ];
+
+    const routes = routesStorage.getAll();
+    const complaints = complaintsStorage.getAll();
+
+    // Filter completed routes within date range
+    const completedRoutes = routes.filter(r => {
+      if (r.status !== 'completed' || !r.completedAt) return false;
+      const completedDate = new Date(r.completedAt);
+      return completedDate >= start && completedDate <= end;
+    });
+
+    // Extract route points from stops
+    const routePoints = [];
+    completedRoutes.forEach(route => {
+      if (route.stops) {
+        route.stops.forEach(stop => {
+          if (stop.lat && stop.lng) {
+            routePoints.push({
+              lat: stop.lat,
+              lng: stop.lng,
+              intensity: 1,
+              routeId: route.routeId || route._id,
+              completedAt: route.completedAt
+            });
+          }
+        });
+      }
+    });
+
+    // Filter complaints within date range
+    const filteredComplaints = complaints.filter(c => {
+      const createdDate = new Date(c.createdAt);
+      return createdDate >= start && createdDate <= end;
+    });
+
+    const complaintPoints = filteredComplaints
+      .map(c => ({
+        lat: c.location?.coordinates?.[1] || c.lat,
+        lng: c.location?.coordinates?.[0] || c.lng,
+        severity: c.priority || 'medium',
+        type: c.type || 'general',
+        barangay: c.barangay,
+        createdAt: c.createdAt
+      }))
+      .filter(p => p.lat && p.lng);
+
+    // Calculate barangay statistics
+    const proximityRadius = 0.015;
+    const barangayStats = barangays.map(barangay => {
+      const routeCompletions = routePoints.filter(p => {
+        const latDiff = Math.abs(p.lat - barangay.center.lat);
+        const lngDiff = Math.abs(p.lng - barangay.center.lng);
+        return latDiff < proximityRadius && lngDiff < proximityRadius;
+      }).length;
+
+      const barangayComplaints = complaintPoints.filter(p => {
+        if (p.barangay && p.barangay.toLowerCase().includes(barangay.name.toLowerCase())) {
+          return true;
+        }
+        const latDiff = Math.abs(p.lat - barangay.center.lat);
+        const lngDiff = Math.abs(p.lng - barangay.center.lng);
+        return latDiff < proximityRadius && lngDiff < proximityRadius;
+      }).length;
+
+      return {
+        name: barangay.name,
+        center: barangay.center,
+        routeCompletions,
+        complaints: barangayComplaints
+      };
+    });
+
+    const maxCompletions = Math.max(...barangayStats.map(b => b.routeCompletions), 1);
+    const maxComplaints = Math.max(...barangayStats.map(b => b.complaints), 1);
+
+    const barangayStatsWithScores = barangayStats.map(b => {
+      const coverageScore = (b.routeCompletions / maxCompletions) * 100;
+      const complaintPenalty = (b.complaints / maxComplaints) * 100;
+      let serviceScore = Math.round((coverageScore * 0.7) - (complaintPenalty * 0.3) + 30);
+      serviceScore = Math.max(0, Math.min(100, serviceScore));
+      const status = serviceScore >= 70 ? 'well-served' :
+                     serviceScore >= 40 ? 'moderate' : 'underserved';
+      return { ...b, serviceScore, status };
+    });
+
+    barangayStatsWithScores.sort((a, b) => b.serviceScore - a.serviceScore);
+
+    const totalRouteCompletions = completedRoutes.length;
+    const totalComplaints = complaintPoints.length;
+    const avgServiceScore = barangayStatsWithScores.length > 0
+      ? Math.round(barangayStatsWithScores.reduce((sum, b) => sum + b.serviceScore, 0) / barangayStatsWithScores.length)
+      : 0;
+    const wellServedCount = barangayStatsWithScores.filter(b => b.status === 'well-served').length;
+    const underservedCount = barangayStatsWithScores.filter(b => b.status === 'underserved').length;
+
+    res.json({
+      period: {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0]
+      },
+      routePoints,
+      complaintPoints,
+      barangayStats: barangayStatsWithScores,
+      summary: {
+        totalRouteCompletions,
+        totalComplaints,
+        avgServiceScore,
+        wellServedCount,
+        underservedCount
+      }
+    });
+  } catch (error) {
+    logger.error('Error generating analytics data:', error);
+    res.status(500).json({ error: 'An internal error occurred' });
+  }
+});
+
 module.exports = router;

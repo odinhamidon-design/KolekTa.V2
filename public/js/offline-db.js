@@ -331,7 +331,7 @@ const OfflineDB = {
       const point = {
         ...gpsData,
         timestamp: new Date().toISOString(),
-        synced: false
+        synced: 0
       };
 
       const request = store.add(point);
@@ -358,7 +358,7 @@ const OfflineDB = {
       const transaction = db.transaction([this.STORES.GPS_QUEUE], 'readonly');
       const store = transaction.objectStore(this.STORES.GPS_QUEUE);
       const index = store.index('synced');
-      const request = index.getAll(false);
+      const request = index.getAll(IDBKeyRange.only(0));
 
       request.onsuccess = () => {
         resolve(request.result);
@@ -455,7 +455,7 @@ const OfflineDB = {
       const item = {
         ...completionData,
         queuedAt: new Date().toISOString(),
-        synced: false
+        synced: 0
       };
 
       const request = store.add(item);
@@ -482,7 +482,7 @@ const OfflineDB = {
       const transaction = db.transaction([this.STORES.COMPLETIONS_QUEUE], 'readonly');
       const store = transaction.objectStore(this.STORES.COMPLETIONS_QUEUE);
       const index = store.index('synced');
-      const request = index.getAll(false);
+      const request = index.getAll(IDBKeyRange.only(0));
 
       request.onsuccess = () => {
         resolve(request.result);
