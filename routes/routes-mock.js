@@ -61,6 +61,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new route
 router.post('/', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     const newRoute = {
       _id: String(Date.now()),
       routeId: req.body.routeId,
@@ -82,6 +85,9 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update route
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     const route = routesStorage.findById(req.params.id);
     if (!route) {
       return res.status(404).json({ error: 'Route not found' });
@@ -106,6 +112,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete route
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     logger.debug('Delete route request for ID:', req.params.id);
     const route = routesStorage.findById(req.params.id);
     if (!route) {

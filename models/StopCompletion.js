@@ -123,7 +123,7 @@ const stopCompletionSchema = new mongoose.Schema({
 });
 
 // Compound index for route progress queries
-stopCompletionSchema.index({ routeId: 1, stopIndex: 1 }, { unique: true });
+stopCompletionSchema.index({ routeId: 1, driverUsername: 1, stopIndex: 1 }, { unique: true });
 stopCompletionSchema.index({ driverUsername: 1, completedAt: -1 });
 stopCompletionSchema.index({ routeId: 1, status: 1 });
 

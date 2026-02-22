@@ -10,6 +10,12 @@ const path = require('path');
 const { initialize } = require('./data/storage');
 const logger = require('./lib/logger');
 
+// Ensure upload directories exist on startup (created by middleware/upload.js too,
+// but this guards against cold deploys where the module hasn't been required yet)
+const fs = require('fs');
+fs.mkdirSync(path.join(__dirname, 'public', 'uploads', 'complaints'), { recursive: true });
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -99,28 +105,28 @@ const isTestEnv = process.env.NODE_ENV === 'test';
 const apiLimiter = isTestEnv
   ? (req, res, next) => next()
   : rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 500, // 500 requests per 15 minutes
-      message: { error: 'Too many requests, please try again later.' },
-      standardHeaders: true,
-      legacyHeaders: false,
-      skip: (req) => {
-        // Skip rate limiting for static files
-        return req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images');
-      }
-    });
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 500, // 500 requests per 15 minutes
+    message: { error: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => {
+      // Skip rate limiting for static files
+      return req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images');
+    }
+  });
 
 // Stricter limiter for authentication endpoints — disabled in test environment
 const authLimiter = isTestEnv
   ? (req, res, next) => next()
   : rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 10, // 10 login attempts per 15 minutes
-      message: { error: 'Too many login attempts, please try again after 15 minutes.' },
-      standardHeaders: true,
-      legacyHeaders: false,
-      skipSuccessfulRequests: true // Don't count successful logins
-    });
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // 10 login attempts per 15 minutes
+    message: { error: 'Too many login attempts, please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true // Don't count successful logins
+  });
 
 // Apply rate limiting to API routes
 app.use('/api/', apiLimiter);
@@ -131,7 +137,7 @@ app.use('/api/', apiLimiter);
 
 // Version check endpoint for deployment verification
 app.get('/api/version', (req, res) => {
-  res.json({ version: '2.1.0', deployed: new Date().toISOString(), dirname: __dirname });
+  res.json({ version: '2.1.0', deployed: new Date().toISOString() });
 });
 
 app.get('/', (req, res) => {

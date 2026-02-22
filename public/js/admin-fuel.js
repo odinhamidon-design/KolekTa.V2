@@ -611,4 +611,5 @@
   window.showRefuelForm = showRefuelForm;
   window.showFuelEstimator = showFuelEstimator;
   window.showFuelHistory = showFuelHistory;
+  window.logEstimatedConsumption = logEstimatedConsumption;
 })();

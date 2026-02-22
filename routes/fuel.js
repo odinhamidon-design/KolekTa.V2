@@ -483,6 +483,9 @@ router.get('/stats/:truckId', auth, async (req, res) => {
 // GET /api/fuel/all-logs - Get all fuel logs
 router.get('/all-logs', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     const { type, limit = 50 } = req.query;
     let logs = [...fuelLogs];
 
@@ -512,6 +515,9 @@ router.get('/all-logs', auth, async (req, res) => {
 // GET /api/fuel/all-stats
 router.get('/all-stats', auth, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     let trucks = [];
 
     // Try MongoDB first, then fall back to JSON storage

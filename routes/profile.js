@@ -130,10 +130,12 @@ router.put('/me', authenticateToken, async (req, res) => {
         if (!currentPassword) {
           return res.status(400).json({ error: 'Current password is required to change password' });
         }
-        if (user.password !== currentPassword) {
+        const bcrypt = require('bcryptjs');
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
           return res.status(401).json({ error: 'Current password is incorrect' });
         }
-        updates.password = password;
+        updates.password = await bcrypt.hash(password, 10);
       }
 
       usersStorage.update(username, updates);

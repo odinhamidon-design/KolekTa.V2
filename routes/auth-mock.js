@@ -7,10 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 const logger = require('../lib/logger');
 const { loginRules, forgotPasswordQuestionRules, forgotPasswordVerifyRules, resetPasswordRules } = require('../middleware/validate');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
-if (!process.env.JWT_SECRET) {
-  logger.warn('JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
-}
+const { JWT_SECRET } = require('../middleware/auth');
 
 // Mock face data storage
 const faceData = {};
@@ -195,7 +192,11 @@ router.post('/forgot-password/verify', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (!user.securityAnswer || user.securityAnswer.toLowerCase() !== answer.toLowerCase()) {
+    if (!user.securityAnswer) {
+      return res.status(401).json({ error: 'Incorrect answer' });
+    }
+    const answerMatch = await bcrypt.compare(answer.toLowerCase(), user.securityAnswer);
+    if (!answerMatch) {
       return res.status(401).json({ error: 'Incorrect answer' });
     }
 

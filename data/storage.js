@@ -599,10 +599,10 @@ const tripDataStorage = {
       averageSpeed: Math.round(avgSpeed * 10) / 10,
       fuel: {
         liters: trip.fuelEstimate,
-        efficiency: trip.totalDistance > 0
+        efficiency: trip.totalDistance > 0 && trip.fuelEstimate > 0
           ? Math.round((trip.totalDistance / trip.fuelEstimate) * 100) / 100
           : 0,
-        consumptionRate: trip.totalDistance > 0
+        consumptionRate: trip.totalDistance > 0 && trip.fuelEstimate > 0
           ? Math.round((trip.fuelEstimate / trip.totalDistance) * 100 * 100) / 100
           : 0
       },

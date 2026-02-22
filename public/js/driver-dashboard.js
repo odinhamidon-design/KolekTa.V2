@@ -684,7 +684,8 @@
     }
   
     // Get stop info from active route
-    const activeRoute = window.currentActiveRoute;
+    const activeRoute = window.currentActiveRoute ||
+      (typeof DriverState !== 'undefined' ? DriverState.state.activeRoute : null);
     const stopLocation = activeRoute?.path?.coordinates?.[stopIndex] || [0, 0];
   
     const completionData = {
@@ -740,7 +741,7 @@
     showActiveRouteNavigation();
   
     // Update stats after stop completion
-    if (typeof DriverState \!== 'undefined') DriverState.refreshStats();
+    if (typeof DriverState !== 'undefined') DriverState.refreshStats();
   };
   
   // Skip a stop - requires justification

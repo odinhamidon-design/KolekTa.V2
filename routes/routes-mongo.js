@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const Route = require('../models/Route');
 const logger = require('../lib/logger');
 
@@ -21,7 +22,6 @@ async function checkRouteExpiration(route) {
 // Use ?includePhotos=true to include completion photos (default: false for performance)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const includePhotos = req.query.includePhotos === 'true';
 
     let routes;
@@ -48,7 +48,7 @@ router.get('/', authenticateToken, async (req, res) => {
       Route.updateMany(
         { _id: { $in: expiredRouteIds } },
         { $set: { isExpired: true } }
-      ).exec();
+      ).exec().catch(err => logger.error('Failed to bulk-update expired routes:', err.message));
     }
 
     res.json(routes);
@@ -61,7 +61,6 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get single route
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     logger.debug('Looking for route:', req.params.id);
     const route = await Route.findOne({
       $or: [
@@ -89,7 +88,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new route
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const { routeId, name, areas, path, status, notes, expiresAt } = req.body;
 
     // Check if routeId exists
@@ -122,7 +120,6 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update route
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const route = await Route.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
@@ -161,16 +158,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete route
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     logger.debug('Delete route request for ID:', req.params.id);
-    
+
     const route = await Route.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
         { routeId: req.params.id }
       ]
     });
-    
+
     if (!route) {
       logger.debug('Route not found:', req.params.id);
       return res.status(404).json({ error: 'Route not found' });
@@ -188,7 +184,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // Helper function to calculate distance
 function calculateDistance(coordinates) {
   if (!coordinates || coordinates.length < 2) return 0;
-  
+
   let total = 0;
   for (let i = 0; i < coordinates.length - 1; i++) {
     total += haversineDistance(coordinates[i], coordinates[i + 1]);
@@ -202,12 +198,12 @@ function haversineDistance(coord1, coord2) {
   const φ2 = coord2[1] * Math.PI / 180;
   const Δφ = (coord2[1] - coord1[1]) * Math.PI / 180;
   const Δλ = (coord2[0] - coord1[0]) * Math.PI / 180;
-  
-  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ/2) * Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
   return R * c;
 }
 
