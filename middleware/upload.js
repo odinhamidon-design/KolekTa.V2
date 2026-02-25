@@ -23,7 +23,7 @@ const fs = require('fs');
  * and attaches a `webPath` property to each file for convenient DB storage.
  */
 function makeUploader(category) {
-    const dest = path.join(__dirname, '..', 'public', 'uploads', category);
+    let dest = path.join(__dirname, '..', 'public', 'uploads', category);
 
     // Ensure directory exists at module load time (and on cold starts)
     try {
