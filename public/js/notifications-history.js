@@ -371,7 +371,8 @@
       const pendingCount = completedRoutes.filter(r => !r.notificationSent).length;
       const withPhotosCount = completedRoutes.filter(r => (r.photoCount && r.photoCount > 0) || (r.completionPhotos && r.completionPhotos.length > 0)).length;
 
-      const historyCards = completedRoutes.map(route => {
+      // Build table rows from completed routes
+      const historyRows = completedRoutes.map((route, idx) => {
         const completedDate = new Date(route.completedAt).toLocaleDateString('en-US', {
           year: 'numeric', month: 'short', day: 'numeric'
         });
@@ -380,103 +381,54 @@
         });
         const isAcknowledged = route.notificationSent;
         const photoCount = route.photoCount || (route.completionPhotos ? route.completionPhotos.length : 0);
+        const routeKey = route._id || route.routeId;
 
         return `
-          <div class="bg-white rounded-xl shadow-sm border ${isAcknowledged ? 'border-gray-100' : 'border-green-200'} overflow-hidden">
-            <!-- Card Header -->
-            <div class="flex items-center justify-between px-5 py-4 ${isAcknowledged ? 'bg-gray-50' : 'bg-green-50'} border-b ${isAcknowledged ? 'border-gray-100' : 'border-green-100'}">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full ${isAcknowledged ? 'bg-gray-200' : 'bg-green-100'} flex items-center justify-center">
-                  <i data-lucide="${isAcknowledged ? 'check-circle' : 'bell'}" class="w-5 h-5 ${isAcknowledged ? 'text-gray-600' : 'text-green-600'}"></i>
+          <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${!isAcknowledged ? 'bg-green-50/30' : ''}">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full ${isAcknowledged ? 'bg-gray-200' : 'bg-green-100'} flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="${isAcknowledged ? 'check-circle' : 'bell'}" class="w-3.5 h-3.5 ${isAcknowledged ? 'text-gray-500' : 'text-green-600'}"></i>
                 </div>
-                <div>
-                  <h3 class="font-semibold ${isAcknowledged ? 'text-gray-700' : 'text-green-700'}">${escapeHtml(route.name || 'Unnamed Route')}</h3>
-                  <p class="text-sm text-gray-500">${escapeHtml(route.routeId)}</p>
+                <div class="min-w-0">
+                  <p class="font-medium text-gray-800 truncate">${escapeHtml(route.name || 'Unnamed Route')}</p>
+                  <p class="text-xs text-gray-400 truncate">${escapeHtml(route.routeId)}</p>
                 </div>
               </div>
-              <span class="px-3 py-1 rounded-full text-xs font-medium ${isAcknowledged ? 'bg-gray-200 text-gray-700' : 'bg-green-100 text-green-700'}">
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1.5">
+                <div class="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[10px] font-medium flex-shrink-0">
+                  ${(route.completedBy || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span class="text-sm text-gray-700 truncate">${escapeHtml(route.completedBy || 'Unknown')}</span>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+              ${completedDate}<br><span class="text-xs text-gray-400">${completedTime}</span>
+            </td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium ${isAcknowledged ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}">
                 ${isAcknowledged ? 'Acknowledged' : 'New'}
               </span>
-            </div>
-  
-            <!-- Card Body -->
-            <div class="p-5 space-y-4">
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <p class="text-xs text-gray-500 mb-1">Completed By</p>
-                  <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium">
-                      ${(route.completedBy || 'U').charAt(0).toUpperCase()}
-                    </div>
-                    <span class="font-medium text-gray-800">${escapeHtml(route.completedBy || 'Unknown')}</span>
-                  </div>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-500 mb-1">Completed</p>
-                  <p class="font-medium text-gray-800">${completedDate}</p>
-                  <p class="text-sm text-gray-500">${completedTime}</p>
-                </div>
-              </div>
-  
-              ${route.tripStats && route.tripStats.distanceTraveled > 0 ? `
-                <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-3 border border-orange-200">
-                  <p class="text-xs text-orange-600 font-medium mb-2 flex items-center gap-1">
-                    <i data-lucide="fuel" class="w-3 h-3"></i>
-                    Auto-calculated Trip Data
-                  </p>
-                  <div class="grid grid-cols-4 gap-2 text-center">
-                    <div>
-                      <p class="text-lg font-bold text-gray-800">${route.tripStats.distanceTraveled.toFixed(1)}</p>
-                      <p class="text-xs text-gray-500">km</p>
-                    </div>
-                    <div>
-                      <p class="text-lg font-bold text-orange-600">${route.tripStats.fuelConsumed.toFixed(1)}</p>
-                      <p class="text-xs text-gray-500">Liters</p>
-                    </div>
-                    <div>
-                      <p class="text-lg font-bold text-gray-800">${route.tripStats.stopsCompleted || 0}</p>
-                      <p class="text-xs text-gray-500">Stops</p>
-                    </div>
-                    <div>
-                      <p class="text-lg font-bold text-gray-800">${route.tripStats.averageSpeed || 0}</p>
-                      <p class="text-xs text-gray-500">km/h</p>
-                    </div>
-                  </div>
-                </div>
-              ` : ''}
-  
-              ${route.completionNotes ? `
-                <div>
-                  <p class="text-xs text-gray-500 mb-1">Notes</p>
-                  <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(route.completionNotes)}</p>
-                </div>
-              ` : ''}
-  
-              ${photoCount > 0 ? `
-                <div>
-                  <button onclick="viewCompletionPhotos('${String(route._id || route.routeId)}')"
-                    class="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm">
-                    <i data-lucide="image" class="w-4 h-4"></i>
-                    <span>View ${photoCount} Photo${photoCount > 1 ? 's' : ''}</span>
-                  </button>
-                </div>
-              ` : ''}
-            </div>
-  
-            <!-- Card Footer -->
-            <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
-              ${!isAcknowledged ? `
-                <button onclick="markNotificationRead('${route._id || route.routeId}'); setTimeout(showNotificationHistory, 500);" class="flex items-center gap-1 px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors">
-                  <i data-lucide="check-circle" class="w-4 h-4"></i>
-                  <span>Acknowledge</span>
+              ${photoCount > 0 ? `<span class="ml-1 text-xs text-blue-500">📷${photoCount}</span>` : ''}
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-1">
+                <button onclick="viewCompletionDetail('${routeKey}')" class="p-1.5 hover:bg-blue-100 rounded-lg transition-colors" title="View Details">
+                  <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i>
                 </button>
-              ` : ''}
-              <button onclick="deleteHistoryItem('${route._id || route.routeId}')" class="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                <span>Delete</span>
-              </button>
-            </div>
-          </div>
+                ${!isAcknowledged ? `
+                  <button onclick="markNotificationRead('${routeKey}'); setTimeout(showNotificationHistory, 500);" class="p-1.5 hover:bg-green-100 rounded-lg transition-colors" title="Acknowledge">
+                    <i data-lucide="check" class="w-4 h-4 text-green-600"></i>
+                  </button>
+                ` : ''}
+                <button onclick="deleteHistoryItem('${routeKey}')" class="p-1.5 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
+                  <i data-lucide="trash-2" class="w-4 h-4 text-red-500"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
         `;
       }).join('');
 
@@ -517,22 +469,37 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Action Bar -->
         ${completedRoutes.length > 0 ? `
-          <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center justify-between mb-4">
             <p class="text-sm text-gray-500">Showing ${completedRoutes.length} completed route${completedRoutes.length !== 1 ? 's' : ''}</p>
-            <button onclick="clearAllHistory()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <button onclick="clearAllHistory()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
-              <span>Clear All History</span>
+              <span>Clear All</span>
             </button>
           </div>
         ` : ''}
-  
-        <!-- History Cards Grid -->
+
+        <!-- History List Table -->
         ${completedRoutes.length > 0 ? `
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            ${historyCards}
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Route</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Driver</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Completed</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${historyRows}
+                </tbody>
+              </table>
+            </div>
           </div>
         ` : `
           <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
@@ -610,6 +577,122 @@
         <div class="text-center py-8">
           <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-3"></i>
           <p class="text-red-600">Failed to load photos: ${error.message}</p>
+        </div>
+      `);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  };
+
+  // View full completion details in a modal
+  window.viewCompletionDetail = async function (routeId) {
+    showModal('Loading...', `
+      <div class="flex flex-col items-center justify-center py-8">
+        <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-500">Loading details...</p>
+      </div>
+    `);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetchWithRetry(`${API_URL}/completions/${routeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      const route = await response.json();
+      const completedDate = route.completedAt ? new Date(route.completedAt).toLocaleString() : 'Unknown';
+      const photoCount = (route.completionPhotos || []).length;
+      const isAcknowledged = route.notificationSent;
+      const routeKey = route._id || route.routeId;
+
+      const tripHtml = route.tripStats && route.tripStats.distanceTraveled > 0 ? `
+        <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-200 mb-4">
+          <p class="text-xs text-orange-600 font-semibold mb-2 flex items-center gap-1">
+            <i data-lucide="fuel" class="w-3.5 h-3.5"></i> Trip Data
+          </p>
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div>
+              <p class="text-lg font-bold text-gray-800">${route.tripStats.distanceTraveled.toFixed(1)}</p>
+              <p class="text-xs text-gray-500">km</p>
+            </div>
+            <div>
+              <p class="text-lg font-bold text-orange-600">${route.tripStats.fuelConsumed.toFixed(1)}</p>
+              <p class="text-xs text-gray-500">Liters</p>
+            </div>
+            <div>
+              <p class="text-lg font-bold text-gray-800">${route.tripStats.stopsCompleted || 0}</p>
+              <p class="text-xs text-gray-500">Stops</p>
+            </div>
+            <div>
+              <p class="text-lg font-bold text-gray-800">${route.tripStats.averageSpeed || 0}</p>
+              <p class="text-xs text-gray-500">km/h</p>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      const notesHtml = route.completionNotes ? `
+        <div class="mb-4">
+          <p class="text-xs text-gray-500 mb-1 font-medium">Notes</p>
+          <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(route.completionNotes)}</p>
+        </div>
+      ` : '';
+
+      const photoBtnHtml = photoCount > 0 ? `
+        <button onclick="viewCompletionPhotos('${routeKey}')" class="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm mb-4">
+          <i data-lucide="image" class="w-4 h-4"></i>
+          <span>View ${photoCount} Photo${photoCount > 1 ? 's' : ''}</span>
+        </button>
+      ` : '';
+
+      showModal(`✓ ${escapeHtml(route.name || 'Route Completed')}`, `
+        <div class="space-y-4">
+          <div class="bg-green-50 rounded-lg p-4 border border-green-100">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <p class="text-xs text-gray-500 mb-0.5">Route ID</p>
+                <p class="text-sm font-medium text-gray-800">${escapeHtml(route.routeId)}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 mb-0.5">Driver</p>
+                <p class="text-sm font-medium text-gray-800">${escapeHtml(route.completedBy || 'Unknown')}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 mb-0.5">Completed</p>
+                <p class="text-sm font-medium text-gray-800">${completedDate}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 mb-0.5">Status</p>
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium ${isAcknowledged ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}">
+                  ${isAcknowledged ? 'Acknowledged' : 'New'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          ${tripHtml}
+          ${notesHtml}
+          ${photoBtnHtml}
+
+          <div class="flex gap-2 pt-2 border-t border-gray-100">
+            ${!isAcknowledged ? `
+              <button onclick="markNotificationRead('${routeKey}'); closeModal(); setTimeout(showNotificationHistory, 500);" class="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
+                <i data-lucide="check-circle" class="w-4 h-4"></i> Acknowledge
+              </button>
+            ` : ''}
+            <button onclick="closeModal();" class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors text-sm">Close</button>
+          </div>
+        </div>
+      `);
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (error) {
+      showModal('Error', `
+        <div class="text-center py-8">
+          <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-3"></i>
+          <p class="text-red-600">Failed to load details: ${error.message}</p>
         </div>
       `);
       if (typeof lucide !== 'undefined') lucide.createIcons();
