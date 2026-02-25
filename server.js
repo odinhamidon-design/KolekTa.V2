@@ -356,9 +356,9 @@ async function startServer() {
 }
 
 // Export for Vercel Serverless environment
-if (process.env.VERCEL || process.env.NOW_REGION) {
-  module.exports = app;
-} else {
-  // Run locally
+module.exports = app;
+
+// Run locally if executed directly
+if (require.main === module) {
   startServer();
 }

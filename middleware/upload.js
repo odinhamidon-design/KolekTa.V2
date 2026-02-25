@@ -23,21 +23,20 @@ const fs = require('fs');
  * and attaches a `webPath` property to each file for convenient DB storage.
  */
 function makeUploader(category) {
-    let dest = path.join(__dirname, '..', 'public', 'uploads', category);
-
-    // Ensure directory exists at module load time (and on cold starts)
-    try {
-        fs.mkdirSync(dest, { recursive: true });
-    } catch (err) {
-        console.warn(`Could not create upload dir for ${category} (expected on Vercel/read-only environments)`);
-        if (process.env.VERCEL) {
-            dest = path.join('/tmp', 'uploads', category);
-            try { fs.mkdirSync(dest, { recursive: true }); } catch (e) { }
-        }
-    }
-
     const storage = multer.diskStorage({
-        destination: (req, file, cb) => cb(null, dest),
+        destination: (req, file, cb) => {
+            let dest = path.join(__dirname, '..', 'public', 'uploads', category);
+            try {
+                fs.mkdirSync(dest, { recursive: true });
+            } catch (err) {
+                console.warn(`Could not create upload dir for ${category} (expected on Vercel/read-only environments)`);
+                if (process.env.VERCEL || process.env.NOW_REGION) {
+                    dest = path.join('/tmp', 'uploads', category);
+                    try { fs.mkdirSync(dest, { recursive: true }); } catch (e) { }
+                }
+            }
+            cb(null, dest);
+        },
         filename: (req, file, cb) => {
             const unique = crypto.randomBytes(8).toString('hex');
             const ext = path.extname(file.originalname).toLowerCase();
