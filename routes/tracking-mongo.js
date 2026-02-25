@@ -10,6 +10,7 @@ const LiveLocation = require('../models/LiveLocation');
 const TripData = require('../models/TripData');
 const logger = require('../lib/logger');
 const { trackingUpdateRules } = require('../middleware/validate');
+const { getIO } = require('../lib/socket');
 
 // Haversine distance calculation (in km)
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -275,6 +276,30 @@ router.post('/update', authenticateToken, trackingUpdateRules, async (req, res) 
         stops: trip.stopCount
       }
     });
+
+    // ── Socket.io: push location to admin dashboards in real-time ──
+    try {
+      const assignedTruck = await Truck.findOne({ assignedDriver: username }).select('truckId plateNumber model').lean();
+      const assignedRoute = await Route.findOne({ assignedDriver: username }).select('routeId name').lean();
+
+      getIO().to('admins').emit('driver:location', {
+        username,
+        fullName: req.user.fullName || username,
+        lat: parsedLat,
+        lng: parsedLng,
+        speed: parsedSpeed,
+        heading: heading || 0,
+        isLive: true,
+        timestamp: new Date().toISOString(),
+        truckId: assignedTruck?.truckId || null,
+        plateNumber: assignedTruck?.plateNumber || null,
+        model: assignedTruck?.model || null,
+        routeId: assignedRoute?.routeId || null,
+        routeName: assignedRoute?.name || 'No route assigned'
+      });
+    } catch (socketErr) {
+      logger.debug('Socket emit skipped:', socketErr.message);
+    }
   } catch (error) {
     logger.error('Error updating location:', error.message);
     res.status(500).json({ error: 'An internal error occurred' });
@@ -413,6 +438,13 @@ router.delete('/clear', authenticateToken, async (req, res) => {
     const username = req.user.username;
     await LiveLocation.deleteOne({ username });
     res.json({ message: 'Location cleared' });
+
+    // ── Socket.io: notify admins this driver went offline ──
+    try {
+      getIO().to('admins').emit('driver:offline', { username });
+    } catch (socketErr) {
+      logger.debug('Socket emit skipped:', socketErr.message);
+    }
   } catch (error) {
     logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });

@@ -4,6 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { usersStorage, trucksStorage, routesStorage, liveLocationsStorage, tripDataStorage } = require('../data/storage');
 const logger = require('../lib/logger');
 const { trackingUpdateRules } = require('../middleware/validate');
+const { getIO } = require('../lib/socket');
 
 // Batch update for syncing offline GPS points
 const BATCH_TIMEOUT_MS = 10000; // 10 second hard timeout
@@ -161,6 +162,33 @@ router.post('/update', authenticateToken, trackingUpdateRules, async (req, res) 
         stops: tripData.stopCount
       }
     });
+
+    // ── Socket.io: push location to admin dashboards in real-time ──
+    try {
+      const trucks = trucksStorage.getAll();
+      const assignedTruck = trucks.find(t => t.assignedDriver === username);
+      const routes = routesStorage.getAll();
+      const assignedRoute = routes.find(r => r.assignedDriver === username);
+
+      getIO().to('admins').emit('driver:location', {
+        username,
+        fullName: req.user.fullName || username,
+        lat: parsedLat,
+        lng: parsedLng,
+        speed: parsedSpeed,
+        heading: heading || 0,
+        isLive: true,
+        timestamp: new Date().toISOString(),
+        truckId: assignedTruck?.truckId || null,
+        plateNumber: assignedTruck?.plateNumber || null,
+        model: assignedTruck?.model || null,
+        routeId: assignedRoute?.routeId || null,
+        routeName: assignedRoute?.name || 'No route assigned'
+      });
+    } catch (socketErr) {
+      // Socket emit is non-critical — never break the HTTP response
+      logger.debug('Socket emit skipped:', socketErr.message);
+    }
   } catch (error) {
     logger.error('Error updating location:', error.message);
     res.status(500).json({ error: 'An internal error occurred' });
@@ -293,6 +321,13 @@ router.delete('/clear', authenticateToken, async (req, res) => {
     const username = req.user.username;
     liveLocationsStorage.delete(username);
     res.json({ message: 'Location cleared' });
+
+    // ── Socket.io: notify admins this driver went offline ──
+    try {
+      getIO().to('admins').emit('driver:offline', { username });
+    } catch (socketErr) {
+      logger.debug('Socket emit skipped:', socketErr.message);
+    }
   } catch (error) {
     logger.error('Error:', error);
     res.status(500).json({ error: 'An internal error occurred' });

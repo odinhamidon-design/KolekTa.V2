@@ -1,30 +1,93 @@
-(function() {
+(function () {
   'use strict';
 
-  
-  
+
+
   let driverMarkers = {};
   let trackingUpdateInterval = null;
-  
+
+  // ── Socket.io: real-time push updates from server ──────────────
+  function setupSocketListeners() {
+    const socket = window.kolektaSocket;
+    if (!socket) {
+      // Retry after socket-client.js finishes connecting
+      setTimeout(setupSocketListeners, 1000);
+      return;
+    }
+
+    socket.on('driver:location', (data) => {
+      console.log('⚡ WS push — driver:location', data.username);
+      handleDriverLocationPush(data);
+    });
+
+    socket.on('driver:offline', (data) => {
+      console.log('⚡ WS push — driver:offline', data.username);
+      handleDriverOfflinePush(data.username);
+    });
+  }
+
+  /** Instantly update or create a marker when a driver pushes their location */
+  function handleDriverLocationPush(truck) {
+    const { username, lat, lng, speed, isLive } = truck;
+    if (!lat || !lng) return;
+
+    if (driverMarkers[username]) {
+      // Smoothly move existing marker
+      driverMarkers[username].setLatLng([lat, lng]);
+      // Update popup with fresh data
+      createTruckPopup(truck).then(popupContent => {
+        driverMarkers[username].getPopup().setContent(popupContent);
+      });
+      // Pulse effect for live status
+      const el = driverMarkers[username].getElement();
+      if (el) {
+        const iconDiv = el.querySelector('div');
+        if (iconDiv) {
+          iconDiv.style.background = '#4caf50';
+          iconDiv.style.animation = 'pulse 2s infinite';
+        }
+      }
+    }
+    // If marker doesn't exist yet, the next poll cycle will create it.
+    // We don't create markers here to avoid issues if admin hasn't opened live tracking.
+  }
+
+  /** Grey-out a driver marker when they go offline */
+  function handleDriverOfflinePush(username) {
+    if (driverMarkers[username]) {
+      const el = driverMarkers[username].getElement();
+      if (el) {
+        const iconDiv = el.querySelector('div');
+        if (iconDiv) {
+          iconDiv.style.background = '#9e9e9e';
+          iconDiv.style.animation = 'none';
+        }
+      }
+    }
+  }
+
+  // Start listeners as soon as possible
+  setTimeout(setupSocketListeners, 1500);
+
   function showLiveTruckLocations() {
     if (user.role !== 'admin') return;
-    
+
     // Clear existing markers
     Object.values(driverMarkers).forEach(marker => {
       map.removeLayer(marker);
     });
     driverMarkers = {};
-    
+
     // Fetch and display active locations
     updateLiveTruckLocations();
-    
-    // Update every 5 seconds for real-time tracking
+
+    // Fallback polling every 15 seconds (WebSocket handles primary real-time flow)
     if (trackingUpdateInterval) {
       clearInterval(trackingUpdateInterval);
     }
-    trackingUpdateInterval = setInterval(updateLiveTruckLocations, 5000);
+    trackingUpdateInterval = setInterval(updateLiveTruckLocations, 15000);
   }
-  
+
   async function updateLiveTruckLocations() {
     try {
       const token = localStorage.getItem('token');
@@ -34,20 +97,20 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const trucks = await response.json();
-        
+
         for (const truck of trucks) {
           const { username, lat, lng, speed, isLive, truckId, plateNumber } = truck;
-          
+
           // Create or update marker
           if (driverMarkers[username]) {
             // Update existing marker
             driverMarkers[username].setLatLng([lat, lng]);
             const popupContent = await createTruckPopup(truck);
             driverMarkers[username].getPopup().setContent(popupContent);
-            
+
             // Update marker style based on live status
             const markerElement = driverMarkers[username].getElement();
             if (markerElement) {
@@ -83,16 +146,16 @@
               iconSize: [40, 40],
               iconAnchor: [20, 20]
             });
-            
+
             const popupContent = await createTruckPopup(truck);
             const marker = L.marker([lat, lng], { icon: truckIcon })
               .addTo(map)
               .bindPopup(popupContent);
-            
+
             driverMarkers[username] = marker;
           }
         }
-        
+
         // Remove markers for drivers that are no longer assigned
         Object.keys(driverMarkers).forEach(username => {
           if (!trucks.find(t => t.username === username)) {
@@ -105,20 +168,20 @@
       console.error('Error updating truck locations:', error);
     }
   }
-  
+
   async function createTruckPopup(truck) {
     const { username, fullName, truckId, plateNumber, model, speed, isLive, timestamp, routeName, lat, lng } = truck;
     const timeAgo = timestamp ? getTimeAgo(timestamp) : 'Not tracking';
     const statusColor = isLive ? '#4caf50' : '#9e9e9e';
     const statusText = isLive ? '🟢 Live Tracking' : '⚪ Offline';
-    
+
     // Get location name from cache or use coordinates (avoid API spam)
     let locationName = 'Unknown';
     if (lat && lng) {
       const cached = getCachedLocationName(lat, lng);
       locationName = cached || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     }
-    
+
     return `
       <div style="min-width: 250px;">
         <h4 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">🚛 ${escapeHtml(truckId)}</h4>
@@ -179,75 +242,75 @@
       </div>
     `;
   }
-  
+
   // Focus map on specific truck location
-  window.focusOnTruck = function(lat, lng, truckId) {
+  window.focusOnTruck = function (lat, lng, truckId) {
     map.setView([lat, lng], 17, { animate: true });
     console.log(`Focused on truck ${truckId} at ${lat}, ${lng}`);
   };
-  
+
   // Cache for location names to avoid repeated API calls
   let locationNameCache = {};
   let currentLocationName = 'Getting location...';
-  
+
   // Rate-limited geocoding queue
   let geocodeQueue = [];
   let isProcessingGeocode = false;
   const GEOCODE_DELAY = 1100; // Nominatim requires 1 request per second
-  
+
   // Get cached location name or return coordinates
   function getCachedLocationName(lat, lng) {
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     return locationNameCache[cacheKey] || null;
   }
-  
+
   // Rate-limited geocoding function
   async function geocodeLocation(lat, lng) {
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  
+
     // Return cached value if available
     if (locationNameCache[cacheKey]) {
       return locationNameCache[cacheKey];
     }
-  
+
     // Return coordinates as fallback (don't make API call for popup content)
     return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   }
-  
+
   // Queue a geocode request (for non-critical updates)
   function queueGeocodeRequest(lat, lng, callback) {
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  
+
     // If cached, call callback immediately
     if (locationNameCache[cacheKey]) {
       callback(locationNameCache[cacheKey]);
       return;
     }
-  
+
     // Add to queue
     geocodeQueue.push({ lat, lng, cacheKey, callback });
     processGeocodeQueue();
   }
-  
+
   // Process geocode queue with rate limiting
   async function processGeocodeQueue() {
     if (isProcessingGeocode || geocodeQueue.length === 0) return;
-  
+
     isProcessingGeocode = true;
-  
+
     while (geocodeQueue.length > 0) {
       const { lat, lng, cacheKey, callback } = geocodeQueue.shift();
-  
+
       // Skip if already cached (might have been cached while waiting)
       if (locationNameCache[cacheKey]) {
         callback(locationNameCache[cacheKey]);
         continue;
       }
-  
+
       try {
         const response = await fetchWithRetry(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
         const data = await response.json();
-  
+
         let locationName = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         if (data.display_name) {
           const address = data.address;
@@ -257,7 +320,7 @@
           if (address.city || address.town || address.municipality) parts.push(address.city || address.town || address.municipality);
           locationName = parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(', ');
         }
-  
+
         // Cache the result
         locationNameCache[cacheKey] = locationName;
         callback(locationName);
@@ -265,21 +328,21 @@
         console.log('Geocode error:', error.message);
         callback(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
       }
-  
+
       // Wait before next request (rate limiting)
       if (geocodeQueue.length > 0) {
         await new Promise(resolve => setTimeout(resolve, GEOCODE_DELAY));
       }
     }
-  
+
     isProcessingGeocode = false;
   }
-  
+
   // Update driver's location name in popup
   async function updateDriverLocationName(lat, lng) {
     // Create cache key (rounded to 4 decimals to group nearby locations)
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    
+
     // Update popup immediately with cached name or coordinates
     function updatePopupContent(locationName) {
       currentLocationName = locationName;
@@ -298,61 +361,61 @@
         truckMarker.getPopup().setContent(popupContent);
       }
     }
-    
+
     // If cached, use it immediately
     if (locationNameCache[cacheKey]) {
       updatePopupContent(locationNameCache[cacheKey]);
       return;
     }
-  
+
     // Otherwise, use rate-limited queue
     queueGeocodeRequest(lat, lng, updatePopupContent);
   }
-  
+
   function getTimeAgo(timestamp) {
     const now = new Date();
     const then = new Date(timestamp);
     const seconds = Math.floor((now - then) / 1000);
-    
+
     if (seconds < 60) return `${seconds} seconds ago`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
     return `${Math.floor(seconds / 3600)} hours ago`;
   }
-  
+
   // Show live truck tracking panel - MAP FOCUSED VIEW
-  window.showLiveTruckPanel = async function() {
+  window.showLiveTruckPanel = async function () {
     setActiveSidebarButton('liveTruckTrackingBtn');
 
     // Show map view instead of page content
     showMapView();
-  
+
     // Clear existing markers
     clearTempMarkers();
-  
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/tracking/all-trucks`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-  
+
       if (!response.ok) throw new Error('Failed to fetch truck data');
-  
+
       const trucks = await response.json();
       const liveCount = trucks.filter(t => t.isLive).length;
       const offlineCount = trucks.filter(t => !t.isLive).length;
-  
+
       // Add markers for each live truck on the map
       const liveTrucks = trucks.filter(t => t.isLive && t.lat && t.lng);
-  
+
       // Store truck data for marker popup access
       window._liveTruckCache = {};
-  
+
       liveTrucks.forEach((truck, idx) => {
         const { truckId, fullName, username, lat, lng, speed, routeName, routeId } = truck;
-  
+
         // Cache truck data for popup button
         window._liveTruckCache[truckId] = truck;
-  
+
         // Create custom truck marker
         const markerHtml = `
           <div class="relative">
@@ -363,14 +426,14 @@
             <span class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></span>
           </div>
         `;
-  
+
         const customIcon = L.divIcon({
           html: markerHtml,
           className: 'custom-truck-marker',
           iconSize: [40, 40],
           iconAnchor: [20, 20]
         });
-  
+
         const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
         marker.bindPopup(`
           <div class="p-3 min-w-[220px]">
@@ -408,37 +471,37 @@
         `);
         tempMarkers.push(marker);
       });
-  
+
       // Fit map to show all live trucks
       if (liveTrucks.length > 0) {
         const bounds = L.latLngBounds(liveTrucks.map(t => [t.lat, t.lng]));
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
       }
-  
+
       // Re-initialize Lucide icons
       if (typeof lucide !== 'undefined') {
         setTimeout(() => lucide.createIcons(), 100);
       }
-  
+
       // Create floating panel for truck list
       createLiveTrackingPanel(trucks, liveCount, offlineCount);
-  
+
     } catch (error) {
       console.error('Error loading truck tracking:', error);
       showToast('Error loading truck data: ' + error.message, 'error');
     }
   };
-  
+
   // Create floating panel for live tracking
   function createLiveTrackingPanel(trucks, liveCount, offlineCount) {
     // Remove existing panel
     const existingPanel = document.getElementById('liveTrackingPanel');
     if (existingPanel) existingPanel.remove();
-  
+
     const panel = document.createElement('div');
     panel.id = 'liveTrackingPanel';
     panel.className = 'fixed top-20 right-4 w-80 max-h-[calc(100vh-6rem)] bg-white rounded-2xl shadow-2xl z-[1000] flex flex-col overflow-hidden animate-slide-in';
-  
+
     panel.innerHTML = `
       <!-- Panel Header -->
       <div class="px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-500 text-white flex-shrink-0">
@@ -475,12 +538,12 @@
       <!-- Truck List -->
       <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
         ${trucks.length > 0 ? trucks.map((truck, index) => {
-          const { truckId, fullName, username, isLive, speed, lat, lng, routeName, routeId, timestamp } = truck;
-          const lastSeen = timestamp ? getTimeAgo(timestamp) : 'Unknown';
-          // Store truck data in a global array for onclick access
-          window._truckDataCache = window._truckDataCache || [];
-          window._truckDataCache[index] = truck;
-          return `
+      const { truckId, fullName, username, isLive, speed, lat, lng, routeName, routeId, timestamp } = truck;
+      const lastSeen = timestamp ? getTimeAgo(timestamp) : 'Unknown';
+      // Store truck data in a global array for onclick access
+      window._truckDataCache = window._truckDataCache || [];
+      window._truckDataCache[index] = truck;
+      return `
             <div class="p-3 rounded-xl border ${isLive ? 'border-green-200 bg-green-50 hover:border-green-300' : 'border-gray-200 bg-gray-50 hover:border-gray-300'} hover:shadow-md transition-all cursor-pointer group"
                  onclick="showTruckWithRoute(window._truckDataCache[${index}])">
               <div class="flex items-center gap-3">
@@ -517,7 +580,7 @@
               `}
             </div>
           `;
-        }).join('') : `
+    }).join('') : `
           <div class="text-center py-8 text-gray-400">
             <i data-lucide="truck" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
             <p class="text-sm">No trucks available</p>
@@ -533,42 +596,42 @@
         </button>
       </div>
     `;
-  
+
     document.body.appendChild(panel);
-  
+
     // Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
   }
-  
+
   // Close live tracking panel
-  window.closeLiveTrackingPanel = function() {
+  window.closeLiveTrackingPanel = function () {
     const panel = document.getElementById('liveTrackingPanel');
     if (panel) panel.remove();
     clearTempMarkers();
   };
-  
+
   // Focus on a specific truck on the map (simple version)
-  window.focusTruckOnMap = function(lat, lng, truckId) {
+  window.focusTruckOnMap = function (lat, lng, truckId) {
     if (lat && lng) {
       map.setView([lat, lng], 17, { animate: true });
       showToast(`Focused on ${truckId}`, 'info');
     }
   };
-  
+
   // Enhanced: Show truck with its assigned route on the map
-  window.showTruckWithRoute = async function(truckData) {
+  window.showTruckWithRoute = async function (truckData) {
     const { truckId, routeId, lat, lng, fullName, username, speed, plateNumber, model, routeName, isLive } = truckData;
-  
+
     // Clear existing route markers but keep truck markers
     clearRouteOnlyMarkers();
-  
+
     // Focus on truck location
     if (lat && lng) {
       map.setView([lat, lng], 14, { animate: true });
     }
-  
+
     // If truck has an assigned route, fetch and display it
     if (routeId) {
       try {
@@ -576,38 +639,38 @@
         const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-  
+
         if (response.ok) {
           const route = await response.json();
-  
+
           if (route.path && route.path.coordinates && route.path.coordinates.length >= 2) {
             const coords = route.path.coordinates;
             const waypoints = coords.map(c => L.latLng(c[1], c[0]));
-  
+
             // Add route stop markers
             coords.forEach((coord, index) => {
               const isStart = index === 0;
               const isEnd = index === coords.length - 1;
-  
+
               const markerHtml = `
                 <div class="flex items-center justify-center w-7 h-7 rounded-full shadow-lg ${isStart ? 'bg-green-500' : isEnd ? 'bg-red-500' : 'bg-primary-500'} text-white font-bold text-xs border-2 border-white">
                   ${isStart ? '<i data-lucide="play" class="w-3 h-3"></i>' : isEnd ? '<i data-lucide="flag" class="w-3 h-3"></i>' : index}
                 </div>
               `;
-  
+
               const customIcon = L.divIcon({
                 html: markerHtml,
                 className: 'custom-route-marker route-only-marker',
                 iconSize: [28, 28],
                 iconAnchor: [14, 14]
               });
-  
+
               const marker = L.marker([coord[1], coord[0]], { icon: customIcon }).addTo(map);
               marker.bindPopup(`<div class="p-2 text-sm"><strong>${isStart ? 'Start' : isEnd ? 'End' : 'Stop ' + index}</strong></div>`);
               marker._isRouteMarker = true;
               tempMarkers.push(marker);
             });
-  
+
             // Draw route with Leaflet Routing Machine
             const routingControl = L.Routing.control({
               waypoints: waypoints,
@@ -630,10 +693,10 @@
               showAlternatives: false,
               createMarker: () => null
             }).addTo(map);
-  
+
             routingControl._isRouteMarker = true;
             tempMarkers.push(routingControl);
-  
+
             // Handle route found
             routingControl.on('routesfound', (e) => {
               const routes = e.routes;
@@ -641,20 +704,20 @@
                 const summary = routes[0].summary;
                 const distanceKm = (summary.totalDistance / 1000).toFixed(2);
                 const durationMin = Math.round(summary.totalTime / 60);
-  
+
                 // Hide routing container
                 const container = routingControl.getContainer();
                 if (container) container.style.display = 'none';
-  
+
                 // Show truck info panel with route details
                 showTruckInfoPanel(truckData, route, distanceKm, durationMin);
               }
-  
+
               if (typeof lucide !== 'undefined') {
                 setTimeout(() => lucide.createIcons(), 100);
               }
             });
-  
+
             // Handle routing error
             routingControl.on('routingerror', () => {
               // Fallback to straight lines
@@ -667,14 +730,14 @@
               }).addTo(map);
               line._isRouteMarker = true;
               tempMarkers.push(line);
-  
+
               showTruckInfoPanel(truckData, route, route.distance ? (route.distance / 1000).toFixed(2) : '-', '-');
-  
+
               if (typeof lucide !== 'undefined') {
                 setTimeout(() => lucide.createIcons(), 100);
               }
             });
-  
+
           } else {
             // Route has no coordinates
             showTruckInfoPanel(truckData, null, null, null);
@@ -691,7 +754,7 @@
       showTruckInfoPanel(truckData, null, null, null);
     }
   };
-  
+
   // Clear only route markers (keep truck markers)
   function clearRouteOnlyMarkers() {
     tempMarkers = tempMarkers.filter(marker => {
@@ -704,22 +767,22 @@
       return true;
     });
   }
-  
+
   // Show truck information panel
   function showTruckInfoPanel(truckData, route, distanceKm, durationMin) {
     const { truckId, fullName, username, speed, plateNumber, model, routeName, isLive, lat, lng } = truckData;
-  
+
     // Remove existing panel
     const existingPanel = document.getElementById('truckInfoPanel');
     if (existingPanel) existingPanel.remove();
-  
+
     const panel = document.createElement('div');
     panel.id = 'truckInfoPanel';
     panel.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 lg:left-auto lg:right-4 lg:translate-x-0 bg-white rounded-2xl shadow-2xl z-[1000] w-[90%] max-w-md animate-fade-in overflow-hidden';
-  
+
     const stopCount = route?.path?.coordinates?.length || 0;
     const progressPercent = route?.completedStops ? Math.round((route.completedStops / stopCount) * 100) : 0;
-  
+
     panel.innerHTML = `
       <!-- Header with gradient -->
       <div class="px-4 py-3 bg-gradient-to-r ${isLive ? 'from-green-600 to-green-500' : 'from-gray-600 to-gray-500'} text-white">
@@ -831,23 +894,23 @@
         </button>
       </div>
     `;
-  
+
     document.body.appendChild(panel);
-  
+
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
   }
-  
+
   // Close truck info panel
-  window.closeTruckInfoPanel = function() {
+  window.closeTruckInfoPanel = function () {
     const panel = document.getElementById('truckInfoPanel');
     if (panel) panel.remove();
     clearRouteOnlyMarkers();
   };
-  
+
   // View truck on map from page view
-  window.viewTruckOnMapFromPage = function(lat, lng, truckId) {
+  window.viewTruckOnMapFromPage = function (lat, lng, truckId) {
     if (!lat || !lng) {
       showToast('Location not available for this truck', 'warning');
       return;
@@ -863,12 +926,12 @@
       });
     }, 100);
   };
-  
+
   // View truck on map and close modal
-  window.viewTruckOnMap = function(lat, lng, truckId) {
+  window.viewTruckOnMap = function (lat, lng, truckId) {
     closeModal();
     map.setView([lat, lng], 17, { animate: true });
-    
+
     // Open the truck's popup if marker exists
     Object.values(driverMarkers).forEach(marker => {
       const markerLatLng = marker.getLatLng();
@@ -876,10 +939,10 @@
         marker.openPopup();
       }
     });
-    
+
     console.log(`Viewing truck ${truckId} on map at ${lat}, ${lng}`);
   };
-  
+
 
   // Expose to global scope
   window.showLiveTruckLocations = showLiveTruckLocations;

@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -9,6 +10,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const { initialize } = require('./data/storage');
 const logger = require('./lib/logger');
+const { initSocket } = require('./lib/socket');
 
 // Ensure upload directories exist on startup (created by middleware/upload.js too,
 // but this guards against cold deploys where the module hasn't been required yet)
@@ -44,7 +46,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       scriptSrcAttr: ["'unsafe-inline'"],  // Allow inline onclick handlers
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://router.project-osrm.org", "https://*.tile.openstreetmap.org"],
+      connectSrc: ["'self'", "ws:", "wss:", "https://router.project-osrm.org", "https://*.tile.openstreetmap.org"],
       fontSrc: ["'self'"],
       frameSrc: ["'none'"],
       workerSrc: ["'self'"],  // Allow Service Workers
@@ -346,12 +348,19 @@ process.on('SIGINT', () => {
 });
 
 async function startServer() {
+  // Create HTTP server so Socket.io can attach to the same port
+  const server = http.createServer(app);
+
+  // Initialise Socket.io on the HTTP server
+  initSocket(server);
+
   // Server starts immediately — MongoDB reconnects persistently in background
   // Routes return 503 via requireDBConnection middleware when DB is unavailable
-  app.listen(PORT, host, () => {
+  server.listen(PORT, host, () => {
     logger.info(`Kolek-Ta server running on port ${PORT}`);
     logger.info(`Local: http://localhost:${PORT}`);
     logger.info('Security: Helmet, Rate Limiting, CORS, MongoSanitize configured');
+    logger.info('⚡ Socket.io WebSocket support enabled');
   });
 }
 
