@@ -1,16 +1,21 @@
-(function() {
+(function () {
   'use strict';
 
   // ============================================
   // ANALYTICS MODULE - Heatmap Visualization
   // ============================================
-  
+
   let analyticsMap = null;
   let coverageHeatLayer = null;
   let complaintHeatLayer = null;
   let barangayMarkers = [];
   let currentAnalyticsData = null;
-  
+
+  // Chart instances
+  let collectionsChartInstance = null;
+  let driverChartInstance = null;
+  let complaintChartInstance = null;
+
   // Heatmap configurations
   const coverageHeatConfig = {
     radius: 25,
@@ -23,7 +28,7 @@
       1.0: '#A7F3D0'
     }
   };
-  
+
   const complaintHeatConfig = {
     radius: 30,
     blur: 20,
@@ -35,23 +40,23 @@
       1.0: '#DC2626'
     }
   };
-  
+
   async function showAnalyticsModule() {
     if (user?.role !== 'admin') {
       showToast('Admin access required', 'error');
       return;
     }
-  
+
     setActiveSidebarButton('analyticsBtn');
     showPageContent();
-  
+
     const pageContent = document.getElementById('pageContent');
     if (!pageContent) return;
-  
+
     // Default date range: last 30 days
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  
+
     pageContent.innerHTML = `
       <div class="max-w-7xl mx-auto">
         <!-- Header with date range filter -->
@@ -120,26 +125,62 @@
           </div>
         </div>
   
-        <!-- Heatmap Container -->
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-          <div id="analyticsMap" style="height: 500px; width: 100%;"></div>
+      <!-- Extended Visual Analytics Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Lines Chart: Collections Over Time -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm w-full">
+          <div class="flex items-center justify-between mb-4">
+             <h3 class="font-semibold text-gray-800 flex items-center gap-2"><i data-lucide="trending-up" class="w-5 h-5 text-primary-600"></i> Collections Over Time</h3>
+          </div>
+          <div class="relative h-64 w-full">
+             <canvas id="collectionsTrendChart"></canvas>
+          </div>
         </div>
-  
-        <!-- Barangay Rankings Table -->
-        <div class="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 class="font-semibold text-gray-800 mb-4">Barangay Service Rankings</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Rank</th>
-                  <th class="px-4 py-3 text-left font-semibold text-gray-600">Barangay</th>
-                  <th class="px-4 py-3 text-center font-semibold text-gray-600">Route Points</th>
-                  <th class="px-4 py-3 text-center font-semibold text-gray-600">Complaints</th>
-                  <th class="px-4 py-3 text-center font-semibold text-gray-600">Service Score</th>
-                  <th class="px-4 py-3 text-center font-semibold text-gray-600">Status</th>
-                </tr>
-              </thead>
+
+        <!-- Bar Chart: Driver Performance Overview -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm w-full">
+           <div class="flex items-center justify-between mb-4">
+             <h3 class="font-semibold text-gray-800 flex items-center gap-2"><i data-lucide="users" class="w-5 h-5 text-blue-600"></i> Top Drivers Activity</h3>
+           </div>
+           <div class="relative h-64 w-full">
+             <canvas id="driverPerformanceChart"></canvas>
+           </div>
+        </div>
+
+        <!-- Pie Chart: Complaints Overview -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm w-full lg:col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-gray-800 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-red-500"></i> Complaint Status Distribution</h3>
+            </div>
+            <div class="relative h-64 w-full flex justify-center">
+              <canvas id="complaintStatusChart"></canvas>
+            </div>
+        </div>
+      </div>
+
+      <!-- Heatmap Container -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6 shadow-sm">
+        <div class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+           <h3 class="font-semibold text-gray-800 flex items-center gap-2"><i data-lucide="map" class="w-5 h-5 text-gray-500"></i> Geographical Distribution Heatmap</h3>
+        </div>
+        <div id="analyticsMap" style="height: 500px; width: 100%;"></div>
+      </div>
+
+      <!-- Barangay Rankings Table -->
+      <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <h3 class="font-semibold text-gray-800 mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-gray-500"></i> Barangay Service Rankings</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Rank</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Barangay</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-600">Route Points</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-600">Complaints</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-600">Service Score</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-600">Status</th>
+              </tr>
+            </thead>
               <tbody id="barangayRankingsBody">
                 <tr>
                   <td colspan="6" class="px-4 py-8 text-center text-gray-500">Loading analytics data...</td>
@@ -150,123 +191,314 @@
         </div>
       </div>
     `;
-  
+
     // Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
-  
+
     // Initialize the map
     initAnalyticsMap();
-  
+
     // Add layer toggle event listeners
     setupLayerToggles();
-  
+
     // Load initial data
     await loadAnalyticsData();
   }
-  
+
   function initAnalyticsMap() {
     // Destroy existing map if any
     if (analyticsMap) {
       analyticsMap.remove();
       analyticsMap = null;
     }
-  
+
     // Clear layers
     coverageHeatLayer = null;
     complaintHeatLayer = null;
     barangayMarkers = [];
-  
+
     // Create new map centered on Mati City
     const mapContainer = document.getElementById('analyticsMap');
     if (!mapContainer) return;
-  
+
     analyticsMap = L.map('analyticsMap').setView([6.9549, 126.2185], 13);
-  
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(analyticsMap);
   }
-  
+
   async function loadAnalyticsData() {
     const startDate = document.getElementById('analyticsStartDate')?.value;
     const endDate = document.getElementById('analyticsEndDate')?.value;
-  
+
     if (!startDate || !endDate) {
       showToast('Please select a date range', 'error');
       return;
     }
-  
+
     try {
       const response = await fetchWithRetry(`/api/reports/analytics-data?startDate=${startDate}&endDate=${endDate}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-  
+
       if (!response.ok) throw new Error('Failed to fetch analytics data');
-  
+
       const data = await response.json();
       currentAnalyticsData = data;
-  
+
       // Update summary cards
       updateAnalyticsSummary(data.summary);
-  
+
       // Render heatmaps
       renderCoverageHeatmap(data.routePoints);
       renderComplaintHeatmap(data.complaintPoints);
       renderBarangayOverlay(data.barangayStats);
-  
+
       // Render rankings table
       renderBarangayTable(data.barangayStats);
-  
+
+      // Load Extra Chart Data (Parallel Requests)
+      loadChartData(startDate, endDate);
+
     } catch (error) {
       console.error('Error loading analytics data:', error);
       showToast('Failed to load analytics data', 'error');
     }
   }
-  
+
+  async function loadChartData(startDate, endDate) {
+    try {
+      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+
+      const [collectionRes, driverRes, complaintRes] = await Promise.all([
+        fetchWithRetry(`/api/reports/collection-summary?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetchWithRetry(`/api/reports/driver-performance?startDate=${startDate}&endDate=${endDate}`, { headers }),
+        fetchWithRetry(`/api/reports/complaint-analytics?startDate=${startDate}&endDate=${endDate}`, { headers })
+      ]);
+
+      if (collectionRes.ok) {
+        const collectionData = await collectionRes.json();
+        renderCollectionsTrendChart(collectionData.daily);
+      }
+
+      if (driverRes.ok) {
+        const driverData = await driverRes.json();
+        renderDriverPerformanceChart(driverData.drivers);
+      }
+
+      if (complaintRes.ok) {
+        const complaintData = await complaintRes.json();
+        renderComplaintStatusChart(complaintData.byStatus);
+      }
+
+    } catch (error) {
+      console.error('Error loading additional chart data:', error);
+      // We don't need a noisy toast here, the heatmaps already worked
+    }
+  }
+
+  function renderCollectionsTrendChart(dailyData) {
+    const ctx = document.getElementById('collectionsTrendChart');
+    if (!ctx || !dailyData) return;
+
+    if (collectionsChartInstance) {
+      collectionsChartInstance.destroy();
+    }
+
+    const labels = dailyData.map(d => formatDateShort(d.date));
+    const completions = dailyData.map(d => d.completions);
+    const distances = dailyData.map(d => d.distance);
+
+    collectionsChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Route Completions',
+            data: completions,
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Total Distance (km)',
+            data: distances,
+            borderColor: '#3B82F6',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            tension: 0.3,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            type: 'linear', display: true, position: 'left',
+            title: { display: true, text: 'Completions' }
+          },
+          y1: {
+            type: 'linear', display: true, position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Distance (km)' }
+          }
+        }
+      }
+    });
+  }
+
+  function renderDriverPerformanceChart(driversData) {
+    const ctx = document.getElementById('driverPerformanceChart');
+    if (!ctx || !driversData) return;
+
+    if (driverChartInstance) {
+      driverChartInstance.destroy();
+    }
+
+    // Top 5 drivers
+    const topDrivers = driversData.slice(0, 5);
+    const labels = topDrivers.map(d => d.fullName || d.username);
+    const routes = topDrivers.map(d => d.routesCompleted);
+    const effs = topDrivers.map(d => d.fuelEfficiency || 0);
+
+    driverChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Routes Completed',
+            data: routes,
+            backgroundColor: '#3B82F6',
+            borderRadius: 4,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Efficiency (km/L)',
+            data: effs,
+            backgroundColor: '#10B981',
+            borderRadius: 4,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            type: 'linear', display: true, position: 'left',
+            title: { display: true, text: 'Routes' }
+          },
+          y1: {
+            type: 'linear', display: true, position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Efficiency' }
+          }
+        }
+      }
+    });
+  }
+
+  function renderComplaintStatusChart(statusData) {
+    const ctx = document.getElementById('complaintStatusChart');
+    if (!ctx || !statusData) return;
+
+    if (complaintChartInstance) {
+      complaintChartInstance.destroy();
+    }
+
+    const statusColors = {
+      'pending': '#F59E0B',
+      'in-progress': '#3B82F6',
+      'resolved': '#10B981',
+      'closed': '#6B7280'
+    };
+
+    const labels = statusData.map(s => s.status.replace('-', ' ').toUpperCase());
+    const counts = statusData.map(s => s.count);
+    const bgColors = statusData.map(s => statusColors[s.status] || '#9CA3AF');
+
+    complaintChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: counts,
+          backgroundColor: bgColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'right' }
+        }
+      }
+    });
+  }
+
   function updateAnalyticsSummary(summary) {
     const setElement = (id, value) => {
       const el = document.getElementById(id);
       if (el) el.textContent = value;
     };
-  
+
     setElement('totalRouteCompletions', summary.totalRouteCompletions || 0);
     setElement('totalComplaints', summary.totalComplaints || 0);
     setElement('avgServiceScore', summary.avgServiceScore ? `${summary.avgServiceScore}/100` : '-');
     setElement('wellServedCount', summary.wellServedCount || 0);
     setElement('underservedCount', summary.underservedCount || 0);
   }
-  
+
   function renderCoverageHeatmap(points) {
     if (!analyticsMap || !points || points.length === 0) return;
-  
+
     // Remove existing layer
     if (coverageHeatLayer) {
       analyticsMap.removeLayer(coverageHeatLayer);
     }
-  
+
     // Convert points to heatmap format [lat, lng, intensity]
     const heatData = points.map(p => [p.lat, p.lng, p.intensity || 1]);
-  
+
     coverageHeatLayer = L.heatLayer(heatData, coverageHeatConfig);
-  
+
     // Only add if checkbox is checked
     const showCoverage = document.getElementById('showCoverageHeat');
     if (showCoverage && showCoverage.checked) {
       coverageHeatLayer.addTo(analyticsMap);
     }
   }
-  
+
   function renderComplaintHeatmap(points) {
     if (!analyticsMap || !points || points.length === 0) return;
-  
+
     // Remove existing layer
     if (complaintHeatLayer) {
       analyticsMap.removeLayer(complaintHeatLayer);
     }
-  
+
     // Weight by severity: high=3, medium=2, low=1
     const severityWeight = { high: 3, medium: 2, low: 1 };
     const heatData = points.map(p => [
@@ -274,27 +506,27 @@
       p.lng,
       severityWeight[p.severity] || 1
     ]);
-  
+
     complaintHeatLayer = L.heatLayer(heatData, complaintHeatConfig);
-  
+
     // Only add if checkbox is checked
     const showComplaints = document.getElementById('showComplaintHeat');
     if (showComplaints && showComplaints.checked) {
       complaintHeatLayer.addTo(analyticsMap);
     }
   }
-  
+
   function renderBarangayOverlay(barangayStats) {
     if (!analyticsMap || !barangayStats) return;
-  
+
     // Clear existing markers
     barangayMarkers.forEach(m => analyticsMap.removeLayer(m));
     barangayMarkers = [];
-  
+
     barangayStats.forEach((b, index) => {
       const color = b.status === 'well-served' ? '#10B981' :
-                    b.status === 'moderate' ? '#F59E0B' : '#EF4444';
-  
+        b.status === 'moderate' ? '#F59E0B' : '#EF4444';
+
       const marker = L.circleMarker([b.center.lat, b.center.lng], {
         radius: 12,
         fillColor: color,
@@ -302,7 +534,7 @@
         color: '#fff',
         weight: 2
       });
-  
+
       marker.bindPopup(`
         <div class="text-center p-2">
           <strong class="text-lg">${b.name}</strong><br>
@@ -318,31 +550,31 @@
           </div>
         </div>
       `);
-  
+
       barangayMarkers.push(marker);
     });
-  
+
     // Only add if checkbox is checked
     const showBarangays = document.getElementById('showBarangayOverlay');
     if (showBarangays && showBarangays.checked) {
       barangayMarkers.forEach(m => m.addTo(analyticsMap));
     }
   }
-  
+
   function renderBarangayTable(barangayStats) {
     const tbody = document.getElementById('barangayRankingsBody');
     if (!tbody || !barangayStats) return;
-  
+
     if (barangayStats.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No data available for the selected period</td></tr>';
       return;
     }
-  
+
     tbody.innerHTML = barangayStats.map((b, index) => {
       const statusColor = b.status === 'well-served' ? 'bg-green-100 text-green-800' :
-                          b.status === 'moderate' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+        b.status === 'moderate' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
       const statusText = b.status.replace('-', ' ').charAt(0).toUpperCase() + b.status.slice(1).replace('-', ' ');
-  
+
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
           <td class="px-4 py-3 font-medium text-gray-800">#${index + 1}</td>
@@ -363,7 +595,7 @@
       `;
     }).join('');
   }
-  
+
   function setupLayerToggles() {
     // Coverage heat toggle
     const showCoverageHeat = document.getElementById('showCoverageHeat');
@@ -377,7 +609,7 @@
         }
       });
     }
-  
+
     // Complaint heat toggle
     const showComplaintHeat = document.getElementById('showComplaintHeat');
     if (showComplaintHeat) {
@@ -390,7 +622,7 @@
         }
       });
     }
-  
+
     // Barangay overlay toggle
     const showBarangayOverlay = document.getElementById('showBarangayOverlay');
     if (showBarangayOverlay) {
@@ -406,10 +638,10 @@
       });
     }
   }
-  
+
   // Make analytics functions globally accessible
   window.showAnalyticsModule = showAnalyticsModule;
   window.loadAnalyticsData = loadAnalyticsData;
-  
+
 
 })();
