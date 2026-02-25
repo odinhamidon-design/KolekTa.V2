@@ -1,30 +1,30 @@
-(function() {
+(function () {
   'use strict';
 
   // Admin Notification System
   // Create permanent notification icon in header
   function createNotificationIcon() {
     console.log('createNotificationIcon called, user role:', user.role);
-  
+
     if (user.role !== 'admin') {
       console.log('Not admin, skipping notification icon');
       return;
     }
-  
+
     let badge = document.getElementById('notificationBadge');
     if (badge) {
       console.log('Notification badge already exists');
       return; // Already exists
     }
-  
+
     const container = document.getElementById('headerNotificationContainer');
     console.log('Container found:', container);
-  
+
     if (!container) {
       console.error('headerNotificationContainer not found!');
       return;
     }
-  
+
     badge = document.createElement('button');
     badge.id = 'notificationBadge';
     badge.className = 'relative p-2 hover:bg-white/10 rounded-lg transition-colors';
@@ -35,17 +35,17 @@
     `;
     badge.onclick = () => showNotificationHistory();
     container.appendChild(badge);
-  
+
     // Initialize Lucide icon
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
     }
     console.log('Notification badge created successfully!');
   }
-  
+
   async function checkCompletionNotifications() {
     if (user.role !== 'admin') return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
@@ -53,19 +53,35 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const notifications = await response.json();
-        
+
         if (notifications.length > 0) {
+          // Store for later use by markAllNotificationsRead
+          window._pendingNotifications = notifications;
           showCompletionNotifications(notifications);
+        } else {
+          // Clear badge when no pending notifications
+          window._pendingNotifications = [];
+          const badge = document.getElementById('notificationBadge');
+          if (badge) {
+            badge.classList.remove('notification-pulse');
+            badge.title = 'No new notifications - Click to view history';
+            badge.onclick = () => showNotificationHistory();
+          }
+          const countBadge = document.getElementById('notificationCount');
+          if (countBadge) {
+            countBadge.textContent = '0';
+            countBadge.classList.add('hidden');
+          }
         }
       }
     } catch (error) {
       console.error('Error checking notifications:', error);
     }
   }
-  
+
   function showCompletionNotifications(notifications) {
     // Update existing notification badge
     let badge = document.getElementById('notificationBadge');
@@ -73,26 +89,26 @@
       createNotificationIcon();
       badge = document.getElementById('notificationBadge');
     }
-  
+
     if (badge) {
       badge.title = `${notifications.length} new notification${notifications.length > 1 ? 's' : ''} - Click to view`;
       badge.classList.add('notification-pulse');
-  
+
       // Update notification count badge
       const countBadge = document.getElementById('notificationCount');
       if (countBadge) {
         countBadge.textContent = notifications.length;
         countBadge.classList.remove('hidden');
       }
-  
+
       badge.onclick = () => showNotificationDetails(notifications);
     }
   }
-  
+
   async function showNotificationDetails(notifications) {
     const notificationsList = notifications.map(route => {
       const completedDate = new Date(route.completedAt).toLocaleString();
-      
+
       return `
         <div style="background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); padding: 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 5px solid #4caf50; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -113,7 +129,7 @@
         </div>
       `;
     }).join('');
-    
+
     showModal('🔔 Active Notifications', `
       <div>
         <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border-radius: 8px; border-left: 4px solid #4caf50;">
@@ -145,31 +161,31 @@
       </div>
     `);
   }
-  
-  window.viewCompletionDetails = async function(routeId) {
+
+  window.viewCompletionDetails = async function (routeId) {
     try {
       const token = localStorage.getItem('token');
       // Use completions endpoint to get full route details including photos
       const response = await fetchWithRetry(`${API_URL}/completions/${routeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (!response.ok) {
         console.error('Failed to fetch route details');
         return;
       }
-      
+
       const route = await response.json();
-      
+
       if (!route) return;
-      
+
       const completedDate = new Date(route.completedAt).toLocaleString();
-      const photosHtml = route.completionPhotos && route.completionPhotos.length > 0 ? 
-        route.completionPhotos.map((photo, index) => 
+      const photosHtml = route.completionPhotos && route.completionPhotos.length > 0 ?
+        route.completionPhotos.map((photo, index) =>
           `<img src="${photo}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; margin: 0.25rem; cursor: pointer; border: 2px solid #4caf50;" onclick="openPhotoModal('${index}', ${JSON.stringify(route.completionPhotos).replace(/'/g, "\\'")})" title="Click to view full size">`
-        ).join('') : 
+        ).join('') :
         '<p style="color: #999;">No photos uploaded</p>';
-      
+
       showModal(`✓ ${escapeHtml(route.name || 'Route Completed')}`, `
         <div style="padding: 0.5rem;">
           <div style="background: #e8f5e9; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
@@ -192,9 +208,9 @@
       showToast('Error loading completion details: ' + error.message, 'error');
     }
   };
-  
+
   // Helper function to open photo in full size modal
-  window.openPhotoModal = function(index, photos) {
+  window.openPhotoModal = function (index, photos) {
     const photo = photos[index];
     const photoWindow = window.open('', '_blank');
     photoWindow.document.write(`
@@ -206,8 +222,8 @@
       </html>
     `);
   };
-  
-  window.markNotificationRead = async function(routeId) {
+
+  window.markNotificationRead = async function (routeId) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/completions/notifications/${routeId}/read`, {
@@ -216,7 +232,7 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         // Remove notification badge if no more notifications
         checkCompletionNotifications();
@@ -226,16 +242,16 @@
       console.error('Error marking notification as read:', error);
     }
   };
-  
+
   // Delete single notification
-  window.deleteNotification = async function(routeId) {
+  window.deleteNotification = async function (routeId) {
     if (!await showConfirm('Delete from History', 'Permanently delete this route from history? This cannot be undone.')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
-      
+
       // Delete the route permanently
       const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
         method: 'DELETE',
@@ -243,7 +259,7 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         showToast('Route deleted permanently', 'success');
         checkCompletionNotifications();
@@ -258,13 +274,13 @@
       showToast('Error deleting notification: ' + error.message, 'error');
     }
   };
-  
+
   // Delete all notifications
-  window.deleteAllNotifications = async function() {
+  window.deleteAllNotifications = async function () {
     if (!await showConfirm('Delete All Notifications', 'Delete all notifications? This cannot be undone.')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const notificationsRes = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
@@ -272,9 +288,9 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const notifications = await notificationsRes.json();
-      
+
       // Mark all as read (delete)
       await Promise.all(notifications.map(route => {
         saveNotificationToHistory(route._id || route.routeId);
@@ -285,7 +301,7 @@
           }
         });
       }));
-      
+
       // Update badge to show 0 notifications
       const badge = document.getElementById('notificationBadge');
       if (badge) {
@@ -293,17 +309,17 @@
         badge.style.borderColor = '#e0e0e0';
         badge.style.animation = 'none';
         badge.title = 'No new notifications - Click to view history';
-        
+
         const notificationText = document.getElementById('notificationText');
         if (notificationText) {
           notificationText.textContent = 'No New';
           notificationText.style.cssText = 'color: #999;';
         }
       }
-      
+
       showToast('All notifications deleted', 'success');
       closeModal();
-      
+
       // Check for new notifications after 5 seconds
       setTimeout(checkCompletionNotifications, 5000);
     } catch (error) {
@@ -311,7 +327,7 @@
       showToast('Error deleting notifications', 'error');
     }
   };
-  
+
   // Save notification to history (localStorage)
   function saveNotificationToHistory(routeId) {
     const history = JSON.parse(localStorage.getItem('notificationHistory') || '[]');
@@ -326,9 +342,9 @@
     }
     localStorage.setItem('notificationHistory', JSON.stringify(history));
   }
-  
+
   // Show notification history
-  window.showNotificationHistory = async function() {
+  window.showNotificationHistory = async function () {
     setActiveSidebarButton('completionHistoryBtn');
     // Show loading state immediately
     showPage('Completion History', `
@@ -337,24 +353,24 @@
         <p class="text-gray-500">Loading completion history...</p>
       </div>
     `);
-  
+
     try {
       const token = localStorage.getItem('token');
-  
+
       // Include photos to get accurate photo count for completion history
       const response = await fetchWithRetry(`${API_URL}/routes?includePhotos=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-  
+
       const routes = await response.json();
       const completedRoutes = routes.filter(r => r.status === 'completed' && r.completedAt);
       completedRoutes.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
-  
+
       // Stats
       const acknowledgedCount = completedRoutes.filter(r => r.notificationSent).length;
       const pendingCount = completedRoutes.filter(r => !r.notificationSent).length;
       const withPhotosCount = completedRoutes.filter(r => (r.photoCount && r.photoCount > 0) || (r.completionPhotos && r.completionPhotos.length > 0)).length;
-  
+
       const historyCards = completedRoutes.map(route => {
         const completedDate = new Date(route.completedAt).toLocaleDateString('en-US', {
           year: 'numeric', month: 'short', day: 'numeric'
@@ -364,7 +380,7 @@
         });
         const isAcknowledged = route.notificationSent;
         const photoCount = route.photoCount || (route.completionPhotos ? route.completionPhotos.length : 0);
-  
+
         return `
           <div class="bg-white rounded-xl shadow-sm border ${isAcknowledged ? 'border-gray-100' : 'border-green-200'} overflow-hidden">
             <!-- Card Header -->
@@ -448,7 +464,13 @@
             </div>
   
             <!-- Card Footer -->
-            <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+            <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+              ${!isAcknowledged ? `
+                <button onclick="markNotificationRead('${route._id || route.routeId}'); setTimeout(showNotificationHistory, 500);" class="flex items-center gap-1 px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                  <i data-lucide="check-circle" class="w-4 h-4"></i>
+                  <span>Acknowledge</span>
+                </button>
+              ` : ''}
               <button onclick="deleteHistoryItem('${route._id || route.routeId}')" class="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                 <span>Delete</span>
@@ -457,7 +479,7 @@
           </div>
         `;
       }).join('');
-  
+
       showPage('Completion History', `
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -535,30 +557,30 @@
       `);
     }
   };
-  
+
   // View completion photos (lazy load)
-  window.viewCompletionPhotos = async function(routeId) {
+  window.viewCompletionPhotos = async function (routeId) {
     showModal('Loading Photos...', `
       <div class="flex flex-col items-center justify-center py-8">
         <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3"></div>
         <p class="text-gray-500">Loading photos...</p>
       </div>
     `);
-  
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/routes/${routeId}?includePhotos=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-  
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || `Server returned ${response.status}`);
       }
-  
+
       const route = await response.json();
       const photos = route.completionPhotos || [];
-  
+
       if (photos.length === 0) {
         showModal('No Photos', `
           <div class="text-center py-8">
@@ -569,7 +591,7 @@
         if (typeof lucide !== 'undefined') lucide.createIcons();
         return;
       }
-  
+
       showModal(`Completion Photos - ${escapeHtml(route.name || route.routeId)}`, `
         <div class="space-y-4">
           <p class="text-sm text-gray-500">Completed by <strong>${escapeHtml(route.completedBy || 'Unknown')}</strong> on ${new Date(route.completedAt).toLocaleDateString()}</p>
@@ -593,13 +615,13 @@
       if (typeof lucide !== 'undefined') lucide.createIcons();
     }
   };
-  
+
   // Delete single history item
-  window.deleteHistoryItem = async function(routeId) {
+  window.deleteHistoryItem = async function (routeId) {
     if (!await showConfirm('Delete History Item', 'Delete this history item? This will permanently remove it.')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetchWithRetry(`${API_URL}/routes/${routeId}`, {
@@ -608,7 +630,7 @@
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         showToast('History item deleted', 'success');
         showNotificationHistory(); // Refresh the list
@@ -620,28 +642,28 @@
       showToast('Error deleting history item', 'error');
     }
   };
-  
+
   // Clear all history
-  window.clearAllHistory = async function() {
+  window.clearAllHistory = async function () {
     if (!await showConfirm('Clear All History', 'Delete ALL history? This will permanently remove all completed routes from history.')) {
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
-      
+
       // Get all completed routes
       const response = await fetchWithRetry(`${API_URL}/routes`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const routes = await response.json();
       const completedRoutes = routes.filter(r => r.status === 'completed' && r.completedAt);
-      
+
       // Delete all completed routes
-      await Promise.all(completedRoutes.map(route => 
+      await Promise.all(completedRoutes.map(route =>
         fetch(`${API_URL}/routes/${route._id || route.routeId}`, {
           method: 'DELETE',
           headers: {
@@ -649,7 +671,7 @@
           }
         })
       ));
-      
+
       showToast('All history cleared', 'success');
       closeModal();
     } catch (error) {
@@ -657,20 +679,30 @@
       showToast('Error clearing history', 'error');
     }
   };
-  
-  window.markAllNotificationsRead = async function() {
+
+  window.markAllNotificationsRead = async function () {
     try {
       const token = localStorage.getItem('token');
-      const notificationsRes = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const notifications = await notificationsRes.json();
-      
+
+      // Use cached notifications if available, otherwise fetch fresh
+      let notifications = window._pendingNotifications;
+      if (!notifications || notifications.length === 0) {
+        const notificationsRes = await fetchWithRetry(`${API_URL}/completions/notifications/pending`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        notifications = await notificationsRes.json();
+      }
+
+      if (!notifications || notifications.length === 0) {
+        showToast('No pending notifications to acknowledge', 'info');
+        closeModal();
+        return;
+      }
+
       // Mark all as read
-      await Promise.all(notifications.map(route => 
+      await Promise.all(notifications.map(route =>
         fetch(`${API_URL}/completions/notifications/${route._id || route.routeId}/read`, {
           method: 'POST',
           headers: {
@@ -678,29 +710,31 @@
           }
         })
       ));
-      
+
+      // Clear cached list
+      window._pendingNotifications = [];
+
       // Update badge to show 0 notifications
       const badge = document.getElementById('notificationBadge');
       if (badge) {
-        badge.style.background = 'linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)';
-        badge.style.borderColor = '#e0e0e0';
-        badge.style.animation = 'none';
+        badge.classList.remove('notification-pulse');
         badge.title = 'No new notifications - Click to view history';
-        
-        const notificationText = document.getElementById('notificationText');
-        if (notificationText) {
-          notificationText.textContent = 'No New';
-          notificationText.style.cssText = 'color: #999;';
-        }
+        badge.onclick = () => showNotificationHistory();
       }
-      
+      const countBadge = document.getElementById('notificationCount');
+      if (countBadge) {
+        countBadge.textContent = '0';
+        countBadge.classList.add('hidden');
+      }
+
       showToast('All notifications acknowledged!', 'success');
       closeModal();
-      
-      // Check for new notifications after 5 seconds
-      setTimeout(checkCompletionNotifications, 5000);
+
+      // Refresh state after a short delay
+      setTimeout(checkCompletionNotifications, 3000);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+      showToast('Error acknowledging notifications', 'error');
     }
   };
 
