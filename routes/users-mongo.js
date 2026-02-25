@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const User = require('../models/User');
 const logger = require('../lib/logger');
 const { createUserRules, updateUserRules } = require('../middleware/validate');
@@ -10,7 +11,6 @@ const { createUserRules, updateUserRules } = require('../middleware/validate');
 // Get all users (Admin only)
 router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const users = await User.find({}).select('-password -faceDescriptor');
     res.json(users);
   } catch (error) {
@@ -22,14 +22,13 @@ router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
 // Get single user (Admin only)
 router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const user = await User.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
         { username: req.params.id }
       ]
     }).select('-password -faceDescriptor');
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -42,34 +41,28 @@ router.get('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
 // Create new user (Admin only)
 router.post('/', authenticateToken, authorizeRole('admin'), createUserRules, async (req, res) => {
   try {
-    await connectDB();
     const { username, email, password, role, fullName, phoneNumber } = req.body;
-    
+
     // Only allow creating drivers
     if (role && role !== 'driver') {
       return res.status(400).json({ error: 'Can only create driver accounts' });
     }
-    
+
     // Check if username exists
     const existingUsername = await User.findOne({ username });
     if (existingUsername) {
       return res.status(400).json({ error: 'Username already exists' });
     }
-    
+
     // Check if email exists
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
       return res.status(400).json({ error: 'Email already exists' });
     }
-    
+
     // Validate required fields for driver
     if (!fullName || !phoneNumber) {
       return res.status(400).json({ error: 'Full name and phone number are required' });
-    }
-
-    // Validate password
-    if (!password || password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     const newUser = new User({
@@ -81,10 +74,10 @@ router.post('/', authenticateToken, authorizeRole('admin'), createUserRules, asy
       phoneNumber,
       isActive: true
     });
-    
+
     await newUser.save();
     logger.info('User created in MongoDB:', username);
-    
+
     res.status(201).json({
       _id: newUser._id,
       username: newUser.username,
@@ -103,30 +96,29 @@ router.post('/', authenticateToken, authorizeRole('admin'), createUserRules, asy
 // Update user (Admin only)
 router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const user = await User.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
         { username: req.params.id }
       ]
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     const { email, password, role, fullName, phoneNumber, isActive } = req.body;
-    
+
     // Prevent changing admin role
     if (user.role === 'admin' && role && role !== 'admin') {
       return res.status(400).json({ error: 'Cannot change admin role' });
     }
-    
+
     // Prevent changing driver to admin
     if (role && role === 'admin' && user.role !== 'admin') {
       return res.status(400).json({ error: 'Cannot promote user to admin' });
     }
-    
+
     // Check if email is taken by another user
     if (email && email !== user.email) {
       const existingEmail = await User.findOne({ email, _id: { $ne: user._id } });
@@ -135,7 +127,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
       }
       user.email = email;
     }
-    
+
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -144,15 +136,15 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
     }
     if (fullName !== undefined) user.fullName = fullName;
     if (phoneNumber !== undefined) user.phoneNumber = phoneNumber;
-    
+
     // Only allow changing active status for drivers
     if (isActive !== undefined && user.role !== 'admin') {
       user.isActive = isActive;
     }
-    
+
     await user.save();
     logger.info('User updated in MongoDB:', user.username);
-    
+
     res.json({
       _id: user._id,
       username: user.username,
@@ -171,28 +163,27 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
 // Delete user (Admin only)
 router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const user = await User.findOne({
       $or: [
         { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null },
         { username: req.params.id }
       ]
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Prevent deleting admin
     if (user.role === 'admin') {
       return res.status(400).json({ error: 'Cannot delete admin account' });
     }
-    
+
     // Prevent deleting yourself
     if (user.username === req.user.username) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
-    
+
     await User.deleteOne({ _id: user._id });
     logger.info('User deleted from MongoDB:', user.username);
     res.json({ message: 'Driver deleted successfully' });

@@ -4,12 +4,12 @@ const Collection = require('../models/Collection');
 const Bin = require('../models/Bin');
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const logger = require('../lib/logger');
 
 // Get all collections (authenticated)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const collections = await Collection.find()
       .populate('bin route')
       .sort({ collectedAt: -1 })
@@ -24,7 +24,6 @@ router.get('/', authenticateToken, async (req, res) => {
 // Record new collection (driver or admin)
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
 
     // Add collector info from authenticated user
     const collectionData = {
@@ -59,7 +58,6 @@ router.get('/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
     const stats = await Collection.aggregate([
       {
         $group: {
@@ -90,16 +88,15 @@ router.get('/range', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'startDate and endDate are required' });
     }
 
-    await connectDB();
     const collections = await Collection.find({
       collectedAt: {
         $gte: new Date(startDate),
         $lte: new Date(endDate)
       }
     })
-    .populate('bin route')
-    .sort({ collectedAt: -1 })
-    .lean();
+      .populate('bin route')
+      .sort({ collectedAt: -1 })
+      .lean();
 
     res.json(collections);
   } catch (error) {

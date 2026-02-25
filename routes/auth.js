@@ -4,14 +4,13 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, JWT_SECRET } = require('../middleware/auth');
 const logger = require('../lib/logger');
 const { loginRules, forgotPasswordQuestionRules, forgotPasswordVerifyRules, resetPasswordRules } = require('../middleware/validate');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'kolek-ta-secret-key-2024';
-if (!process.env.JWT_SECRET) {
-  logger.warn('JWT_SECRET not set — using default fallback. Set JWT_SECRET env var in production!');
-}
+const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
+// JWT_SECRET is centralized in middleware/auth.js — imported above
 
 // Login
 router.post('/login', loginRules, async (req, res) => {
@@ -20,8 +19,6 @@ router.post('/login', loginRules, async (req, res) => {
     logger.info('[LOGIN] Attempt:', username, role);
 
     // Ensure MongoDB connection is ready
-    const connectDB = require('../lib/mongodb');
-    await connectDB();
     logger.debug('[LOGIN] DB connected');
 
     const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(60000);
@@ -66,26 +63,26 @@ router.post('/login', loginRules, async (req, res) => {
 router.post('/login/face', async (req, res) => {
   try {
     const { username, faceDescriptor } = req.body;
-    
+
     const user = await User.findOne({ username, role: 'driver', isActive: true });
     if (!user || !user.faceDescriptor || user.faceDescriptor.length === 0) {
       return res.status(401).json({ error: 'Face data not found' });
     }
-    
+
     // Calculate Euclidean distance
     const distance = calculateDistance(faceDescriptor, user.faceDescriptor);
     const threshold = 0.6; // Adjust based on accuracy needs
-    
+
     if (distance > threshold) {
       return res.status(401).json({ error: 'Face verification failed' });
     }
-    
+
     const token = jwt.sign(
       { userId: user._id, role: user.role, username: user.username },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    
+
     res.json({
       token,
       user: {
@@ -175,8 +172,6 @@ router.post('/forgot-password/question', forgotPasswordQuestionRules, async (req
     const { username, role } = req.body;
 
     // Ensure MongoDB connection is ready
-    const connectDB = require('../lib/mongodb');
-    await connectDB();
 
     const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(30000);
     if (!user) {
@@ -202,8 +197,6 @@ router.post('/forgot-password/verify', forgotPasswordVerifyRules, async (req, re
     const { username, role, answer } = req.body;
 
     // Ensure MongoDB connection is ready
-    const connectDB = require('../lib/mongodb');
-    await connectDB();
 
     const user = await User.findOne({ username, role, isActive: true }).maxTimeMS(30000);
     if (!user) {
@@ -214,8 +207,9 @@ router.post('/forgot-password/verify', forgotPasswordVerifyRules, async (req, re
       return res.status(400).json({ error: 'No security answer set for this account' });
     }
 
-    // Compare answers (case-insensitive)
-    if (user.securityAnswer.toLowerCase().trim() !== answer.toLowerCase().trim()) {
+    // Compare answers using bcrypt (secure, constant-time)
+    const isAnswerCorrect = await user.compareSecurityAnswer(answer);
+    if (!isAnswerCorrect) {
       return res.status(401).json({ error: 'Incorrect security answer. Please try again.' });
     }
 
@@ -241,8 +235,6 @@ router.post('/forgot-password/reset', resetPasswordRules, async (req, res) => {
     const { resetToken, newPassword } = req.body;
 
     // Ensure MongoDB connection is ready
-    const connectDB = require('../lib/mongodb');
-    await connectDB();
 
     const user = await User.findOne({
       resetToken: resetToken,
@@ -253,10 +245,7 @@ router.post('/forgot-password/reset', resetPasswordRules, async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token. Please try again.' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-
+    // resetPasswordRules middleware already enforces min length — set new password
     user.password = newPassword;
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
@@ -273,12 +262,12 @@ router.post('/forgot-password/reset', resetPasswordRules, async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    
+
     const user = await User.findOne({
       resetToken: token,
       resetTokenExpiry: { $gt: Date.now() }
     });
-    
+
     if (!user) {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
@@ -291,7 +280,7 @@ router.post('/reset-password', async (req, res) => {
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
     await user.save();
-    
+
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
     logger.error('Error in reset-password:', error);

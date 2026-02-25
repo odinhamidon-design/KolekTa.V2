@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,35 +12,44 @@
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
   <script src="/vendor/leaflet/leaflet.js"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
     .photo-preview {
       width: 100px;
       height: 100px;
       object-fit: cover;
       border-radius: 8px;
     }
+
     #mapPickerContainer {
       height: 400px;
       width: 100%;
       border-radius: 8px;
     }
+
     .report-type-card {
       cursor: pointer;
       transition: all 0.2s;
     }
+
     .report-type-card:hover {
       border-color: #22c55e;
       background-color: #f0fdf4;
     }
+
     .report-type-card.selected {
       border-color: #22c55e;
       background-color: #dcfce7;
     }
+
     .report-type-card.selected .check-icon {
       display: flex;
     }
   </style>
 </head>
+
 <body class="bg-gray-100 min-h-screen">
   <!-- Header -->
   <header class="bg-green-600 text-white py-4 shadow-lg">
@@ -53,7 +63,8 @@
           <p class="text-green-100 text-sm">Mati City Waste Collection</p>
         </div>
       </div>
-      <a href="/track.html" class="flex items-center gap-2 bg-green-500 hover:bg-green-400 px-4 py-2 rounded-lg transition">
+      <a href="/track.html"
+        class="flex items-center gap-2 bg-green-500 hover:bg-green-400 px-4 py-2 rounded-lg transition">
         <i data-lucide="search" class="w-4 h-4"></i>
         <span>Track Complaint</span>
       </a>
@@ -82,7 +93,8 @@
       <form id="complaintForm" enctype="multipart/form-data">
         <!-- Report Type Selection -->
         <div class="mb-6">
-          <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">What would you like to report? *</h3>
+          <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">What would you like to report? *
+          </h3>
           <div id="reportTypeContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <!-- Report type cards will be loaded here -->
           </div>
@@ -168,7 +180,7 @@
                     <i data-lucide="map-pin" class="w-4 h-4 text-green-600"></i>
                     <span class="text-sm text-green-800" id="locationCoords">Location selected</span>
                   </div>
-                  <button type="button" onclick="clearLocation()" class="text-red-500 hover:text-red-700">
+                  <button id="clearLocationBtn" type="button" class="text-red-500 hover:text-red-700">
                     <i data-lucide="x" class="w-4 h-4"></i>
                   </button>
                 </div>
@@ -186,7 +198,8 @@
           <div class="space-y-4">
             <!-- Missed Collection Date - Only shown for missed_collection type -->
             <div id="missedDateContainer">
-              <label for="missedCollectionDate" class="block text-sm font-medium text-gray-700 mb-1">Date of Missed Collection *</label>
+              <label for="missedCollectionDate" class="block text-sm font-medium text-gray-700 mb-1">Date of Missed
+                Collection *</label>
               <input type="date" id="missedCollectionDate" name="missedCollectionDate"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
             </div>
@@ -201,7 +214,9 @@
             <!-- Photo Upload -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Photos (Optional, max 3)</label>
-              <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-green-500 transition cursor-pointer" id="dropZone">
+              <div
+                class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-green-500 transition cursor-pointer"
+                id="dropZone">
                 <input type="file" id="photos" name="photos" accept="image/*" multiple class="hidden" max="3">
                 <div class="flex flex-col items-center gap-2">
                   <i data-lucide="camera" class="w-8 h-8 text-gray-400"></i>
@@ -238,7 +253,8 @@
           <i data-lucide="check-circle" class="w-10 h-10 text-green-600"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-800 mb-2">Complaint Submitted!</h3>
-        <p class="text-gray-600 mb-4">Your complaint has been received. Please save your reference number to track the status.</p>
+        <p class="text-gray-600 mb-4">Your complaint has been received. Please save your reference number to track the
+          status.</p>
 
         <div class="bg-gray-100 rounded-lg p-4 mb-4">
           <p class="text-sm text-gray-500 mb-1">Reference Number</p>
@@ -246,17 +262,19 @@
         </div>
 
         <div class="flex gap-3">
-          <button onclick="copyReference()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+          <button id="copyReferenceBtn"
+            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
             <i data-lucide="copy" class="w-4 h-4"></i>
             Copy
           </button>
-          <a href="/track.html" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+          <a href="/track.html"
+            class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
             <i data-lucide="search" class="w-4 h-4"></i>
             Track Status
           </a>
         </div>
 
-        <button onclick="closeModal()" class="mt-4 text-gray-500 hover:text-gray-700 text-sm">
+        <button id="closeSuccessModalBtn" class="mt-4 text-gray-500 hover:text-gray-700 text-sm">
           Submit another report
         </button>
       </div>
@@ -271,7 +289,7 @@
           <h3 class="text-lg font-bold text-gray-800">Pin Location on Map</h3>
           <p class="text-sm text-gray-500">Click on the map to mark the exact location</p>
         </div>
-        <button onclick="closeMapPicker()" class="text-gray-500 hover:text-gray-700">
+        <button id="closeMapPickerHeaderBtn" class="text-gray-500 hover:text-gray-700">
           <i data-lucide="x" class="w-6 h-6"></i>
         </button>
       </div>
@@ -283,10 +301,11 @@
         </div>
       </div>
       <div class="p-4 border-t flex gap-3 justify-end">
-        <button type="button" onclick="closeMapPicker()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <button id="cancelMapPickerBtn" type="button"
+          class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
           Cancel
         </button>
-        <button type="button" onclick="confirmLocation()" id="confirmLocationBtn" disabled
+        <button type="button" id="confirmLocationBtn" disabled
           class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
           Confirm Location
         </button>
@@ -628,7 +647,7 @@
           div.className = 'relative';
           div.innerHTML = `
             <img src="${e.target.result}" class="photo-preview">
-            <button type="button" onclick="removePhoto(${index})"
+            <button type="button" data-remove-index="${index}"
               class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600">
               &times;
             </button>
@@ -722,6 +741,21 @@
       document.getElementById('successModal').classList.add('hidden');
       document.getElementById('successModal').classList.remove('flex');
     }
+
+    // Wire up event listeners (replaces inline onclick attributes)
+    document.getElementById('clearLocationBtn')?.addEventListener('click', clearLocation);
+    document.getElementById('copyReferenceBtn')?.addEventListener('click', copyReference);
+    document.getElementById('closeSuccessModalBtn')?.addEventListener('click', closeModal);
+    document.getElementById('closeMapPickerHeaderBtn')?.addEventListener('click', closeMapPicker);
+    document.getElementById('cancelMapPickerBtn')?.addEventListener('click', closeMapPicker);
+    document.getElementById('confirmLocationBtn')?.addEventListener('click', confirmLocation);
+
+    // Event delegation for dynamically created removePhoto buttons
+    document.getElementById('photoPreview').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove-index]');
+      if (btn) removePhoto(parseInt(btn.dataset.removeIndex, 10));
+    });
   </script>
 </body>
+
 </html>

@@ -12,8 +12,12 @@ const logger = require('./lib/logger');
 
 // Ensure upload directories exist on startup (created by middleware/upload.js too,
 // but this guards against cold deploys where the module hasn't been required yet)
-const fs = require('fs');
-fs.mkdirSync(path.join(__dirname, 'public', 'uploads', 'complaints'), { recursive: true });
+try {
+  const fs = require('fs');
+  fs.mkdirSync(path.join(__dirname, 'public', 'uploads', 'complaints'), { recursive: true });
+} catch (err) {
+  console.warn('Could not create uploads directory (expected on Vercel/read-only environments)');
+}
 
 
 const app = express();

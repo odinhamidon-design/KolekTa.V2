@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const User = require('../models/User');
 const Truck = require('../models/Truck');
 const Route = require('../models/Route');
@@ -16,10 +17,22 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+// Fuel estimate helper — extracted to avoid duplication across update handlers
+function calculateFuelEstimate(trip) {
+  const avgSpeed = trip.speedSamples && trip.speedSamples.length > 0
+    ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
+    : 30;
+  const speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
+  const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
+  const stopFuel = trip.stopCount * 0.05;
+  const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
+  return Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
 }
 
 // Batch update for syncing offline GPS points
@@ -73,15 +86,8 @@ async function processPoint(username, point, trip) {
       if (trip.speedSamples.length > 100) trip.speedSamples.shift();
     }
 
-    // Calculate fuel estimate
-    const avgSpeed = trip.speedSamples.length > 0
-      ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
-      : 30;
-    let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
-    const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
-    const stopFuel = trip.stopCount * 0.05;
-    const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
-    trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+    // Calculate fuel estimate (via shared helper)
+    trip.fuelEstimate = calculateFuelEstimate(trip);
   }
 }
 
@@ -107,7 +113,6 @@ router.post('/batch-update', authenticateToken, async (req, res) => {
 
     logger.debug(`Batch GPS Update from ${username}: ${points.length} points`);
 
-    await connectDB();
 
     let processed = 0;
     let failed = 0;
@@ -196,7 +201,6 @@ router.post('/update', authenticateToken, trackingUpdateRules, async (req, res) 
     }
 
     // Connect to MongoDB
-    await connectDB();
 
     // Save to MongoDB LiveLocation collection (upsert by username)
     await LiveLocation.findOneAndUpdate(
@@ -253,15 +257,8 @@ router.post('/update', authenticateToken, trackingUpdateRules, async (req, res) 
       if (trip.speedSamples.length > 100) trip.speedSamples.shift();
     }
 
-    // Calculate fuel estimate
-    const avgSpeed = trip.speedSamples.length > 0
-      ? trip.speedSamples.reduce((a, b) => a + b, 0) / trip.speedSamples.length
-      : 30;
-    let speedFactor = avgSpeed < 30 ? 1.3 : avgSpeed < 50 ? 1.1 : 1.0;
-    const baseFuel = (trip.totalDistance / 100) * 25 * speedFactor * 1.09;
-    const stopFuel = trip.stopCount * 0.05;
-    const idleFuel = (trip.idleTimeMs / 3600000) * 2.5;
-    trip.fuelEstimate = Math.round((baseFuel + stopFuel + idleFuel) * 100) / 100;
+    // Calculate fuel estimate (via shared helper)
+    trip.fuelEstimate = calculateFuelEstimate(trip);
 
     // Save trip data to MongoDB
     await trip.save();
@@ -291,7 +288,6 @@ router.get('/active', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
 
     // Get locations updated within last 5 minutes from MongoDB
     const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
@@ -313,7 +309,6 @@ router.get('/all-trucks', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
 
     // Use lean() for faster read-only queries and run in parallel
     const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
@@ -394,7 +389,6 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    await connectDB();
 
     const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
     const location = await LiveLocation.findOne({
@@ -417,7 +411,6 @@ router.get('/driver/:username', authenticateToken, async (req, res) => {
 router.delete('/clear', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    await connectDB();
     await LiveLocation.deleteOne({ username });
     res.json({ message: 'Location cleared' });
   } catch (error) {
@@ -430,7 +423,6 @@ router.delete('/clear', authenticateToken, async (req, res) => {
 router.get('/my-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    await connectDB();
 
     const trip = await TripData.findOne({ username, isActive: true });
 
@@ -467,7 +459,6 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
     const { routeId } = req.body;
-    await connectDB();
 
     // End any existing active trip
     await TripData.updateMany({ username, isActive: true }, { isActive: false });
@@ -500,7 +491,6 @@ router.post('/start-trip', authenticateToken, async (req, res) => {
 router.post('/end-trip', authenticateToken, async (req, res) => {
   try {
     const username = req.user.username;
-    await connectDB();
 
     const trip = await TripData.findOne({ username, isActive: true });
 
@@ -532,7 +522,6 @@ router.get('/fuel-dashboard', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
 
     // Fetch live locations and active trips from MongoDB
     const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
@@ -597,7 +586,6 @@ router.get('/all-trips', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
 
     const activeTrips = await TripData.find({ isActive: true }).lean();
 
@@ -624,7 +612,6 @@ router.get('/fuel-estimate/:username', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    await connectDB();
 
     const trip = await TripData.findOne({ username, isActive: true });
 

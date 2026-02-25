@@ -28,16 +28,26 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ role: 1 });
 userSchema.index({ username: 1, role: 1 });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+// Hash password and security answer before saving
+userSchema.pre('save', async function (next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  if (this.isModified('securityAnswer') && this.securityAnswer) {
+    this.securityAnswer = await bcrypt.hash(this.securityAnswer.toLowerCase().trim(), 10);
+  }
   next();
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Compare security answer method (case-insensitive, trimmed)
+userSchema.methods.compareSecurityAnswer = async function (candidateAnswer) {
+  if (!this.securityAnswer) return false;
+  return await bcrypt.compare(candidateAnswer.toLowerCase().trim(), this.securityAnswer);
 };
 
 module.exports = mongoose.model('User', userSchema);

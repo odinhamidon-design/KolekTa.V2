@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
+const { complaintUpload } = require('../middleware/upload');
 const { authenticateToken } = require('../middleware/auth');
 const { complaintsStorage } = require('../data/storage');
 const logger = require('../lib/logger');
@@ -32,22 +32,6 @@ const REPORT_TYPES = [
   { value: 'other', label: 'Other', description: 'Other waste-related concerns' }
 ];
 
-// Configure multer for memory storage (photos)
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(file.originalname.toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  }
-});
 
 // Generate reference number
 function generateReferenceNumber() {
@@ -69,7 +53,7 @@ router.get('/report-types', (req, res) => {
 });
 
 // Submit a new complaint (PUBLIC)
-router.post('/submit', upload.array('photos', 3), submitComplaintRules, async (req, res) => {
+router.post('/submit', ...complaintUpload.array('photos', 3), submitComplaintRules, async (req, res) => {
   try {
     const { name, phone, email, address, barangay, description, missedCollectionDate, reportType, latitude, longitude } = req.body;
 
@@ -108,13 +92,11 @@ router.post('/submit', upload.array('photos', 3), submitComplaintRules, async (r
       }
     }
 
-    // Convert uploaded files to base64 data URLs
+    // Collect uploaded file paths (stored as URL strings, not base64)
     const photos = [];
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const base64 = file.buffer.toString('base64');
-        const dataUrl = `data:${file.mimetype};base64,${base64}`;
-        photos.push(dataUrl);
+        photos.push(file.webPath); // e.g. '/uploads/complaints/1234567890-abc.jpg'
       }
     }
 
@@ -231,11 +213,9 @@ router.get('/track/:referenceNumber', async (req, res) => {
       reportType: complaint.reportType || 'missed_collection',
       status: complaint.status,
       barangay: complaint.barangay,
-      location: complaint.location || null,
       description: complaint.description,
       missedCollectionDate: complaint.missedCollectionDate || null,
       adminResponse: complaint.adminResponse || null,
-      assignedDriver: complaint.assignedDriver || null,
       resolvedAt: complaint.resolvedAt || null,
       createdAt: complaint.createdAt,
       updatedAt: complaint.updatedAt
@@ -261,9 +241,11 @@ router.get('/', authenticateToken, async (req, res) => {
     if (!useMockAuth && Complaint) {
       // MongoDB mode with filters
       const query = {};
-      if (status && typeof status === 'string') query.status = status;
-      if (barangay && typeof barangay === 'string') query.barangay = barangay;
-      if (reportType && typeof reportType === 'string') query.reportType = reportType;
+      const VALID_STATUSES = ['pending', 'in-progress', 'resolved', 'closed'];
+      const VALID_REPORT_TYPES = REPORT_TYPES.map(t => t.value);
+      if (status && VALID_STATUSES.includes(status)) query.status = status;
+      if (barangay && BARANGAYS.includes(barangay)) query.barangay = barangay;
+      if (reportType && VALID_REPORT_TYPES.includes(reportType)) query.reportType = reportType;
       if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);

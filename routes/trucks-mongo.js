@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const Truck = require('../models/Truck');
 const logger = require('../lib/logger');
 const { createTruckRules } = require('../middleware/validate');
@@ -19,7 +20,6 @@ function buildTruckQuery(id) {
 // Get all trucks
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const trucks = await Truck.find({});
     res.json(trucks);
   } catch (error) {
@@ -31,7 +31,6 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get single truck
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const truck = await Truck.findOne(buildTruckQuery(req.params.id));
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
@@ -46,7 +45,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create new truck (Admin only)
 router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, async (req, res) => {
   try {
-    await connectDB();
     const { truckId, plateNumber, model, capacity, notes } = req.body;
 
     if (!truckId || !plateNumber) {
@@ -58,13 +56,13 @@ router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, as
     if (existingTruck) {
       return res.status(400).json({ error: 'Truck ID already exists' });
     }
-    
+
     // Check if plate number exists
     const existingPlate = await Truck.findOne({ plateNumber: plateNumber.toUpperCase() });
     if (existingPlate) {
       return res.status(400).json({ error: 'Plate number already exists' });
     }
-    
+
     const newTruck = new Truck({
       truckId,
       plateNumber: plateNumber.toUpperCase(),
@@ -76,7 +74,7 @@ router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, as
       mileage: 0,
       notes: notes || ''
     });
-    
+
     await newTruck.save();
     logger.info('Truck created in MongoDB:', truckId);
     res.status(201).json(newTruck);
@@ -89,7 +87,6 @@ router.post('/', authenticateToken, authorizeRole('admin'), createTruckRules, as
 // Update truck (Admin only)
 router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const truck = await Truck.findOne(buildTruckQuery(req.params.id));
 
     if (!truck) {
@@ -132,18 +129,17 @@ router.put('/:id', authenticateToken, authorizeRole('admin'), async (req, res) =
 // Delete truck (Admin only)
 router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
-    await connectDB();
     const truck = await Truck.findOne(buildTruckQuery(req.params.id));
 
     if (!truck) {
       return res.status(404).json({ error: 'Truck not found' });
     }
-    
+
     // Check if truck is in use
     if (truck.status === 'in-use') {
       return res.status(400).json({ error: 'Cannot delete truck that is currently in use' });
     }
-    
+
     await Truck.deleteOne({ _id: truck._id });
     logger.info('Truck deleted from MongoDB:', truck.truckId);
     res.json({ message: 'Truck deleted successfully' });
@@ -156,7 +152,6 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
 // Get available trucks
 router.get('/status/available', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const available = await Truck.find({ status: 'available' });
     res.json(available);
   } catch (error) {

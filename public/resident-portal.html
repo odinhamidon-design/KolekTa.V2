@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,43 +33,54 @@
   <script src="/vendor/leaflet/leaflet.js"></script>
   <link href="/vendor/fonts/inter.css" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
     .tab-btn.active {
       background-color: #22c55e;
       color: white;
     }
+
     .photo-preview {
       width: 80px;
       height: 80px;
       object-fit: cover;
       border-radius: 8px;
     }
+
     #mapPickerContainer {
       height: 300px;
       width: 100%;
       border-radius: 8px;
     }
+
     .accordion-content {
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.3s ease-out;
     }
+
     .accordion-content.open {
       max-height: 2000px;
     }
+
     .pickup-type-card {
       cursor: pointer;
       transition: all 0.2s;
     }
+
     .pickup-type-card:hover {
       border-color: #22c55e;
     }
+
     .pickup-type-card.selected {
       border-color: #22c55e;
       background-color: #dcfce7;
     }
   </style>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
   <!-- Header -->
   <header class="bg-white shadow-sm sticky top-0 z-40">
@@ -89,7 +101,7 @@
         <!-- Barangay Selector -->
         <div class="flex items-center gap-2">
           <i data-lucide="map-pin" class="w-4 h-4 text-gray-400"></i>
-          <select id="barangaySelector" onchange="onBarangayChange()"
+          <select id="barangaySelector"
             class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
             <option value="">Select Barangay</option>
           </select>
@@ -105,7 +117,7 @@
         <div class="flex items-start gap-3">
           <i data-lucide="megaphone" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
           <div id="bannerContent" class="flex-1 text-sm text-amber-800"></div>
-          <button onclick="closeBanner()" class="text-amber-600 hover:text-amber-800">
+          <button id="closeBannerBtn" class="text-amber-600 hover:text-amber-800">
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </div>
@@ -117,19 +129,23 @@
   <div class="bg-white border-b sticky top-[72px] z-30">
     <div class="container mx-auto px-4">
       <div class="flex gap-1 overflow-x-auto py-2">
-        <button onclick="showTab('schedule')" id="tab-schedule" class="tab-btn active flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+        <button id="tab-schedule"
+          class="tab-btn active flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
           <i data-lucide="calendar" class="w-4 h-4"></i>
           Schedule
         </button>
-        <button onclick="showTab('pickup')" id="tab-pickup" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+        <button id="tab-pickup"
+          class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
           <i data-lucide="package" class="w-4 h-4"></i>
           Special Pickup
         </button>
-        <button onclick="showTab('education')" id="tab-education" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+        <button id="tab-education"
+          class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
           <i data-lucide="book-open" class="w-4 h-4"></i>
           Waste Education
         </button>
-        <button onclick="showTab('announcements')" id="tab-announcements" class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
+        <button id="tab-announcements"
+          class="tab-btn flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition whitespace-nowrap">
           <i data-lucide="bell" class="w-4 h-4"></i>
           News
         </button>
@@ -148,7 +164,8 @@
             <h2 class="text-xl font-bold text-gray-800">Collection Schedule</h2>
             <p class="text-sm text-gray-500" id="scheduleSubtitle">Select a barangay to view schedules</p>
           </div>
-          <div id="nextCollectionBadge" class="hidden px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium">
+          <div id="nextCollectionBadge"
+            class="hidden px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium">
             <i data-lucide="clock" class="w-4 h-4 inline mr-1"></i>
             <span id="nextCollectionText">Loading...</span>
           </div>
@@ -177,14 +194,16 @@
               <div class="mb-6">
                 <label class="block text-sm font-semibold text-gray-700 mb-3">What type of waste? *</label>
                 <div class="grid grid-cols-2 gap-4">
-                  <div onclick="selectPickupType('e-waste')" class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
+                  <div id="pickupTypeEwaste"
+                    class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
                     <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                       <i data-lucide="monitor" class="w-6 h-6 text-blue-600"></i>
                     </div>
                     <h4 class="font-semibold text-gray-800">E-Waste</h4>
                     <p class="text-xs text-gray-500 mt-1">Electronics, computers, phones</p>
                   </div>
-                  <div onclick="selectPickupType('hazardous')" class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
+                  <div id="pickupTypeHazardous"
+                    class="pickup-type-card border-2 border-gray-200 rounded-xl p-4 text-center">
                     <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                       <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
                     </div>
@@ -200,11 +219,14 @@
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Items for Pickup *</label>
                 <div id="itemsList" class="space-y-2 mb-3">
                   <div class="flex gap-2 item-row">
-                    <input type="text" placeholder="Item name (e.g., Old TV)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
-                    <input type="number" placeholder="Qty" value="1" min="1" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="text" placeholder="Item name (e.g., Old TV)"
+                      class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                    <input type="number" placeholder="Qty" value="1" min="1"
+                      class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                   </div>
                 </div>
-                <button type="button" onclick="addItemRow()" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                <button id="addItemRowBtn" type="button"
+                  class="text-sm text-primary-600 hover:text-primary-700 font-medium">
                   <i data-lucide="plus" class="w-4 h-4 inline"></i> Add another item
                 </button>
               </div>
@@ -234,7 +256,7 @@
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">Select Barangay *</option>
                   </select>
-                  <button type="button" onclick="openMapPicker()"
+                  <button id="openMapPickerBtn" type="button"
                     class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
                     <i data-lucide="map-pin" class="w-4 h-4"></i>
                     Pin on Map (Optional)
@@ -265,7 +287,9 @@
               <!-- Photo Upload -->
               <div class="mb-6">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Photos (Optional)</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-500 cursor-pointer" id="dropZone">
+                <div
+                  class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary-500 cursor-pointer"
+                  id="dropZone">
                   <input type="file" id="photos" name="photos" accept="image/*" multiple class="hidden">
                   <i data-lucide="camera" class="w-8 h-8 text-gray-400 mx-auto mb-2"></i>
                   <p class="text-sm text-gray-500">Click or drag photos here (max 3)</p>
@@ -290,7 +314,8 @@
             <div class="space-y-3">
               <input type="text" id="trackRefNumber" placeholder="Enter reference number"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <button onclick="trackRequest()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg text-sm transition">
+              <button id="trackRequestBtn"
+                class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg text-sm transition">
                 Track Status
               </button>
             </div>
@@ -327,7 +352,8 @@
       <div class="max-w-3xl mx-auto space-y-4">
         <!-- Segregation Accordion -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button onclick="toggleAccordion('segregation')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+          <button id="accordionSegregationBtn"
+            class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
                 <i data-lucide="layers" class="w-6 h-6 text-primary-600"></i>
@@ -337,7 +363,8 @@
                 <p class="text-sm text-gray-500">Learn how to sort your waste properly</p>
               </div>
             </div>
-            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-segregation"></i>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform"
+              id="icon-segregation"></i>
           </button>
           <div id="accordion-segregation" class="accordion-content">
             <div class="px-6 pb-6" id="segregationContent">
@@ -348,7 +375,8 @@
 
         <!-- Recycling Accordion -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button onclick="toggleAccordion('recycling')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+          <button id="accordionRecyclingBtn"
+            class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                 <i data-lucide="recycle" class="w-6 h-6 text-blue-600"></i>
@@ -358,7 +386,8 @@
                 <p class="text-sm text-gray-500">Make the most of recyclable materials</p>
               </div>
             </div>
-            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-recycling"></i>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform"
+              id="icon-recycling"></i>
           </button>
           <div id="accordion-recycling" class="accordion-content">
             <div class="px-6 pb-6" id="recyclingContent">
@@ -369,7 +398,8 @@
 
         <!-- Composting Accordion -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button onclick="toggleAccordion('composting')" class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
+          <button id="accordionCompostingBtn"
+            class="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                 <i data-lucide="sprout" class="w-6 h-6 text-amber-600"></i>
@@ -379,7 +409,8 @@
                 <p class="text-sm text-gray-500">Turn waste into garden gold</p>
               </div>
             </div>
-            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform" id="icon-composting"></i>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 accordion-icon transition-transform"
+              id="icon-composting"></i>
           </button>
           <div id="accordion-composting" class="accordion-content">
             <div class="px-6 pb-6" id="compostingContent">
@@ -412,16 +443,19 @@
           <i data-lucide="check-circle" class="w-10 h-10 text-primary-600"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-800 mb-2">Request Submitted!</h3>
-        <p class="text-gray-600 mb-4">Your special pickup request has been received. Save your reference number to track the status.</p>
+        <p class="text-gray-600 mb-4">Your special pickup request has been received. Save your reference number to track
+          the status.</p>
         <div class="bg-gray-100 rounded-lg p-4 mb-4">
           <p class="text-sm text-gray-500 mb-1">Reference Number</p>
           <p id="referenceNumber" class="text-2xl font-bold text-primary-600">PICKUP-2026-00000</p>
         </div>
         <div class="flex gap-3">
-          <button onclick="copyReference()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
+          <button id="copyReferenceBtn"
+            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition">
             <i data-lucide="copy" class="w-4 h-4 inline mr-1"></i> Copy
           </button>
-          <button onclick="closeSuccessModal()" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition">
+          <button id="closeSuccessModalBtn"
+            class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition">
             Done
           </button>
         </div>
@@ -434,7 +468,7 @@
     <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full">
       <div class="p-4 border-b flex items-center justify-between">
         <h3 class="font-bold text-gray-800">Pin Location on Map</h3>
-        <button onclick="closeMapPicker()" class="text-gray-500 hover:text-gray-700">
+        <button id="closeMapPickerHeaderBtn" class="text-gray-500 hover:text-gray-700">
           <i data-lucide="x" class="w-6 h-6"></i>
         </button>
       </div>
@@ -443,8 +477,8 @@
         <p class="text-sm text-gray-500 mt-2 text-center" id="mapPickerCoords">Click on the map to set location</p>
       </div>
       <div class="p-4 border-t flex gap-3 justify-end">
-        <button onclick="closeMapPicker()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-        <button onclick="confirmMapLocation()" id="confirmLocationBtn" disabled
+        <button id="cancelMapPickerBtn" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+        <button id="confirmLocationBtn" disabled
           class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
           Confirm
         </button>
@@ -803,7 +837,7 @@
       row.innerHTML = `
         <input type="text" placeholder="Item name" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
         <input type="number" placeholder="Qty" value="1" min="1" class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-        <button type="button" onclick="this.parentElement.remove()" class="px-2 text-red-500 hover:text-red-700">
+        <button type="button" data-remove-row class="px-2 text-red-500 hover:text-red-700">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>`;
       list.appendChild(row);
@@ -841,7 +875,7 @@
           div.className = 'relative';
           div.innerHTML = `
             <img src="${e.target.result}" class="photo-preview">
-            <button type="button" onclick="removePhoto(${uploadedPhotos.length - 1})"
+            <button type="button" data-remove-index="${uploadedPhotos.length - 1}"
               class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">x</button>`;
           preview.appendChild(div);
         };
@@ -862,7 +896,7 @@
         div.className = 'relative';
         div.innerHTML = `
           <img src="${photo}" class="photo-preview">
-          <button type="button" onclick="removePhoto(${i})"
+          <button type="button" data-remove-index="${i}"
             class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">x</button>`;
         preview.appendChild(div);
       });
@@ -987,8 +1021,8 @@
       const bstr = atob(arr[1]);
       let n = bstr.length;
       const u8arr = new Uint8Array(n);
-      while(n--) u8arr[n] = bstr.charCodeAt(n);
-      return new Blob([u8arr], {type: mime});
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], { type: mime });
     }
 
     // Track request
@@ -1046,6 +1080,40 @@
     function closeBanner() {
       document.getElementById('announcementBanner').classList.add('hidden');
     }
+
+    // Wire up event listeners (replaces inline onclick/onchange attributes)
+    document.getElementById('barangaySelector').addEventListener('change', () => onBarangayChange());
+    document.getElementById('closeBannerBtn')?.addEventListener('click', closeBanner);
+    document.getElementById('tab-schedule').addEventListener('click', () => showTab('schedule'));
+    document.getElementById('tab-pickup').addEventListener('click', () => showTab('pickup'));
+    document.getElementById('tab-education').addEventListener('click', () => showTab('education'));
+    document.getElementById('tab-announcements').addEventListener('click', () => showTab('announcements'));
+    document.getElementById('pickupTypeEwaste')?.addEventListener('click', function () { selectPickupType('e-waste'); event.currentTarget = this; });
+    document.getElementById('pickupTypeHazardous')?.addEventListener('click', function () { selectPickupType('hazardous'); event.currentTarget = this; });
+    document.getElementById('addItemRowBtn')?.addEventListener('click', addItemRow);
+    document.getElementById('openMapPickerBtn')?.addEventListener('click', openMapPicker);
+    document.getElementById('trackRequestBtn')?.addEventListener('click', trackRequest);
+    document.getElementById('accordionSegregationBtn')?.addEventListener('click', () => toggleAccordion('segregation'));
+    document.getElementById('accordionRecyclingBtn')?.addEventListener('click', () => toggleAccordion('recycling'));
+    document.getElementById('accordionCompostingBtn')?.addEventListener('click', () => toggleAccordion('composting'));
+    document.getElementById('copyReferenceBtn')?.addEventListener('click', copyReference);
+    document.getElementById('closeSuccessModalBtn')?.addEventListener('click', closeSuccessModal);
+    document.getElementById('closeMapPickerHeaderBtn')?.addEventListener('click', closeMapPicker);
+    document.getElementById('cancelMapPickerBtn')?.addEventListener('click', closeMapPicker);
+    document.getElementById('confirmLocationBtn')?.addEventListener('click', confirmMapLocation);
+
+    // Event delegation for remove-row buttons in item list (dynamic)
+    document.getElementById('itemsList').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove-row]');
+      if (btn) btn.closest('.item-row')?.remove();
+    });
+
+    // Event delegation for remove-photo buttons
+    document.getElementById('photoPreview').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove-index]');
+      if (btn) removePhoto(parseInt(btn.dataset.removeIndex, 10));
+    });
   </script>
 </body>
+
 </html>

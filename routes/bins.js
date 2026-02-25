@@ -3,12 +3,12 @@ const router = express.Router();
 const Bin = require('../models/Bin');
 const { authenticateToken } = require('../middleware/auth');
 const connectDB = require('../lib/mongodb');
+const { requireDBConnection } = require('../lib/mongodb');
 const logger = require('../lib/logger');
 
 // Get all bins (authenticated)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    await connectDB();
     const bins = await Bin.find().lean();
     res.json(bins);
   } catch (error) {
@@ -24,7 +24,6 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
     const { binId, location, address, capacity, currentLevel, status, lastCollection, binType, manualVolume } = req.body;
     const bin = new Bin({ binId, location, address, capacity, currentLevel, status, lastCollection, binType, manualVolume });
     await bin.save();
@@ -42,7 +41,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
     const { binId, location, address, capacity, currentLevel, status, lastCollection, binType, manualVolume } = req.body;
     const allowedUpdates = {};
     if (binId !== undefined) allowedUpdates.binId = binId;
@@ -74,7 +72,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    await connectDB();
     const bin = await Bin.findByIdAndDelete(req.params.id);
 
     if (!bin) {
@@ -119,7 +116,6 @@ router.get('/nearby', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'maxDistance must be between 1 and 50000 meters' });
     }
 
-    await connectDB();
     const bins = await Bin.find({
       location: {
         $near: {
