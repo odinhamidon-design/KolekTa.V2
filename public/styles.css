@@ -545,10 +545,7 @@ input[type="file"]:hover {
 
 /* Mobile phones */
 @media (max-width: 480px) {
-  /* TEST: If you see green border, new CSS is loaded! */
-  body {
-    border: 3px solid lime !important;
-  }
+  /* Mobile phones - touch & layout adjustments */
   
   header {
     padding: 0.5rem 1rem;
@@ -690,7 +687,7 @@ input[type="file"]:hover {
   
   /* Map controls */
   .leaflet-control-zoom {
-    margin-top: 10px !important;
+    margin-top: 50px !important;
     margin-right: 10px !important;
   }
   
