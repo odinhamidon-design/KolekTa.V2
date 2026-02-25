@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -12,7 +13,8 @@
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%2316a34a' width='180' height='180' rx='30'/%3E%3Cpath fill='white' d='M90 36c-29.8 0-54 24.2-54 54 0 29.8 24.2 54 54 54s54-24.2 54-54c0-29.8-24.2-54-54-54zm0 92c-21 0-38-17-38-38s17-38 38-38 38 17 38 38-17 38-38 38zm-8-30h16v16H82v-16zm0-46h16v38H82V52z'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%2316a34a' width='180' height='180' rx='30'/%3E%3Cpath fill='white' d='M90 36c-29.8 0-54 24.2-54 54 0 29.8 24.2 54 54 54s54-24.2 54-54c0-29.8-24.2-54-54-54zm0 92c-21 0-38-17-38-38s17-38 38-38 38 17 38 38-17 38-38 38zm-8-30h16v16H82v-16zm0-46h16v38H82V52z'/%3E%3C/svg%3E">
 
   <!-- Tailwind CSS -->
   <script src="/vendor/tailwindcss/tailwind.min.js"></script>
@@ -54,25 +56,47 @@
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       height: 100%;
       overflow: hidden;
     }
 
     /* Animations */
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     @keyframes slideInRight {
-      from { opacity: 0; transform: translateX(20px); }
-      to { opacity: 1; transform: translateX(0); }
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
 
     @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
     }
 
     .animate-fade-in {
@@ -128,11 +152,11 @@
       border: none !important;
     }
 
-    .custom-route-marker > div {
+    .custom-route-marker>div {
       transition: transform 0.2s ease;
     }
 
-    .custom-route-marker:hover > div {
+    .custom-route-marker:hover>div {
       transform: scale(1.2);
     }
 
@@ -157,6 +181,7 @@
         opacity: 0;
         transform: translateX(20px);
       }
+
       to {
         opacity: 1;
         transform: translateX(0);
@@ -173,6 +198,7 @@
         opacity: 0;
         transform: scale(0.9);
       }
+
       to {
         opacity: 1;
         transform: scale(1);
@@ -188,6 +214,7 @@
       from {
         opacity: 1;
       }
+
       to {
         opacity: 0;
       }
@@ -208,7 +235,7 @@
 
     .leaflet-control-zoom {
       border: none !important;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
       border-radius: 8px !important;
       overflow: hidden;
     }
@@ -278,13 +305,13 @@
 
     /* Mobile responsive modal */
     @media (max-width: 640px) {
-      #modal > div {
+      #modal>div {
         max-height: 95vh !important;
         margin: 0.5rem;
         border-radius: 1rem;
       }
 
-      #modal > div > div:first-child {
+      #modal>div>div:first-child {
         padding: 1rem 1.25rem;
       }
 
@@ -293,7 +320,7 @@
       }
 
       /* Make modal full screen on mobile for better UX */
-      #modal.modal-fullscreen > div {
+      #modal.modal-fullscreen>div {
         max-width: 100%;
         max-height: 100%;
         height: 100%;
@@ -310,7 +337,8 @@
       }
 
       /* Larger tap targets for mobile */
-      button, [role="button"] {
+      button,
+      [role="button"] {
         touch-action: manipulation;
       }
 
@@ -381,10 +409,13 @@
     }
   </style>
 </head>
+
 <body class="bg-gray-100">
 
   <!-- Global Page Loading Overlay -->
-  <div id="pageLoadingOverlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-[9999] transition-opacity duration-300" style="display: none;">
+  <div id="pageLoadingOverlay"
+    class="fixed inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-[9999] transition-opacity duration-300"
+    style="display: none;">
     <div class="flex flex-col items-center">
       <div class="relative">
         <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
@@ -396,7 +427,8 @@
   <div class="h-screen flex flex-col">
 
     <!-- Header -->
-    <header class="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-4 py-3 flex items-center justify-between z-20 shadow-lg flex-shrink-0">
+    <header
+      class="bg-gradient-to-r from-primary-600 to-primary-500 text-white px-4 py-3 flex items-center justify-between z-20 shadow-lg flex-shrink-0">
       <!-- Left: Logo & Title -->
       <div class="flex items-center gap-3">
         <!-- Mobile menu toggle -->
@@ -418,9 +450,12 @@
       <!-- Right: User info -->
       <div class="flex items-center gap-2 sm:gap-3">
         <!-- Offline Status Indicator -->
-        <div id="offlineStatusBadge" class="hidden flex items-center gap-1.5 px-2 py-1 bg-amber-500/90 rounded-full text-xs font-medium">
+        <div id="offlineStatusBadge"
+          class="hidden flex items-center gap-1.5 px-2 py-1 bg-amber-500/90 rounded-full text-xs font-medium">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728M5.636 18.364a9 9 0 010-12.728M15.536 8.464a5 5 0 010 7.072M8.464 15.536a5 5 0 010-7.072"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M18.364 5.636a9 9 0 010 12.728M5.636 18.364a9 9 0 010-12.728M15.536 8.464a5 5 0 010 7.072M8.464 15.536a5 5 0 010-7.072">
+            </path>
           </svg>
           <span>Offline</span>
         </div>
@@ -429,8 +464,10 @@
         <div id="headerNotificationContainer"></div>
 
         <!-- User Profile -->
-        <button id="headerProfileBtn" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-colors">
-          <span id="headerProfilePic" class="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center font-bold text-sm"></span>
+        <button id="headerProfileBtn"
+          class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg transition-colors">
+          <span id="headerProfilePic"
+            class="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center font-bold text-sm"></span>
           <span id="headerUserName" class="text-sm font-medium hide-mobile"></span>
         </button>
 
@@ -448,7 +485,8 @@
       <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
 
       <!-- Sidebar -->
-      <aside id="sidebar" class="fixed lg:relative inset-y-0 left-0 z-40 w-72 bg-white shadow-xl transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
+      <aside id="sidebar"
+        class="fixed lg:relative inset-y-0 left-0 z-40 w-72 bg-white shadow-xl transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
 
         <!-- Sidebar Header (mobile) -->
         <div class="lg:hidden flex items-center justify-between p-4 border-b border-gray-100">
@@ -465,7 +503,8 @@
           <div id="adminControls" class="hidden">
             <!-- Dashboard -->
             <div class="space-y-1 mb-4">
-              <button id="dashboardBtn" class="w-full flex items-center gap-3 px-4 py-3 bg-primary-100 text-primary-800 font-semibold border-l-4 border-primary-600 rounded-lg transition-colors text-left">
+              <button id="dashboardBtn"
+                class="w-full flex items-center gap-3 px-4 py-3 bg-primary-100 text-primary-800 font-semibold border-l-4 border-primary-600 rounded-lg transition-colors text-left">
                 <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
                 <span class="font-medium">Dashboard</span>
               </button>
@@ -475,15 +514,18 @@
             <div class="mb-4">
               <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Operations</h3>
               <div class="space-y-1">
-                <button id="routesManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="routesManagementBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="map-pin" class="w-5 h-5"></i>
                   <span class="font-medium">Routes Management</span>
                 </button>
-                <button id="liveTruckTrackingBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="liveTruckTrackingBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="radio" class="w-5 h-5"></i>
                   <span class="font-medium">Live Truck Tracking</span>
                 </button>
-                <button id="schedulesBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="schedulesBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="calendar-clock" class="w-5 h-5"></i>
                   <span class="font-medium">Collection Schedules</span>
                 </button>
@@ -494,15 +536,18 @@
             <div class="mb-4">
               <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Fleet & Drivers</h3>
               <div class="space-y-1">
-                <button id="truckManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="truckManagementBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="truck" class="w-5 h-5"></i>
                   <span class="font-medium">Truck Management</span>
                 </button>
-                <button id="userManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="userManagementBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="users" class="w-5 h-5"></i>
                   <span class="font-medium">User Management</span>
                 </button>
-                <button id="fuelManagementBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="fuelManagementBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="fuel" class="w-5 h-5"></i>
                   <span class="font-medium">Fuel Management</span>
                 </button>
@@ -513,15 +558,18 @@
             <div class="mb-4">
               <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">History & Reports</h3>
               <div class="space-y-1">
-                <button id="completionHistoryBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="completionHistoryBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="file-text" class="w-5 h-5"></i>
                   <span class="font-medium">Completion History</span>
                 </button>
-                <button id="reportsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="reportsBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="file-bar-chart" class="w-5 h-5"></i>
                   <span class="font-medium">Reports</span>
                 </button>
-                <button id="analyticsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="analyticsBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="chart-pie" class="w-5 h-5"></i>
                   <span class="font-medium">Analytics</span>
                 </button>
@@ -532,17 +580,22 @@
             <div class="mb-4">
               <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Public Services</h3>
               <div class="space-y-1">
-                <button id="complaintsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
+                <button id="complaintsBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
                   <i data-lucide="message-square-warning" class="w-5 h-5"></i>
                   <span class="font-medium">Public Complaints</span>
-                  <span id="complaintsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+                  <span id="complaintsBadge"
+                    class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
                 </button>
-                <button id="specialPickupsBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
+                <button id="specialPickupsBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left relative">
                   <i data-lucide="package" class="w-5 h-5"></i>
                   <span class="font-medium">Special Pickups</span>
-                  <span id="specialPickupsBadge" class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+                  <span id="specialPickupsBadge"
+                    class="hidden absolute right-3 top-1/2 -translate-y-1/2 min-w-5 h-5 px-1 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
                 </button>
-                <button id="announcementsAdminBtn" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
+                <button id="announcementsAdminBtn"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors text-left">
                   <i data-lucide="megaphone" class="w-5 h-5"></i>
                   <span class="font-medium">Announcements</span>
                 </button>
@@ -569,7 +622,8 @@
             <!-- GPS Status Card -->
             <div id="gpsStatusPanel" class="bg-gray-50 rounded-xl p-3 border-l-4 border-gray-300">
               <div class="flex items-center gap-3">
-                <div id="gpsStatusIconWrapper" class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                <div id="gpsStatusIconWrapper"
+                  class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
                   <i data-lucide="map-pin" class="w-4 h-4 text-gray-500" id="gpsStatusIcon"></i>
                 </div>
                 <div class="flex-1">
@@ -583,25 +637,31 @@
             </div>
 
             <!-- Active Route Panel (shown when route is active) -->
-            <div id="activeRoutePanel" class="hidden bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-4 border border-orange-200">
+            <div id="activeRoutePanel"
+              class="hidden bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-4 border border-orange-200">
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
                   <span class="text-sm font-semibold text-orange-700">Active Route</span>
                 </div>
-                <span id="activeRouteProgress" class="text-xs bg-orange-500 text-white px-2 py-1 rounded-full font-medium">0/0</span>
+                <span id="activeRouteProgress"
+                  class="text-xs bg-orange-500 text-white px-2 py-1 rounded-full font-medium">0/0</span>
               </div>
               <p id="activeRouteName" class="font-bold text-gray-800 mb-2">-</p>
               <div class="flex items-center gap-4 text-xs text-gray-600 mb-3">
-                <span id="activeRouteDistance" class="flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> - km</span>
-                <span id="activeRouteETA" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> - mins</span>
+                <span id="activeRouteDistance" class="flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i>
+                  - km</span>
+                <span id="activeRouteETA" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> -
+                  mins</span>
               </div>
               <div class="flex gap-2">
-                <button id="sidebarNavigateBtn" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
+                <button id="sidebarNavigateBtn"
+                  class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
                   <i data-lucide="navigation" class="w-4 h-4"></i>
                   Navigate
                 </button>
-                <button id="sidebarCompleteBtn" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors">
+                <button id="sidebarCompleteBtn"
+                  class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors">
                   <i data-lucide="check-circle" class="w-4 h-4"></i>
                   Complete
                 </button>
@@ -610,19 +670,23 @@
 
             <!-- Quick Actions -->
             <div class="grid grid-cols-2 gap-2">
-              <button id="sidebarInspectionBtn" class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
+              <button id="sidebarInspectionBtn"
+                class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
                 <i data-lucide="clipboard-check" class="w-5 h-5 text-primary-600"></i>
                 <span class="text-xs font-medium text-gray-700">Inspection</span>
               </button>
-              <button id="sidebarStatsBtn" class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
+              <button id="sidebarStatsBtn"
+                class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
                 <i data-lucide="bar-chart-3" class="w-5 h-5 text-primary-600"></i>
                 <span class="text-xs font-medium text-gray-700">My Stats</span>
               </button>
-              <button id="sidebarReportBtn" class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-red-50 rounded-xl transition-colors">
+              <button id="sidebarReportBtn"
+                class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-red-50 rounded-xl transition-colors">
                 <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>
                 <span class="text-xs font-medium text-gray-700">Report</span>
               </button>
-              <button id="viewDriverHistoryBtn" class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
+              <button id="viewDriverHistoryBtn"
+                class="flex flex-col items-center gap-1 p-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors">
                 <i data-lucide="history" class="w-5 h-5 text-primary-600"></i>
                 <span class="text-xs font-medium text-gray-700">History</span>
               </button>
@@ -644,7 +708,8 @@
 
         <!-- GPS Button (Driver only, fixed at bottom) -->
         <div id="gpsButtonContainer" class="hidden p-4 border-t border-gray-100">
-          <button id="startGpsBtn" class="w-full flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold py-4 rounded-xl transition-colors shadow-lg">
+          <button id="startGpsBtn"
+            class="w-full flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold py-4 rounded-xl transition-colors shadow-lg">
             <i data-lucide="navigation" class="w-5 h-5"></i>
             <span>Start GPS Tracking</span>
           </button>
@@ -658,7 +723,8 @@
           <div id="map" class="h-full w-full"></div>
 
           <!-- Map Loading Overlay -->
-          <div id="mapLoadingOverlay" class="absolute inset-0 bg-gray-100 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
+          <div id="mapLoadingOverlay"
+            class="absolute inset-0 bg-gray-100 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
             <div class="relative">
               <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
               <div class="absolute inset-0 flex items-center justify-center">
@@ -673,7 +739,9 @@
           <div id="offlineSyncIndicator" class="hidden fixed top-4 right-4 z-50">
             <div class="bg-amber-500 text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 animate-pulse">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                </path>
               </svg>
               <span class="text-sm font-medium"><span id="offlinePendingCount">0</span> pending sync</span>
             </div>
@@ -682,16 +750,19 @@
           <!-- Driver Web Overlay Controls (shown on desktop for drivers) -->
           <div id="driverWebOverlay" class="hidden absolute top-4 left-4 z-30 w-80">
             <!-- GPS Status Card -->
-            <div id="overlayGpsStatus" class="bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 mb-3 border border-gray-200">
+            <div id="overlayGpsStatus"
+              class="bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 mb-3 border border-gray-200">
               <div class="flex items-center gap-3">
-                <div id="overlayGpsIconWrapper" class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                <div id="overlayGpsIconWrapper"
+                  class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                   <i data-lucide="map-pin" class="w-5 h-5 text-gray-500" id="overlayGpsIcon"></i>
                 </div>
                 <div class="flex-1">
                   <p id="overlayGpsText" class="font-semibold text-gray-800 text-sm">GPS Status</p>
                   <p id="overlayGpsDetail" class="text-xs text-gray-500">Initializing...</p>
                 </div>
-                <button id="overlayGpsBtn" class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                <button id="overlayGpsBtn"
+                  class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
                   <i data-lucide="navigation" class="w-4 h-4"></i>
                   <span>Start</span>
                 </button>
@@ -699,13 +770,15 @@
             </div>
 
             <!-- Live Fuel Estimation Panel -->
-            <div id="overlayFuelEstimate" class="hidden bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 mb-3 border border-emerald-300">
+            <div id="overlayFuelEstimate"
+              class="hidden bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 mb-3 border border-emerald-300">
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                   <i data-lucide="fuel" class="w-4 h-4 text-emerald-600"></i>
                   <span class="text-xs font-semibold text-emerald-700 uppercase">Live Fuel Estimation</span>
                 </div>
-                <span id="fuelEstimateBadge" class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full">Auto</span>
+                <span id="fuelEstimateBadge"
+                  class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full">Auto</span>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-2 text-center">
@@ -738,7 +811,8 @@
             </div>
 
             <!-- Active Route Panel -->
-            <div id="overlayActiveRoute" class="hidden bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-4 mb-3 border border-orange-300">
+            <div id="overlayActiveRoute"
+              class="hidden bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-4 mb-3 border border-orange-300">
               <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
@@ -749,18 +823,23 @@
               <p id="overlayRouteName" class="font-bold text-gray-800 text-sm mb-2">-</p>
               <!-- Progress Bar -->
               <div class="w-full bg-gray-200 rounded-full h-2 mb-3">
-                <div id="overlayProgressBar" class="bg-orange-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div id="overlayProgressBar" class="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                  style="width: 0%"></div>
               </div>
               <div class="flex items-center gap-4 text-xs text-gray-600 mb-3">
-                <span id="overlayRouteDistance" class="flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> - km</span>
-                <span id="overlayRouteETA" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> - mins</span>
+                <span id="overlayRouteDistance" class="flex items-center gap-1"><i data-lucide="map"
+                    class="w-3 h-3"></i> - km</span>
+                <span id="overlayRouteETA" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> -
+                  mins</span>
               </div>
               <div class="flex gap-2">
-                <button id="overlayNavigateBtn" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors">
+                <button id="overlayNavigateBtn"
+                  class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors">
                   <i data-lucide="navigation" class="w-3 h-3"></i>
                   Navigate
                 </button>
-                <button id="overlayCompleteBtn" class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                <button id="overlayCompleteBtn"
+                  class="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
                   <i data-lucide="check-circle" class="w-3 h-3"></i>
                   Complete
                 </button>
@@ -771,19 +850,23 @@
             <div class="bg-white/95 backdrop-blur-md rounded-xl shadow-lg p-3 border border-gray-200">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Quick Actions</p>
               <div class="grid grid-cols-4 gap-2">
-                <button id="overlayInspectionBtn" class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <button id="overlayInspectionBtn"
+                  class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <i data-lucide="clipboard-check" class="w-5 h-5 text-primary-600"></i>
                   <span class="text-[10px] font-medium text-gray-600">Inspect</span>
                 </button>
-                <button id="overlayStatsBtn" class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <button id="overlayStatsBtn"
+                  class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <i data-lucide="bar-chart-3" class="w-5 h-5 text-primary-600"></i>
                   <span class="text-[10px] font-medium text-gray-600">Stats</span>
                 </button>
-                <button id="overlayReportBtn" class="flex flex-col items-center gap-1 p-2 hover:bg-red-50 rounded-lg transition-colors">
+                <button id="overlayReportBtn"
+                  class="flex flex-col items-center gap-1 p-2 hover:bg-red-50 rounded-lg transition-colors">
                   <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>
                   <span class="text-[10px] font-medium text-gray-600">Report</span>
                 </button>
-                <button id="overlayHistoryBtn" class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <button id="overlayHistoryBtn"
+                  class="flex flex-col items-center gap-1 p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <i data-lucide="history" class="w-5 h-5 text-primary-600"></i>
                   <span class="text-[10px] font-medium text-gray-600">History</span>
                 </button>
@@ -830,20 +913,23 @@
             <!-- Compact Status Bar -->
             <div class="flex items-center gap-2">
               <!-- GPS Status Pill -->
-              <div id="mobileGpsStatusPill" class="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-200 cursor-pointer active:scale-95 transition-transform">
+              <div id="mobileGpsStatusPill"
+                class="flex items-center gap-1.5 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-200 cursor-pointer active:scale-95 transition-transform">
                 <div id="mobileGpsDot" class="w-2 h-2 bg-gray-400 rounded-full"></div>
                 <span id="mobileGpsLabel" class="text-xs font-medium text-gray-600">GPS Off</span>
               </div>
 
               <!-- Active Route Pill (shown when route is active) -->
-              <div id="mobileRoutePill" class="hidden flex-1 flex items-center gap-2 bg-orange-500/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md cursor-pointer active:scale-95 transition-transform">
+              <div id="mobileRoutePill"
+                class="hidden flex-1 flex items-center gap-2 bg-orange-500/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md cursor-pointer active:scale-95 transition-transform">
                 <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                 <span id="mobileRouteLabel" class="text-xs font-medium text-white truncate">Route Active</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-white/80 flex-shrink-0"></i>
               </div>
 
               <!-- Stats Pill -->
-              <div id="mobileStatsPill" class="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-200">
+              <div id="mobileStatsPill"
+                class="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md border border-gray-200">
                 <span class="text-xs font-bold text-green-600" id="mobileStatsRoutes">0</span>
                 <span class="text-[10px] text-gray-400">routes</span>
               </div>
@@ -855,23 +941,28 @@
             <!-- Bottom Nav Bar -->
             <div class="bg-white border-t border-gray-200 shadow-lg safe-area-bottom">
               <div class="flex items-center justify-around py-2">
-                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors" data-nav="home">
+                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors"
+                  data-nav="home">
                   <i data-lucide="home" class="w-5 h-5"></i>
                   <span class="text-xs font-medium">Home</span>
                 </button>
-                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors" data-nav="route">
+                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors"
+                  data-nav="route">
                   <i data-lucide="navigation" class="w-5 h-5"></i>
                   <span class="text-xs font-medium">Route</span>
                 </button>
-                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors" data-nav="inspect">
+                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors"
+                  data-nav="inspect">
                   <i data-lucide="clipboard-check" class="w-5 h-5"></i>
                   <span class="text-xs font-medium">Inspect</span>
                 </button>
-                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors" data-nav="stats">
+                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors"
+                  data-nav="stats">
                   <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
                   <span class="text-xs font-medium">Stats</span>
                 </button>
-                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors" data-nav="menu">
+                <button class="mobile-nav-btn flex flex-col items-center gap-1 p-2 rounded-lg transition-colors"
+                  data-nav="menu">
                   <i data-lucide="menu" class="w-5 h-5"></i>
                   <span class="text-xs font-medium">More</span>
                 </button>
@@ -880,7 +971,8 @@
           </div>
 
           <!-- Mobile Driver Quick Panel (slides up) -->
-          <div id="mobileDriverPanel" class="hidden fixed bottom-16 left-0 right-0 z-15 lg:hidden transform translate-y-full transition-transform duration-300">
+          <div id="mobileDriverPanel"
+            class="hidden fixed bottom-16 left-0 right-0 z-15 lg:hidden transform translate-y-full transition-transform duration-300">
             <div class="bg-white rounded-t-2xl shadow-2xl p-4 max-h-[60vh] overflow-y-auto">
               <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
               <div id="mobileDriverContent"></div>
@@ -900,9 +992,11 @@
   <!-- Modal -->
   <!-- Modern Modal -->
   <div id="modal" class="modal fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col animate-scale-in overflow-hidden">
+    <div
+      class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col animate-scale-in overflow-hidden">
       <!-- Modal Header -->
-      <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-500 text-white flex-shrink-0">
+      <div
+        class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-500 text-white flex-shrink-0">
         <h2 id="modalTitle" class="text-lg font-bold">Modal Title</h2>
         <button id="modalCloseBtn" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -939,6 +1033,8 @@
   <script src="/js/admin-fuel.js"></script>
   <script src="/js/admin-complaints.js"></script>
   <script src="/js/admin-schedules.js"></script>
+  <script src="/vendor/jspdf/jspdf.umd.min.js"></script>
+  <script src="/vendor/jspdf/jspdf.plugin.autotable.min.js"></script>
   <script src="/js/admin-reports.js"></script>
   <script src="/js/admin-analytics.js"></script>
   <script src="/js/driver-state.js"></script>
@@ -1032,4 +1128,5 @@
     document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
   </script>
 </body>
+
 </html>

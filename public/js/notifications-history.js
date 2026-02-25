@@ -474,10 +474,16 @@
         ${completedRoutes.length > 0 ? `
           <div class="flex items-center justify-between mb-4">
             <p class="text-sm text-gray-500">Showing ${completedRoutes.length} completed route${completedRoutes.length !== 1 ? 's' : ''}</p>
-            <button onclick="clearAllHistory()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-              <span>Clear All</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button onclick="exportCompletionHistoryPDF()" class="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <span>Export PDF</span>
+              </button>
+              <button onclick="clearAllHistory()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <span>Clear All</span>
+              </button>
+            </div>
           </div>
         ` : ''}
 
@@ -818,6 +824,128 @@
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       showToast('Error acknowledging notifications', 'error');
+    }
+  };
+
+  // Export Completion History as PDF
+  window.exportCompletionHistoryPDF = async function () {
+    try {
+      if (!window.jspdf) {
+        showToast('PDF library not loaded. Please refresh and try again.', 'error');
+        return;
+      }
+
+      showToast('Generating PDF...', 'info');
+
+      const token = localStorage.getItem('token');
+      const response = await fetchWithRetry(`${API_URL}/routes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const routes = await response.json();
+      const completedRoutes = routes.filter(r => r.status === 'completed' && r.completedAt);
+      completedRoutes.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+
+      if (completedRoutes.length === 0) {
+        showToast('No completion history to export', 'warning');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(44, 62, 80);
+      doc.text('Kolek-Ta', 14, 22);
+
+      doc.setFontSize(14);
+      doc.setTextColor(39, 174, 96);
+      doc.text('Completion History Report', 14, 30);
+
+      doc.setFontSize(10);
+      doc.setTextColor(127, 140, 141);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 37);
+
+      // Summary stats
+      const acknowledgedCount = completedRoutes.filter(r => r.notificationSent).length;
+      const pendingCount = completedRoutes.filter(r => !r.notificationSent).length;
+
+      doc.setFontSize(11);
+      doc.setTextColor(44, 62, 80);
+      doc.text(`Total Completed: ${completedRoutes.length}`, 14, 47);
+      doc.text(`Acknowledged: ${acknowledgedCount}`, 80, 47);
+      doc.text(`Pending: ${pendingCount}`, 140, 47);
+
+      doc.setDrawColor(52, 73, 94);
+      doc.line(14, 51, 196, 51);
+
+      // Table
+      const tableData = completedRoutes.map(r => {
+        const date = new Date(r.completedAt);
+        const distance = r.tripStats && r.tripStats.distanceTraveled > 0
+          ? `${r.tripStats.distanceTraveled.toFixed(1)} km`
+          : '-';
+        const fuel = r.tripStats && r.tripStats.fuelConsumed > 0
+          ? `${r.tripStats.fuelConsumed.toFixed(1)} L`
+          : '-';
+        return [
+          r.name || 'Unnamed',
+          r.completedBy || 'Unknown',
+          date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          distance,
+          fuel,
+          r.notificationSent ? 'Yes' : 'No'
+        ];
+      });
+
+      doc.autoTable({
+        startY: 55,
+        head: [['Route', 'Driver', 'Date', 'Time', 'Distance', 'Fuel', 'Ack']],
+        body: tableData,
+        headStyles: {
+          fillColor: [39, 174, 96],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [44, 62, 80]
+        },
+        alternateRowStyles: {
+          fillColor: [245, 248, 250]
+        },
+        columnStyles: {
+          0: { cellWidth: 36 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 22 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 22 },
+          6: { cellWidth: 16 }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      // Footer on all pages
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(127, 140, 141);
+        doc.text(`Page ${i} of ${pageCount}`, 14, 287);
+        doc.text('Kolek-Ta Waste Collection Management System', 196, 287, { align: 'right' });
+      }
+
+      const filename = `kolek-ta-completion-history-${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+
+      showToast('PDF exported successfully!', 'success');
+    } catch (error) {
+      console.error('Error exporting completion history PDF:', error);
+      showToast('Error exporting PDF: ' + error.message, 'error');
     }
   };
 
